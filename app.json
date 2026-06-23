@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "GainGang",
+    "slug": "gaingang",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "gaingang",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "icon": "./assets/images/gg-logo.png",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.danielchungneo.gaingang",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/gg-logo.png",
+        "backgroundColor": "#000000"
+      },
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
+    },
+    "web": {
+      "output": "server",
+      "favicon": "./assets/images/gg-logo.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow the app to use Face ID to sign you in."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/gg-logo.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#000000",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true,
+      "tsconfigPaths": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0e7ecca3-35f1-4b51-82e0-2628d9a68d92"
+      }
+    }
+  }
+}

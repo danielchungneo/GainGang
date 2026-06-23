@@ -37,6 +37,9 @@ export function useMyGangs() {
 
 /** A single gang by id. */
 export function useGang(gangId: string) {
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
   return useQuery({
     queryKey: queryKeys.gang(gangId),
     enabled: !!gangId,
@@ -45,12 +48,17 @@ export function useGang(gangId: string) {
       if (error) throw error;
       if (!data) return null;
       const counts = await memberCounts([gangId]);
-      const { data: me } = await supabase
-        .from('gang_members')
-        .select('role')
-        .eq('gang_id', gangId)
-        .maybeSingle();
-      return { ...data, role: me?.role ?? 'member', member_count: counts[gangId] ?? 1 };
+      let role: GangSummary['role'] = 'member';
+      if (userId) {
+        const { data: me } = await supabase
+          .from('gang_members')
+          .select('role')
+          .eq('gang_id', gangId)
+          .eq('user_id', userId)
+          .maybeSingle();
+        role = (me?.role as GangSummary['role']) ?? 'member';
+      }
+      return { ...data, role, member_count: counts[gangId] ?? 1 };
     },
   });
 }
@@ -160,6 +168,42 @@ export function useLeaveGang() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
+    },
+  });
+}
+
+export interface UpdateGangInput {
+  gangId: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  privacy?: GangPrivacy;
+}
+
+export function useUpdateGang() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  return useMutation({
+    mutationFn: async (input: UpdateGangInput): Promise<Gang> => {
+      const { gangId, name, description, icon, privacy } = input;
+      const { data, error } = await supabase
+        .from('gangs')
+        .update({
+          name,
+          description: description ?? null,
+          icon: icon ?? null,
+          privacy: privacy ?? 'public',
+        })
+        .eq('id', gangId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (gang) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.gang(gang.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
+      queryClient.invalidateQueries({ queryKey: ['gangs', 'discover'] });
     },
   });
 }

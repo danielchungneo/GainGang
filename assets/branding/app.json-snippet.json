@@ -1,0 +1,26 @@
+{
+  "_instructions": "Merge the 'expo' block below into your app.json or app.config.ts. Adjust asset paths to match where you placed the gaingang/assets/ folder.",
+  "expo": {
+    "name": "GainGang",
+    "slug": "gaingang",
+    "icon": "./assets/gaingang/icon.png",
+    "splash": {
+      "image": "./assets/gaingang/splash.png",
+      "backgroundColor": "#05070F",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "icon": "./assets/gaingang/icon.png",
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/gaingang/adaptive-icon.png",
+        "backgroundColor": "#0E1524"
+      }
+    },
+    "web": {
+      "favicon": "./assets/gaingang/favicon.png"
+    }
+  }
+}

@@ -31,6 +31,28 @@ export function useGangQuests(gangId: string) {
   });
 }
 
+/** A single quest enriched with collective + personal progress. */
+export function useQuest(questId?: string) {
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
+  return useQuery({
+    queryKey: queryKeys.quest(questId, userId),
+    enabled: !!questId,
+    queryFn: async (): Promise<QuestWithProgress | null> => {
+      const { data: quest, error } = await supabase
+        .from('quests')
+        .select('*, exercise:exercises(name)')
+        .eq('id', questId!)
+        .maybeSingle();
+      if (error) throw error;
+      if (!quest) return null;
+      const [hydrated] = await hydrateQuests([quest], userId);
+      return hydrated ?? null;
+    },
+  });
+}
+
 /** Quests across all gangs the user belongs to (for the Today screen). */
 export function useMyQuests() {
   const { session } = useAuth();

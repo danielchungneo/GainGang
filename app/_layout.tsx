@@ -4,8 +4,6 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 
 import * as SplashScreen from "expo-splash-screen";
 
-import { StatusBar } from "expo-status-bar";
-
 import { useEffect } from "react";
 
 import { LogBox } from "react-native";
@@ -16,7 +14,7 @@ import { AuthProvider } from "@/context/auth-context";
 
 import { QueryProvider } from "@/context/query-client";
 
-import { GainGangProvider, useGainGangFonts } from "@/lib/gaingang-theme";
+import { GainGangProvider, useGainGangFonts, useTheme } from "@/lib/gaingang-theme";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -32,10 +30,15 @@ export const unstable_settings = {
 
 function RootNavigator() {
   const colorScheme = useColorScheme();
+  const { theme } = useTheme();
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <Stack
+        screenOptions={{
+          contentStyle: { backgroundColor: theme.colors.bg },
+        }}
+      >
         <Stack.Screen name="index" options={{ headerShown: false }} />
 
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -65,6 +68,16 @@ function RootNavigator() {
         />
 
         <Stack.Screen
+          name="gang/edit"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="log-daily-goal"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+
+        <Stack.Screen
           name="log-activity"
           options={{ presentation: "modal", headerShown: false }}
         />
@@ -73,8 +86,6 @@ function RootNavigator() {
 
         <Stack.Screen name="settings" options={{ headerShown: false }} />
       </Stack>
-
-      <StatusBar style="auto" />
     </ThemeProvider>
   );
 }

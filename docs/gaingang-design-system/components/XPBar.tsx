@@ -1,21 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useTheme, fontFamily, ranks, RankTier } from '../theme';
+import { useTheme, fontFamily } from '../theme';
 import { ProgressBar } from './ProgressBar';
 
 export interface XPBarProps {
   level: number;
-  fromTier: RankTier;
-  toTier: RankTier;
   currentXp: number;
   targetXp: number;
 }
 
-/** Level + XP progress toward the next rank. */
-export function XPBar({ level, fromTier, toTier, currentXp, targetXp }: XPBarProps) {
+/** Level + XP progress toward the next level. */
+export function XPBar({ level, currentXp, targetXp }: XPBarProps) {
   const { theme } = useTheme();
   const c = theme.colors;
   const remaining = Math.max(0, targetXp - currentXp);
+  const nextLevel = level + 1;
 
   return (
     <View
@@ -36,10 +35,10 @@ export function XPBar({ level, fromTier, toTier, currentXp, targetXp }: XPBarPro
       <View style={styles.content}>
         <View style={styles.row}>
           <Text
-            style={[styles.meta, styles.rank, { color: c.textMuted }]}
+            style={[styles.meta, styles.levelMeta, { color: c.textMuted }]}
             numberOfLines={1}
           >
-            {fromTier}-RANK → {toTier}-RANK
+            LV.{level} → LV.{nextLevel}
           </Text>
           <Text style={[styles.meta, styles.xp, { color: c.textDim }]}>
             {currentXp.toLocaleString()} / {targetXp.toLocaleString()} XP
@@ -47,7 +46,7 @@ export function XPBar({ level, fromTier, toTier, currentXp, targetXp }: XPBarPro
         </View>
         <ProgressBar value={currentXp / targetXp} />
         <Text style={[styles.remain, { color: c.textMuted }]}>
-          {remaining.toLocaleString()} XP to rank up
+          {remaining.toLocaleString()} XP to level up
         </Text>
       </View>
     </View>
@@ -81,7 +80,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   meta: { fontFamily: fontFamily.mono, fontSize: 11 },
-  rank: { flex: 1 },
+  levelMeta: { flex: 1 },
   xp: { flexShrink: 0 },
   remain: {
     fontFamily: fontFamily.mono,

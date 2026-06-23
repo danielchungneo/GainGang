@@ -24,9 +24,9 @@ from (values
   ('Calf Raises',         'legs',   'reps',    'Standing calf raises'),
   ('Wall Sit',            'legs',   'seconds', 'Isometric wall sit hold'),
   -- Day 3 — Cardio (distance/time)
-  ('Run',                 'cardio', 'meters',  'Distance run'),
-  ('Walk',                'cardio', 'meters',  'Distance walked'),
-  ('Bike',                'cardio', 'meters',  'Distance cycled'),
+  ('Run',                 'cardio', 'miles',   'Distance run'),
+  ('Walk',                'cardio', 'miles',   'Distance walked'),
+  ('Bike',                'cardio', 'miles',   'Distance cycled'),
   ('Jump Rope',           'cardio', 'seconds', 'Continuous skipping'),
   ('Burpees',             'cardio', 'reps',    'Full burpees'),
   -- Day 4 — Back (pull)

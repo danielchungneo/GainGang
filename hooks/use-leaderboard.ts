@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
-import type { LeaderboardEntry, Rank } from '@/types';
+import type { LeaderboardEntry } from '@/types';
+import { levelFromXp } from '@/types';
 
 export type LeaderboardPeriod = 'daily' | 'weekly' | 'all';
 
@@ -31,7 +32,7 @@ export function useLeaderboard(gangId: string, period: LeaderboardPeriod = 'week
       // Member profiles so even zero-contribution members appear.
       const { data: members, error: mErr } = await supabase
         .from('gang_members')
-        .select('user_id, profile:profiles(id, full_name, username, avatar_url, rank)')
+        .select('user_id, profile:profiles(id, full_name, username, avatar_url, xp)')
         .eq('gang_id', gangId);
       if (mErr) throw mErr;
 
@@ -52,14 +53,16 @@ export function useLeaderboard(gangId: string, period: LeaderboardPeriod = 'week
           full_name: string;
           username: string | null;
           avatar_url: string | null;
-          rank: Rank;
+          xp: number;
         };
+        const xp = p?.xp ?? 0;
         return {
           user_id: m.user_id,
           full_name: p?.full_name ?? 'Member',
           username: p?.username ?? null,
           avatar_url: p?.avatar_url ?? null,
-          rank: p?.rank ?? 'E',
+          xp,
+          level: levelFromXp(xp),
           total: totals.get(m.user_id) ?? 0,
           position: 0,
         };

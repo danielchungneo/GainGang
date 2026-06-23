@@ -4,6 +4,8 @@
     "strict": true,
     "paths": {
       "@/*": ["./*"],
+      "@/brand": ["./brand/index.ts"],
+      "@/brand/*": ["./brand/*"],
       "@/lib/gaingang-theme": ["./lib/gaingang-theme/index.ts"],
       "@/lib/gaingang-theme/*": ["./lib/gaingang-theme/*"]
     }

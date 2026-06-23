@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,6 +13,7 @@ import {
 import { z } from 'zod';
 
 import { GlassSurface } from '@/components/ui/glass-surface';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { useCreateGang } from '@/hooks/use-gangs';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
@@ -62,7 +62,7 @@ export default function CreateGangScreen() {
 
   return (
     <ScreenBackground>
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
+      <KeyboardAwareScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
         <View className="mt-2 flex-row items-center gap-3">
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="close" size={28} color={t.body} />
@@ -178,7 +178,7 @@ export default function CreateGangScreen() {
             )}
           </TouchableOpacity>
         </GlassSurface>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </ScreenBackground>
   );
 }

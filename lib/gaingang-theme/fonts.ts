@@ -14,23 +14,35 @@
  *   if (!fontsLoaded) return null; // or <SplashScreen/>
  */
 import { useFonts } from 'expo-font';
-import { ChakraPetch_600SemiBold, ChakraPetch_700Bold } from '@expo-google-fonts/chakra-petch';
-import { JetBrainsMono_500Medium, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
+import {
+  ChakraPetch_400Regular,
+  ChakraPetch_600SemiBold,
+  ChakraPetch_700Bold,
+} from '@expo-google-fonts/chakra-petch';
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium,
+  JetBrainsMono_700Bold,
+} from '@expo-google-fonts/jetbrains-mono';
 import {
   HankenGrotesk_400Regular,
   HankenGrotesk_500Medium,
   HankenGrotesk_600SemiBold,
+  HankenGrotesk_700Bold,
 } from '@expo-google-fonts/hanken-grotesk';
 
 export function useGainGangFonts(): boolean {
   const [loaded] = useFonts({
+    ChakraPetch_400Regular,
     ChakraPetch_600SemiBold,
     ChakraPetch_700Bold,
+    JetBrainsMono_400Regular,
     JetBrainsMono_500Medium,
     JetBrainsMono_700Bold,
     HankenGrotesk_400Regular,
     HankenGrotesk_500Medium,
     HankenGrotesk_600SemiBold,
+    HankenGrotesk_700Bold,
   });
   return loaded;
 }

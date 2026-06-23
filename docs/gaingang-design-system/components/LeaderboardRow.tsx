@@ -1,15 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme, fontFamily, RankTier, status } from '../theme';
-import { RankChip } from './RankChip';
+import { useTheme, fontFamily, status } from '../theme';
+import { LevelChip } from './RankChip';
 
 export interface LeaderboardRowProps {
   position: number;
   name: string;
   initials: string;
   reps: number;
-  tier: RankTier;
+  level: number;
   /** 0–1 completion, shown as caption. */
   completion?: number;
   /** Two-color avatar gradient. */
@@ -23,7 +23,7 @@ export function LeaderboardRow({
   name,
   initials,
   reps,
-  tier,
+  level,
   completion,
   avatarColors,
   isYou,
@@ -60,7 +60,7 @@ export function LeaderboardRow({
         )}
       </View>
 
-      <RankChip tier={tier} />
+      <LevelChip level={level} />
       <Text style={[styles.reps, { color: c.text }]}>{reps}</Text>
     </View>
   );

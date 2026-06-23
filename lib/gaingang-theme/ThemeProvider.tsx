@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
 import { Theme, darkTheme, lightTheme } from './themes';
 
 interface ThemeContextValue {
@@ -53,7 +55,18 @@ export function GainGangProvider({
     [mode, setMode, toggle],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  const bg = value.theme.colors.bg;
+
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(bg);
+  }, [bg]);
+
+  return (
+    <ThemeContext.Provider value={value}>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 /** Access the active theme + mode controls anywhere below the provider. */

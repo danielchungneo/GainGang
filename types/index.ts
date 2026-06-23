@@ -13,6 +13,7 @@ export type {
   ExerciseUnit,
   QuestType,
   QuestStatus,
+  WeeklyPlanStatus,
   AchievementCategory,
   NotificationType,
 } from './database';
@@ -37,6 +38,9 @@ export type Gang = Tables<'gangs'>;
 export type GangMember = Tables<'gang_members'>;
 export type Exercise = Tables<'exercises'>;
 export type Quest = Tables<'quests'>;
+export type WeeklyPlan = Tables<'weekly_plans'>;
+export type DailyGoal = Tables<'daily_goals'>;
+export type DailyGoalExercise = Tables<'daily_goal_exercises'>;
 export type Activity = Tables<'activities'>;
 export type Comment = Tables<'comments'>;
 export type Achievement = Tables<'achievements'>;
@@ -53,7 +57,7 @@ export interface GangMemberWithProfile extends GangMember {
   profile: Pick<Profile, 'id' | 'full_name' | 'username' | 'avatar_url' | 'rank' | 'xp'>;
 }
 
-/** A quest enriched with collective + personal progress. */
+/** A quest enriched with collective + personal progress. @deprecated Use DailyGoalWithProgress */
 export interface QuestWithProgress extends Quest {
   gang_total: number;
   contributor_count: number;
@@ -62,9 +66,36 @@ export interface QuestWithProgress extends Quest {
   exercise_name?: string | null;
 }
 
+/** Per-exercise progress within a daily goal. */
+export interface DailyGoalExerciseWithProgress {
+  id: string;
+  exercise_id: string;
+  exercise_name: string;
+  unit: ExerciseUnit;
+  individual_target: number;
+  gang_target: number;
+  gang_total: number;
+  contributor_count: number;
+  user_total: number;
+  activity_id?: string | null;
+}
+
+/** A daily goal enriched with exercise-level progress. */
+export interface DailyGoalWithProgress extends DailyGoal {
+  gang_id: string;
+  gang_name?: string;
+  member_count: number;
+  exercises: DailyGoalExerciseWithProgress[];
+}
+
+/** A weekly plan with its daily goals. */
+export interface WeeklyPlanWithGoals extends WeeklyPlan {
+  daily_goals: DailyGoalWithProgress[];
+}
+
 /** An activity enriched for the social feed. */
 export interface ActivityFeedItem extends Activity {
-  author: Pick<Profile, 'id' | 'full_name' | 'username' | 'avatar_url' | 'rank'>;
+  author: Pick<Profile, 'id' | 'full_name' | 'username' | 'avatar_url' | 'xp'>;
   kudos_count: number;
   comment_count: number;
   /** whether the signed-in user has given kudos */
@@ -82,7 +113,8 @@ export interface LeaderboardEntry {
   full_name: string;
   username: string | null;
   avatar_url: string | null;
-  rank: Rank;
+  xp: number;
+  level: number;
   total: number;
   position: number;
 }
@@ -107,6 +139,24 @@ export const WEEKLY_SCHEDULE: readonly ScheduleDay[] = [
   { day: 5, category: 'core', label: 'Core', focus: 'Full trunk stability and abdominal strength' },
 ] as const;
 
+/** All 7 days for weekly plan creation (ISO: 1=Mon … 7=Sun). */
+export interface WeekDay {
+  dayOfWeek: number;
+  label: string;
+  shortLabel: string;
+  defaultCategory: ExerciseCategory;
+}
+
+export const WEEK_DAYS: readonly WeekDay[] = [
+  { dayOfWeek: 1, label: 'Monday', shortLabel: 'Mon', defaultCategory: 'chest' },
+  { dayOfWeek: 2, label: 'Tuesday', shortLabel: 'Tue', defaultCategory: 'legs' },
+  { dayOfWeek: 3, label: 'Wednesday', shortLabel: 'Wed', defaultCategory: 'cardio' },
+  { dayOfWeek: 4, label: 'Thursday', shortLabel: 'Thu', defaultCategory: 'back' },
+  { dayOfWeek: 5, label: 'Friday', shortLabel: 'Fri', defaultCategory: 'core' },
+  { dayOfWeek: 6, label: 'Saturday', shortLabel: 'Sat', defaultCategory: 'core' },
+  { dayOfWeek: 7, label: 'Sunday', shortLabel: 'Sun', defaultCategory: 'core' },
+] as const;
+
 export const CATEGORY_LABELS: Record<ExerciseCategory, string> = {
   chest: 'Chest',
   legs: 'Legs',
@@ -126,7 +176,7 @@ export const CATEGORY_ICONS: Record<ExerciseCategory, string> = {
 export const UNIT_LABELS: Record<ExerciseUnit, { short: string; long: string }> = {
   reps: { short: 'reps', long: 'repetitions' },
   seconds: { short: 'sec', long: 'seconds' },
-  meters: { short: 'm', long: 'meters' },
+  miles: { short: 'mi', long: 'miles' },
 };
 
 /** Rank progression E → S, with the XP required to reach each rank. */
@@ -149,6 +199,74 @@ export const RANK_LABELS: Record<Rank, string> = {
   A: 'A-Rank',
   S: 'S-Rank',
 };
+
+// ---------------------------------------------------------------------------
+// Level progression (derived from XP — shown in UI instead of class rank)
+// Level 1→2 costs 100 XP; each level-up after that costs +25 XP more.
+// ---------------------------------------------------------------------------
+
+/** XP to go from level 1 → 2. */
+export const XP_LEVEL_BASE = 100;
+/** Extra XP added to each subsequent level-up requirement. */
+export const XP_LEVEL_INCREMENT = 25;
+
+/** @deprecated Use XP_LEVEL_BASE */
+export const XP_PER_LEVEL = XP_LEVEL_BASE;
+
+/** XP required to advance from `level` to `level + 1`. */
+export function xpToAdvanceFromLevel(level: number): number {
+  return XP_LEVEL_BASE + (Math.max(1, level) - 1) * XP_LEVEL_INCREMENT;
+}
+
+/** Total XP at the start of `level` (level 1 begins at 0 XP). */
+export function xpForLevel(level: number): number {
+  const target = Math.max(1, level);
+  if (target === 1) return 0;
+  const steps = target - 1;
+  return (
+    steps * XP_LEVEL_BASE + (XP_LEVEL_INCREMENT * (steps - 1) * steps) / 2
+  );
+}
+
+/** Player level from total XP. */
+export function levelFromXp(xp: number): number {
+  let level = 1;
+  let accumulated = 0;
+  const total = Math.max(0, xp);
+  while (accumulated + xpToAdvanceFromLevel(level) <= total) {
+    accumulated += xpToAdvanceFromLevel(level);
+    level++;
+  }
+  return level;
+}
+
+/** If an XP gain crossed a level boundary, returns the before/after levels. */
+export function getLevelUpInfo(
+  xpBefore: number,
+  xpGained: number,
+): { fromLevel: number; toLevel: number } | null {
+  const fromLevel = levelFromXp(xpBefore);
+  const toLevel = levelFromXp(xpBefore + Math.max(0, xpGained));
+  if (toLevel <= fromLevel) return null;
+  return { fromLevel, toLevel };
+}
+
+/** Progress within the current level toward the next. */
+export function levelProgress(xp: number): {
+  level: number;
+  currentXp: number;
+  targetXp: number;
+  toNext: number;
+  ratio: number;
+} {
+  const level = levelFromXp(xp);
+  const floor = xpForLevel(level);
+  const targetXp = xpToAdvanceFromLevel(level);
+  const currentXp = xp - floor;
+  const toNext = Math.max(0, floor + targetXp - xp);
+  const ratio = Math.min(1, Math.max(0, currentXp / targetXp));
+  return { level, currentXp, targetXp, toNext, ratio };
+}
 
 /** Returns the rank a given XP total qualifies for. */
 export function rankForXp(xp: number): Rank {
@@ -184,4 +302,27 @@ export function todaysCategory(date = new Date()): ExerciseCategory {
     0: 'core',
   };
   return map[dow];
+}
+
+/** ISO day-of-week: 1 = Monday … 7 = Sunday. */
+export function isoDayOfWeek(date = new Date()): number {
+  const dow = date.getDay();
+  return dow === 0 ? 7 : dow;
+}
+
+/** Monday of the week containing `date`, as YYYY-MM-DD (local). */
+export function mondayOfWeek(date = new Date()): string {
+  const d = new Date(date);
+  const iso = isoDayOfWeek(d);
+  d.setDate(d.getDate() - (iso - 1));
+  const tz = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
+}
+
+/** Add days to a YYYY-MM-DD string. */
+export function addDaysISO(iso: string, days: number): string {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + days);
+  const tz = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
 }

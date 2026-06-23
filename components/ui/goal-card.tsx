@@ -6,7 +6,10 @@ import {
   radius,
   spacing,
   brand,
+  status,
+  ranks,
 } from "@/lib/gaingang-theme";
+import type { TimeLeftUrgency } from "@/lib/format";
 import { Button } from "./button";
 import { GradientView } from "./gradient-view";
 import { ProgressBar } from "./progress-bar";
@@ -16,6 +19,7 @@ export interface GoalCardProps {
   title: string;
   description?: string;
   timeLeft?: string;
+  timeLeftUrgency?: TimeLeftUrgency;
   gang: { current: number; target: number };
   individual: { current: number; target: number };
   rewards?: string[];
@@ -30,6 +34,7 @@ export function GoalCard({
   title,
   description,
   timeLeft,
+  timeLeftUrgency = "comfortable",
   gang,
   individual,
   rewards = [],
@@ -39,6 +44,8 @@ export function GoalCard({
 }: GoalCardProps) {
   const { theme } = useTheme();
   const c = theme.colors;
+  const statusColor = timeLeftUrgencyColor(timeLeftUrgency);
+  const isEnded = timeLeftUrgency === "ended";
 
   return (
     <View
@@ -74,8 +81,10 @@ export function GoalCard({
         </Text>
         {!!timeLeft && (
           <View style={styles.statusRow}>
-            <View style={styles.dot} />
-            <Text style={styles.status}>Active · {timeLeft}</Text>
+            <View style={[styles.dot, { backgroundColor: statusColor }]} />
+            <Text style={[styles.status, { color: statusColor }]}>
+              {isEnded ? "Ended" : `Active · ${timeLeft}`}
+            </Text>
           </View>
         )}
       </GradientView>
@@ -139,6 +148,21 @@ export function GoalCard({
   );
 }
 
+function timeLeftUrgencyColor(urgency: TimeLeftUrgency): string {
+  switch (urgency) {
+    case "comfortable":
+      return status.success;
+    case "moderate":
+      return brand.blueGlow;
+    case "urgent":
+      return status.warning;
+    case "critical":
+      return status.danger;
+    case "ended":
+      return ranks.E.glow;
+  }
+}
+
 const styles = StyleSheet.create({
   card: { borderRadius: radius.xl, borderWidth: 1, overflow: "hidden" },
   header: {
@@ -155,14 +179,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#2DD4BF",
     marginRight: 6,
   },
   status: {
     fontFamily: fontFamily.mono,
     fontSize: 10,
     letterSpacing: 1.2,
-    color: "#2DD4BF",
     textTransform: "uppercase",
   },
   title: { fontFamily: fontFamily.display, fontSize: 26, marginBottom: 6 },

@@ -3,7 +3,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,20 +11,41 @@ import {
 } from 'react-native';
 
 import { GlassSurface } from '@/components/ui/glass-surface';
+import { AmountInput } from '@/components/ui/amount-input';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
+import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
+import { LevelUpOverlay } from '@/components/level-up-overlay';
+import { GoalProgressPreview } from '@/components/goal-progress-preview';
 import { ScreenBackground } from '@/components/ui/screen-background';
-import { useLogActivity, useQuestActivity, useUpdateActivity } from '@/hooks/use-activities';
+import { useLogActivity, useQuestActivity, useUpdateActivity, estimateSessionXp, hasPersonalGoalAward } from '@/hooks/use-activities';
 import { useExercises } from '@/hooks/use-exercises';
 import { useMyGangs } from '@/hooks/use-gangs';
+import { useProfile } from '@/hooks/use-profile';
+import { useQuest } from '@/hooks/use-quests';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { formatAmount } from '@/lib/format';
+import {
+  formatAmountInputValue,
+  parseActivityAmount,
+  validateAmountInput,
+} from '@/lib/activity-amount';
 import {
   CATEGORY_LABELS,
-  UNIT_LABELS,
   WEEKLY_SCHEDULE,
   todaysCategory,
   type Exercise,
   type ExerciseCategory,
   type ExerciseUnit,
+  getLevelUpInfo,
 } from '@/types';
+
+interface GoalCelebration {
+  questTitle: string;
+  questKind: string;
+  description: string;
+  xpEarned: number;
+  yourTarget: { from: number; target: number };
+}
 
 export default function LogActivityScreen() {
   const params = useLocalSearchParams<{
@@ -39,10 +59,14 @@ export default function LogActivityScreen() {
   const t = useThemeTokens();
   const logActivity = useLogActivity();
   const updateActivity = useUpdateActivity();
+  const { data: profile } = useProfile();
   const { data: myGangs } = useMyGangs();
 
   const lockedToQuest = !!params.questId;
   const { data: questActivity, isLoading: loadingQuestActivity } = useQuestActivity(
+    lockedToQuest ? params.questId : undefined,
+  );
+  const { data: quest, isLoading: loadingQuest } = useQuest(
     lockedToQuest ? params.questId : undefined,
   );
   const isEditing = lockedToQuest && !!questActivity;
@@ -58,6 +82,13 @@ export default function LogActivityScreen() {
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [hasPrefilled, setHasPrefilled] = useState(false);
+  const [celebration, setCelebration] = useState<GoalCelebration | null>(null);
+  const [celebrationKey, setCelebrationKey] = useState(0);
+  const [levelUp, setLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(null);
+  const [levelUpKey, setLevelUpKey] = useState(0);
+  const [pendingLevelUp, setPendingLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(
+    null,
+  );
 
   const { data: exercises } = useExercises(
     lockedToQuest ? undefined : category,
@@ -86,9 +117,31 @@ export default function LogActivityScreen() {
   const unit = selectedExercise?.unit ?? 'reps';
   const isPending = logActivity.isPending || updateActivity.isPending;
 
+  const goalProgress = useMemo(() => {
+    if (!quest) return null;
+
+    const inputAmt = parseActivityAmount(amount, unit);
+    const hasValidInput = inputAmt !== null;
+    const previousAmt = isEditing && questActivity ? questActivity.amount : 0;
+
+    if (!hasValidInput) {
+      return {
+        gangTotal: quest.gang_total,
+        userTotal: quest.user_total,
+        isPreview: false,
+      };
+    }
+
+    return {
+      gangTotal: quest.gang_total - previousAmt + inputAmt!,
+      userTotal: quest.user_total - previousAmt + inputAmt!,
+      isPreview: inputAmt !== previousAmt,
+    };
+  }, [quest, amount, isEditing, questActivity, unit]);
+
   useEffect(() => {
     if (!questActivity || hasPrefilled) return;
-    setAmount(String(questActivity.amount));
+    setAmount(formatAmountInputValue(questActivity.amount, questActivity.unit));
     setNotes(questActivity.notes ?? '');
     if (questActivity.exercise_id) setExerciseId(questActivity.exercise_id);
     setHasPrefilled(true);
@@ -96,13 +149,43 @@ export default function LogActivityScreen() {
 
   async function handleSubmit() {
     setError(null);
-    const amt = Number(amount);
-    if (!Number.isFinite(amt) || amt <= 0) return setError('Enter how much you did');
+    const validationError = validateAmountInput(amount, unit);
+    if (validationError) return setError(validationError);
+    const amt = parseActivityAmount(amount, unit)!;
     if (!selectedExercise) return setError('Pick an exercise');
 
     try {
+      const previousAmt = isEditing && questActivity ? questActivity.amount : 0;
+      const userTotalBefore = quest ? quest.user_total - previousAmt : 0;
+      const userTotalAfter = userTotalBefore + amt;
+      const gangTotalBefore = quest ? quest.gang_total - previousAmt : 0;
+      const gangTotalAfter = gangTotalBefore + amt;
+      const questXpContext =
+        quest && params.questId
+          ? {
+              gangId: quest.gang_id,
+              gangTarget: quest.gang_target,
+              individualTarget: quest.individual_target,
+              gangTotalBefore,
+              gangTotalAfter,
+              userTotalBefore,
+              userTotalAfter,
+            }
+          : undefined;
+      const alreadyAwarded =
+        lockedToQuest && params.questId
+          ? await hasPersonalGoalAward(params.questId)
+          : false;
+      const justCompletedPersonalGoal =
+        lockedToQuest &&
+        quest?.type === 'daily' &&
+        quest.individual_target > 0 &&
+        userTotalAfter >= quest.individual_target &&
+        !alreadyAwarded;
+
+      let xpAwarded = 0;
       if (isEditing && questActivity) {
-        await updateActivity.mutateAsync({
+        const result = await updateActivity.mutateAsync({
           id: questActivity.id,
           gangId: questActivity.gang_id,
           exerciseId: selectedExercise.id,
@@ -113,9 +196,11 @@ export default function LogActivityScreen() {
           notes: notes.trim() || undefined,
           previousAmount: questActivity.amount,
           previousUnit: questActivity.unit,
+          questXpContext,
         });
+        xpAwarded = result.xpAwarded;
       } else {
-        await logActivity.mutateAsync({
+        const result = await logActivity.mutateAsync({
           gangId,
           questId: params.questId,
           exerciseId: selectedExercise.id,
@@ -124,15 +209,91 @@ export default function LogActivityScreen() {
           unit: selectedExercise.unit,
           amount: amt,
           notes: notes.trim() || undefined,
+          questXpContext,
         });
+        xpAwarded = result.xpAwarded;
       }
+
+      const levelUpInfo = getLevelUpInfo(profile?.xp ?? 0, xpAwarded);
+
+      if (justCompletedPersonalGoal && quest) {
+        if (levelUpInfo) setPendingLevelUp(levelUpInfo);
+        setCelebration({
+          questTitle: quest.title,
+          questKind: 'Daily Goal',
+          description: `${formatAmount(quest.individual_target, quest.unit)} are yours.`,
+          xpEarned: xpAwarded,
+          yourTarget: { from: userTotalBefore, target: quest.individual_target },
+        });
+        setCelebrationKey((k) => k + 1);
+        return;
+      }
+
+      if (levelUpInfo) {
+        setLevelUp(levelUpInfo);
+        setLevelUpKey((k) => k + 1);
+        return;
+      }
+
       router.back();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save activity');
     }
   }
 
-  if (lockedToQuest && loadingQuestActivity) {
+  function handleDismissCelebration() {
+    setCelebration(null);
+    if (pendingLevelUp) {
+      setLevelUp(pendingLevelUp);
+      setPendingLevelUp(null);
+      setLevelUpKey((k) => k + 1);
+      return;
+    }
+    router.back();
+  }
+
+  function handleDismissLevelUp() {
+    setLevelUp(null);
+    router.back();
+  }
+
+  function handlePreviewCelebration() {
+    if (!quest) return;
+    const previousAmt = isEditing && questActivity ? questActivity.amount : 0;
+    const userTotalBefore = quest.user_total - previousAmt;
+    const previewAmt = parseActivityAmount(amount, unit) ?? 0;
+    const userTotalAfter = userTotalBefore + previewAmt;
+    const gangTotalBefore = quest.gang_total - previousAmt;
+    const gangTotalAfter = gangTotalBefore + previewAmt;
+    const from = Math.min(
+      Math.max(0, userTotalBefore),
+      Math.max(0, quest.individual_target - 1),
+    );
+    const questXpContext = {
+      gangId: quest.gang_id,
+      gangTarget: quest.gang_target,
+      individualTarget: quest.individual_target,
+      gangTotalBefore,
+      gangTotalAfter,
+      userTotalBefore,
+      userTotalAfter,
+    };
+    const sessionXp = estimateSessionXp({ isNewActivity: !isEditing, questXpContext });
+
+    setCelebration(null);
+    requestAnimationFrame(() => {
+      setCelebrationKey((k) => k + 1);
+      setCelebration({
+        questTitle: quest.title,
+        questKind: 'Daily Goal',
+        description: `${formatAmount(quest.individual_target, quest.unit)} are yours.`,
+        xpEarned: sessionXp,
+        yourTarget: { from, target: quest.individual_target },
+      });
+    });
+  }
+
+  if (lockedToQuest && (loadingQuestActivity || loadingQuest)) {
     return (
       <ScreenBackground>
         <View className="flex-1 items-center justify-center">
@@ -144,7 +305,7 @@ export default function LogActivityScreen() {
 
   return (
     <ScreenBackground>
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
+      <KeyboardAwareScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
         <View className="mt-2 flex-row items-center gap-3">
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="close" size={28} color={t.body} />
@@ -155,6 +316,18 @@ export default function LogActivityScreen() {
         </View>
 
         <GlassSurface style={{ padding: 20, gap: 16 }}>
+          {lockedToQuest && quest && goalProgress ? (
+            <GoalProgressPreview
+              title={quest.title}
+              unit={quest.unit}
+              gangTotal={goalProgress.gangTotal}
+              gangTarget={quest.gang_target}
+              userTotal={goalProgress.userTotal}
+              individualTarget={quest.individual_target}
+              isPreview={goalProgress.isPreview}
+            />
+          ) : null}
+
           {/* gang attribution */}
           {!lockedToQuest && myGangs && myGangs.length > 0 ? (
             <View>
@@ -209,16 +382,17 @@ export default function LogActivityScreen() {
             )}
           </View>
 
-          {/* amount */}
           <View>
-            <Label>{UNIT_LABELS[unit].long}</Label>
-            <TextInput
-              style={[styles.input, { backgroundColor: t.inputBg, borderColor: t.inputBorder, color: t.heading }]}
+            <AmountInput
+              unit={unit}
               value={amount}
-              onChangeText={setAmount}
-              keyboardType="number-pad"
-              placeholder="0"
-              placeholderTextColor={t.placeholder}
+              onChangeValue={setAmount}
+              label="Amount"
+              inputBg={t.inputBg}
+              inputBorder={t.inputBorder}
+              textColor={t.heading}
+              placeholderColor={t.placeholder}
+              labelColor={t.body}
             />
           </View>
 
@@ -253,8 +427,42 @@ export default function LogActivityScreen() {
               </Text>
             )}
           </TouchableOpacity>
+
+          {__DEV__ && lockedToQuest && quest ? (
+            <TouchableOpacity
+              onPress={handlePreviewCelebration}
+              className="items-center rounded-xl border py-3"
+              style={{ borderColor: t.buttonBorder, backgroundColor: t.buttonBg }}>
+              <Text style={{ color: t.body }} className="text-sm font-semibold">
+                Preview goal complete animation
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </GlassSurface>
-      </ScrollView>
+      </KeyboardAwareScrollView>
+
+      {celebration ? (
+        <GoalCompleteOverlay
+          key={celebrationKey}
+          visible
+          questTitle={celebration.questTitle}
+          questKind={celebration.questKind}
+          description={celebration.description}
+          xpEarned={celebration.xpEarned}
+          yourTarget={celebration.yourTarget}
+          onDismiss={handleDismissCelebration}
+        />
+      ) : null}
+
+      {levelUp && !celebration ? (
+        <LevelUpOverlay
+          key={levelUpKey}
+          visible
+          fromLevel={levelUp.fromLevel}
+          toLevel={levelUp.toLevel}
+          onDismiss={handleDismissLevelUp}
+        />
+      ) : null}
     </ScreenBackground>
   );
 }

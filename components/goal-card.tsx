@@ -1,24 +1,12 @@
 import { router } from 'expo-router';
 
 import { GoalCard as GoalCardView } from '@/components/ui/goal-card';
-import { formatAmount } from '@/lib/format';
+import { formatAmount, dayGoalLabel, timeLeftStatus } from '@/lib/format';
 import { CATEGORY_LABELS, type QuestWithProgress } from '@/types';
 
 interface GoalCardProps {
   goal: QuestWithProgress;
   loggable?: boolean;
-}
-
-function goalTimeLeft(endsOn: string): string {
-  const ms = new Date(endsOn).getTime() - Date.now();
-  if (ms <= 0) return 'Ended';
-
-  const hours = Math.floor(ms / (1000 * 60 * 60));
-  if (hours >= 24) return `${Math.floor(hours / 24)}d left`;
-  if (hours >= 1) return `${hours}h left`;
-
-  const minutes = Math.max(1, Math.floor(ms / (1000 * 60)));
-  return `${minutes}m left`;
 }
 
 function goalDescription(goal: QuestWithProgress): string {
@@ -39,12 +27,15 @@ export function GoalCard({ goal, loggable = true }: GoalCardProps) {
     `${goal.contributor_count} contributing`,
   ];
 
+  const timeLeft = timeLeftStatus(goal.starts_on, goal.ends_on);
+
   return (
     <GoalCardView
-      kind={goal.type === 'daily' ? 'Daily Goal' : 'Weekly Goal'}
+      kind={goal.type === 'daily' ? dayGoalLabel(goal.starts_on) : 'Weekly Goal'}
       title={goal.title}
       description={goalDescription(goal)}
-      timeLeft={goalTimeLeft(goal.ends_on)}
+      timeLeft={timeLeft.label}
+      timeLeftUrgency={timeLeft.urgency}
       gang={{ current: goal.gang_total, target: goal.gang_target }}
       individual={{ current: goal.user_total, target: goal.individual_target }}
       rewards={rewards}

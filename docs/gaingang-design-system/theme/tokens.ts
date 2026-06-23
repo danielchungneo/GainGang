@@ -52,6 +52,36 @@ export const ranks: Record<RankTier, RankDef> = {
 export const rankOrder: RankTier[] = ['E', 'D', 'C', 'B', 'A', 'S'];
 
 // ───────────────────────────────────────────────────────────
+// LEVEL BADGE TIERS  (palette shifts every 10 levels)
+// ───────────────────────────────────────────────────────────
+export interface LevelBadgeDef {
+  color: string;
+  glow: string;
+  fill: [string, string];
+  name: string;
+}
+
+export const levelBadgePalette: LevelBadgeDef[] = [
+  { color: '#64748B', glow: '#94A3B8', fill: ['#2A3346', '#171D2B'], name: 'Initiate' },
+  { color: '#2DD4BF', glow: '#2DD4BF', fill: ['#103A35', '#0D201D'], name: 'Rising' },
+  { color: '#4D8CFF', glow: '#7EAAFF', fill: ['#13315F', '#0D1A32'], name: 'Hunter' },
+  { color: '#9D4EDD', glow: '#C77DFF', fill: ['#321A52', '#1B0F2D'], name: 'Elite' },
+  { color: '#F5A524', glow: '#F5A524', fill: ['#523616', '#2C1D0B'], name: 'Monarch' },
+  { color: '#FF3D71', glow: '#FF7396', fill: ['#5C1430', '#2E0A18'], name: 'Sovereign' },
+  { color: '#E8EDF7', glow: '#FFFFFF', fill: ['#3A4050', '#1A1E28'], name: 'Ascendant' },
+  { color: '#22D3EE', glow: '#67E8F9', fill: ['#0C3D4A', '#061A22'], name: 'Mythic' },
+];
+
+export function levelBadgeTierIndex(level: number): number {
+  return Math.floor((Math.max(1, level) - 1) / 10);
+}
+
+export function levelBadgeForLevel(level: number): LevelBadgeDef {
+  const idx = levelBadgeTierIndex(level);
+  return levelBadgePalette[idx % levelBadgePalette.length];
+}
+
+// ───────────────────────────────────────────────────────────
 // SEMANTIC / STATUS
 // ───────────────────────────────────────────────────────────
 export const status = {

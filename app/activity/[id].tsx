@@ -74,7 +74,9 @@ export default function ActivityDetailScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-        <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 20 }}>
+        <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 20 }}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets>
           <View className="mt-2 flex-row items-center gap-3">
             <TouchableOpacity onPress={() => router.back()}>
               <Ionicons name="chevron-back" size={28} color={t.body} />

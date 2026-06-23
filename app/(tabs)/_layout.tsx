@@ -2,16 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Tabs } from "expo-router";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { HapticTab } from "@/components/haptic-tab";
 
 import { useTheme } from "@/lib/gaingang-theme";
 
 export default function TabLayout() {
   const { theme } = useTheme();
-
-  const insets = useSafeAreaInsets();
 
   const c = theme.colors;
 
@@ -45,7 +41,7 @@ export default function TabLayout() {
         },
 
         sceneStyle: {
-          paddingTop: insets.top,
+          backgroundColor: c.bg,
         },
       }}
     >

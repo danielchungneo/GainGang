@@ -7,15 +7,15 @@ import {
   RefreshControl,
   ScrollView,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 
-import { GoalCard } from "@/components/goal-card";
+import { DailyGoalCard } from "@/components/daily-goal-card";
 
 import {
   Button,
   GlassSurface,
+  LevelBadge,
   ScreenBackground,
   StreakPill
 } from "@/components/ui";
@@ -26,7 +26,7 @@ import { useMyGangs } from "@/hooks/use-gangs";
 
 import { useProfile } from "@/hooks/use-profile";
 
-import { useMyQuests } from "@/hooks/use-quests";
+import { useMyTodaysDailyGoals } from "@/hooks/use-weekly-plans";
 
 import { useThemeTokens } from "@/hooks/use-theme-tokens";
 
@@ -34,8 +34,7 @@ import { fontFamily, spacing, type, useTheme } from "@/lib/gaingang-theme";
 
 import {
   CATEGORY_LABELS,
-  RANK_THRESHOLDS,
-  rankProgress,
+  levelFromXp,
   todaysCategory,
   WEEKLY_SCHEDULE
 } from "@/types";
@@ -51,7 +50,8 @@ export default function TodayScreen() {
 
   const { data: gangs } = useMyGangs();
 
-  const { data: goals, isLoading, refetch, isRefetching } = useMyQuests();
+  const { data: dailyGoals, isLoading, refetch, isRefetching } =
+    useMyTodaysDailyGoals();
 
   const firstName =
     profile?.full_name?.split(" ")[0] ||
@@ -63,15 +63,7 @@ export default function TodayScreen() {
 
   const daySchedule = WEEKLY_SCHEDULE.find((d) => d.category === category);
 
-  const progress = rankProgress(profile?.xp ?? 0);
-
-  const floor = RANK_THRESHOLDS[progress.current];
-
-  const ceil = progress.next ? RANK_THRESHOLDS[progress.next] : floor;
-
-  const dailyGoals = (goals ?? []).filter((g) => g.type === "daily");
-
-  const weeklyGoals = (goals ?? []).filter((g) => g.type === "weekly");
+  const dailyGoalsList = dailyGoals ?? [];
 
   return (
     <ScreenBackground>
@@ -89,18 +81,24 @@ export default function TodayScreen() {
           />
         }
       >
-        <View className="mt-4 gap-2">
-          <Text style={[type.labelSm, { color: t.body }]}>
-            {new Date().toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "short",
-              day: "numeric",
-            })}
-          </Text>
+        <View className="mt-4 flex-row items-center justify-between gap-3">
+          <View className="flex-1 gap-2">
+            <Text style={[type.labelSm, { color: t.body }]}>
+              {new Date().toLocaleDateString(undefined, {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              })}
+            </Text>
 
-          <Text style={[type.heading, { color: t.heading }]}>
-            {firstName ? `Let's gain, ${firstName}` : "Let's gain"}
-          </Text>
+            <Text style={[type.heading, { color: t.heading }]}>
+              {firstName ? `Let's gain, ${firstName}` : "Let's gain"}
+            </Text>
+          </View>
+
+          {profile ? (
+            <LevelBadge level={levelFromXp(profile.xp ?? 0)} size={52} />
+          ) : null}
         </View>
 
         {(profile?.current_streak ?? 0) > 0 ? (
@@ -158,8 +156,8 @@ export default function TodayScreen() {
             </Text>
 
             <Text style={[type.bodySm, { color: t.body }]}>
-              Daily and weekly Goals are issued at the Gang level. Join or
-              create one to start your grind.
+              Weekly plans with daily goals are issued at the Gang level. Join
+              or create one to start your grind.
             </Text>
 
             <Button
@@ -167,7 +165,7 @@ export default function TodayScreen() {
               onPress={() => router.push("/(tabs)/groups")}
             />
           </GlassSurface>
-        ) : (goals?.length ?? 0) === 0 ? (
+        ) : dailyGoalsList.length === 0 ? (
           <GlassSurface style={{ padding: 20, gap: 6 }}>
             <Text
               style={[
@@ -178,62 +176,26 @@ export default function TodayScreen() {
                 },
               ]}
             >
-              No active Goals
+              No goals for today
             </Text>
 
             <Text style={[type.bodySm, { color: t.body }]}>
-              Your Gang leaders haven&apos;t issued a Goal yet. Log a freestyle
-              workout to keep your streak alive.
+              Your Gang leader hasn&apos;t published a weekly plan yet, or
+              today is a rest day.
             </Text>
           </GlassSurface>
         ) : (
-          <>
-            {dailyGoals.length > 0 && (
-              <View className="gap-3">
-                <Text style={[type.label, { color: theme.colors.textMuted }]}>
-                  Daily Goals
-                </Text>
+          <View className="gap-3">
+            <Text style={[type.label, { color: theme.colors.textMuted }]}>
+              Today&apos;s goals
+            </Text>
 
-                {dailyGoals.map((g) => (
-                  <GoalCard key={g.id} goal={g} />
-                ))}
-              </View>
-            )}
-
-            {weeklyGoals.length > 0 && (
-              <View className="gap-3">
-                <Text style={[type.label, { color: theme.colors.textMuted }]}>
-                  Weekly Goals
-                </Text>
-
-                {weeklyGoals.map((g) => (
-                  <GoalCard key={g.id} goal={g} />
-                ))}
-              </View>
-            )}
-          </>
+            {dailyGoalsList.map((g) => (
+              <DailyGoalCard key={g.id} goal={g} />
+            ))}
+          </View>
         )}
       </ScrollView>
-
-      <TouchableOpacity
-        onPress={() => router.push("/log-activity")}
-        className="absolute bottom-6 right-6 h-16 w-16 items-center justify-center rounded-full"
-        style={{
-          backgroundColor: t.accent,
-
-          shadowColor: theme.colors.primary,
-
-          shadowOpacity: 0.5,
-
-          shadowRadius: 12,
-
-          shadowOffset: { width: 0, height: 4 },
-
-          elevation: 8,
-        }}
-      >
-        <Ionicons name="add" size={32} color={t.accentOnPrimary} />
-      </TouchableOpacity>
     </ScreenBackground>
   );
 }

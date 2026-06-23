@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 
 import { GlassSurface } from '@/components/ui/glass-surface';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { useDiscoverGangs, useJoinGang, useJoinPublicGang } from '@/hooks/use-gangs';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
@@ -49,7 +49,7 @@ export default function JoinGangScreen() {
 
   return (
     <ScreenBackground>
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={{ padding: 20, gap: 16 }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={t.accent} />}>
         <View className="mt-2 flex-row items-center gap-3">
@@ -137,7 +137,7 @@ export default function JoinGangScreen() {
             No public Gangs found. Be the first to create one!
           </Text>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </ScreenBackground>
   );
 }

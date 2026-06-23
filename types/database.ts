@@ -13,9 +13,10 @@ export type Rank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 export type GangPrivacy = 'public' | 'invite_only';
 export type GangRole = 'owner' | 'admin' | 'member';
 export type ExerciseCategory = 'chest' | 'legs' | 'cardio' | 'back' | 'core';
-export type ExerciseUnit = 'reps' | 'seconds' | 'meters';
+export type ExerciseUnit = 'reps' | 'seconds' | 'miles';
 export type QuestType = 'daily' | 'weekly';
 export type QuestStatus = 'active' | 'completed' | 'failed';
+export type WeeklyPlanStatus = 'active' | 'completed' | 'failed';
 export type AchievementCategory =
   | 'quest'
   | 'streak'
@@ -32,6 +33,7 @@ export type NotificationType =
   | 'achievement'
   | 'rank_up'
   | 'gang';
+export type XpAwardKind = 'activity_log' | 'personal_goal' | 'gang_goal';
 
 export type Database = {
   public: {
@@ -202,6 +204,7 @@ export type Database = {
           user_id: string;
           gang_id: string | null;
           quest_id: string | null;
+          daily_goal_exercise_id: string | null;
           exercise_id: string | null;
           exercise_name: string;
           category: ExerciseCategory | null;
@@ -217,6 +220,7 @@ export type Database = {
           user_id: string;
           gang_id?: string | null;
           quest_id?: string | null;
+          daily_goal_exercise_id?: string | null;
           exercise_id?: string | null;
           exercise_name: string;
           category?: ExerciseCategory | null;
@@ -251,6 +255,127 @@ export type Database = {
           },
           {
             foreignKeyName: 'activities_exercise_id_fkey';
+            columns: ['exercise_id'];
+            isOneToOne: false;
+            referencedRelation: 'exercises';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'activities_daily_goal_exercise_id_fkey';
+            columns: ['daily_goal_exercise_id'];
+            isOneToOne: false;
+            referencedRelation: 'daily_goal_exercises';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      xp_awards: {
+        Row: {
+          id: string;
+          kind: XpAwardKind;
+          user_id: string | null;
+          gang_id: string | null;
+          daily_goal_exercise_id: string | null;
+          quest_id: string | null;
+          xp_amount: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          kind: XpAwardKind;
+          user_id?: string | null;
+          gang_id?: string | null;
+          daily_goal_exercise_id?: string | null;
+          quest_id?: string | null;
+          xp_amount: number;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['xp_awards']['Insert']>;
+        Relationships: [];
+      };
+      weekly_plans: {
+        Row: {
+          id: string;
+          gang_id: string;
+          starts_on: string;
+          ends_on: string;
+          status: WeeklyPlanStatus;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          gang_id: string;
+          starts_on: string;
+          ends_on: string;
+          status?: WeeklyPlanStatus;
+        };
+        Update: Partial<Database['public']['Tables']['weekly_plans']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'weekly_plans_gang_id_fkey';
+            columns: ['gang_id'];
+            isOneToOne: false;
+            referencedRelation: 'gangs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      daily_goals: {
+        Row: {
+          id: string;
+          weekly_plan_id: string;
+          day_of_week: number;
+          title: string;
+          day_category: ExerciseCategory | null;
+          goal_date: string;
+        };
+        Insert: {
+          id?: string;
+          weekly_plan_id: string;
+          day_of_week: number;
+          title?: string;
+          day_category?: ExerciseCategory | null;
+          goal_date: string;
+        };
+        Update: Partial<Database['public']['Tables']['daily_goals']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'daily_goals_weekly_plan_id_fkey';
+            columns: ['weekly_plan_id'];
+            isOneToOne: false;
+            referencedRelation: 'weekly_plans';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      daily_goal_exercises: {
+        Row: {
+          id: string;
+          daily_goal_id: string;
+          exercise_id: string;
+          unit: ExerciseUnit;
+          individual_target: number;
+          sort_order: number;
+        };
+        Insert: {
+          id?: string;
+          daily_goal_id: string;
+          exercise_id: string;
+          unit?: ExerciseUnit;
+          individual_target: number;
+          sort_order?: number;
+        };
+        Update: Partial<Database['public']['Tables']['daily_goal_exercises']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'daily_goal_exercises_daily_goal_id_fkey';
+            columns: ['daily_goal_id'];
+            isOneToOne: false;
+            referencedRelation: 'daily_goals';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'daily_goal_exercises_exercise_id_fkey';
             columns: ['exercise_id'];
             isOneToOne: false;
             referencedRelation: 'exercises';
@@ -392,6 +517,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      daily_goal_exercise_progress: {
+        Row: {
+          daily_goal_exercise_id: string | null;
+          daily_goal_id: string | null;
+          gang_id: string | null;
+          gang_total: number;
+          contributor_count: number;
+        };
+        Relationships: [];
+      };
+      daily_goal_exercise_user_progress: {
+        Row: {
+          daily_goal_exercise_id: string | null;
+          user_id: string | null;
+          user_total: number;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       create_gang: {
@@ -422,6 +565,21 @@ export type Database = {
       shares_gang: {
         Args: { p_user_a: string; p_user_b: string };
         Returns: boolean;
+      };
+      create_weekly_plan: {
+        Args: {
+          p_gang_id: string;
+          p_starts_on: string;
+          p_days: Json;
+        };
+        Returns: Database['public']['Tables']['weekly_plans']['Row'];
+      };
+      update_weekly_plan: {
+        Args: {
+          p_plan_id: string;
+          p_days: Json;
+        };
+        Returns: Database['public']['Tables']['weekly_plans']['Row'];
       };
     };
     Enums: Record<string, never>;

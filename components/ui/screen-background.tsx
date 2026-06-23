@@ -17,6 +17,7 @@ import {
   useWindowDimensions,
   type ViewProps,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, {
   Defs,
   Line,
@@ -214,7 +215,9 @@ export function ScreenBackground({ children, style, ...props }: ViewProps) {
         patternId={patternId}
       />
 
-      {children}
+      <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
+        {children}
+      </SafeAreaView>
     </View>
   );
 }

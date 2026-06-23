@@ -1,25 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
 import { ActivityCard } from '@/components/activity-card';
-import { GoalCard } from '@/components/goal-card';
-import { Avatar, GlassSurface, LeaderboardRow, RankBadge, ScreenBackground, StreakPill } from '@/components/ui';
+import { DailyGoalCard } from '@/components/daily-goal-card';
+import { Avatar, GlassSurface, LeaderboardRow, LevelBadge, ScreenBackground, StreakPill } from '@/components/ui';
+import { levelFromXp } from '@/types';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/lib/gaingang-theme';
 import { useGangFeed } from '@/hooks/use-activities';
 import { useGang, useGangMembers } from '@/hooks/use-gangs';
 import { useLeaderboard, type LeaderboardPeriod } from '@/hooks/use-leaderboard';
-import { useGangQuests } from '@/hooks/use-quests';
+import { useActiveWeeklyPlan } from '@/hooks/use-weekly-plans';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { todayISO } from '@/lib/format';
 
 type Tab = 'goals' | 'feed' | 'board' | 'members';
 const TABS: { key: Tab; label: string }[] = [
@@ -37,16 +40,25 @@ export default function GangDetailScreen() {
 
   const { data: gang, isLoading, refetch, isRefetching } = useGang(gangId);
   const isAdmin = gang?.role === 'owner' || gang?.role === 'admin';
+  const isOwner = gang?.role === 'owner';
 
   return (
     <ScreenView refreshing={isRefetching} onRefresh={refetch} accent={t.accent}>
-      <View className="mt-2 flex-row items-center gap-3">
+      <View className="flex-row items-center gap-3">
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={28} color={t.body} />
         </TouchableOpacity>
         <Text style={{ color: t.heading }} className="flex-1 text-2xl font-bold" numberOfLines={1}>
           {gang?.name ?? 'Gang'}
         </Text>
+        {isOwner ? (
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/gang/edit', params: { gangId } })}
+            accessibilityLabel="Edit gang"
+            hitSlop={8}>
+            <Ionicons name="settings-outline" size={24} color={t.body} />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {isLoading || !gang ? (
@@ -119,31 +131,97 @@ export default function GangDetailScreen() {
 
 function GoalsTab({ gangId, isAdmin }: { gangId: string; isAdmin: boolean }) {
   const t = useThemeTokens();
-  const { data: goals, isLoading } = useGangQuests(gangId);
-  const active = (goals ?? []).filter((g) => g.status === 'active');
+  const { width: screenWidth } = useWindowDimensions();
+  const carouselRef = useRef<ScrollView>(null);
+  const { data: plan, isLoading } = useActiveWeeklyPlan(gangId);
+  const today = todayISO();
+  const weekGoals = useMemo(() => {
+    const goals = (plan?.daily_goals ?? []).filter((g) => g.exercises.length > 0);
+    return [...goals].sort((a, b) => a.goal_date.localeCompare(b.goal_date));
+  }, [plan?.daily_goals]);
+  const cardGap = 12;
+  const cardWidth = screenWidth - 40 - 16;
+
+  useEffect(() => {
+    if (weekGoals.length === 0) return;
+    const todayIndex = weekGoals.findIndex((g) => g.goal_date === today);
+    if (todayIndex < 0) return;
+    carouselRef.current?.scrollTo({ x: todayIndex * (cardWidth + cardGap), animated: false });
+  }, [weekGoals, today, cardWidth, cardGap]);
 
   return (
     <View className="gap-3">
       {isAdmin ? (
-        <TouchableOpacity
-          onPress={() => router.push({ pathname: '/gang/new-goal', params: { gangId } })}
-          className="flex-row items-center justify-center gap-2 rounded-xl py-3"
-          style={{ backgroundColor: t.buttonBg, borderWidth: 1, borderColor: t.buttonBorder }}>
-          <Ionicons name="add-circle-outline" size={18} color={t.accent} />
-          <Text style={{ color: t.accent }} className="font-semibold">
-            Issue a new Goal
-          </Text>
-        </TouchableOpacity>
+        <View className="gap-2">
+          {plan ? (
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: '/gang/new-goal',
+                  params: { gangId, planId: plan.id },
+                })
+              }
+              className="flex-row items-center justify-center gap-2 rounded-xl py-3"
+              style={{ backgroundColor: t.buttonBg, borderWidth: 1, borderColor: t.buttonBorder }}>
+              <Ionicons name="create-outline" size={18} color={t.accent} />
+              <Text style={{ color: t.accent }} className="font-semibold">
+                Edit weekly plan
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/gang/new-goal', params: { gangId } })}
+            className="flex-row items-center justify-center gap-2 rounded-xl py-3"
+            style={{ backgroundColor: t.buttonBg, borderWidth: 1, borderColor: t.buttonBorder }}>
+            <Ionicons name="add-circle-outline" size={18} color={t.accent} />
+            <Text style={{ color: t.accent }} className="font-semibold">
+              {plan ? 'Replace with new plan' : 'Create weekly plan'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {plan ? (
+        <Text style={{ color: t.body }} className="text-sm">
+          Week of{' '}
+          {new Date(plan.starts_on + 'T12:00:00').toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+          })}
+          {' – '}
+          {new Date(plan.ends_on + 'T12:00:00').toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+          })}
+        </Text>
       ) : null}
 
       {isLoading ? (
         <ActivityIndicator color={t.accent} style={{ marginTop: 20 }} />
-      ) : active.length > 0 ? (
-        active.map((g) => <GoalCard key={g.id} goal={g} />)
+      ) : weekGoals.length > 0 ? (
+        <ScrollView
+          ref={carouselRef}
+          horizontal
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToInterval={cardWidth + cardGap}
+          snapToAlignment="start"
+          contentContainerStyle={{ gap: cardGap }}>
+          {weekGoals.map((g) => (
+            <View key={g.id} style={{ width: cardWidth }}>
+              <DailyGoalCard goal={g} loggable={g.goal_date === today} />
+            </View>
+          ))}
+        </ScrollView>
       ) : (
         <EmptyCard
-          title="No active Goals"
-          body={isAdmin ? 'Issue your first Goal to rally the Gang.' : 'Your Gang leader hasn’t issued a Goal yet.'}
+          title="No active weekly plan"
+          body={
+            isAdmin
+              ? 'Create a weekly plan with daily goals for your Gang.'
+              : 'Your Gang leader hasn’t published a weekly plan yet.'
+          }
         />
       )}
     </View>
@@ -204,7 +282,7 @@ function BoardTab({ gangId }: { gangId: string }) {
               name={row.full_name}
               initials={initialsFromName(row.full_name)}
               reps={row.total}
-              tier={row.rank}
+              level={row.level}
               completion={topTotal > 0 ? row.total / topTotal : 0}
               isYou={row.user_id === session?.user.id}
             />
@@ -241,7 +319,9 @@ function MembersTab({ gangId }: { gangId: string }) {
                 {m.role}
               </Text>
             </View>
-            {m.profile?.rank ? <RankBadge rank={m.profile.rank} size={22} /> : null}
+            {m.profile?.xp != null ? (
+              <LevelBadge level={levelFromXp(m.profile.xp)} size={22} />
+            ) : null}
           </View>
         ))}
       </GlassSurface>

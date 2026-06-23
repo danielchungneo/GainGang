@@ -8,7 +8,7 @@ import {
   fontFamily,
   LeaderboardRow,
   QuestCard,
-  RankBadge,
+  LevelBadge,
   ReactionChip,
   spacing,
   StreakPill,
@@ -29,12 +29,12 @@ export function GangHomeScreen() {
             <Text style={[styles.kicker, { color: c.primary }]}>IRON WOLVES · 14 MEMBERS</Text>
             <Text style={[styles.h1, { color: c.text }]}>Today's Quest</Text>
           </View>
-          <RankBadge tier="C" size={64} />
+          <LevelBadge level={24} size={64} />
         </View>
 
         <StreakPill days={47} />
 
-        <XPBar level={12} fromTier="C" toTier="B" currentXp={2340} targetXp={3000} />
+        <XPBar level={24} currentXp={90} targetXp={250} />
 
         <QuestCard
           title="The Iron Oath"
@@ -52,9 +52,9 @@ export function GangHomeScreen() {
             DAILY LEADERBOARD
           </Text>
           <View style={[styles.board, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <LeaderboardRow position={1} name="Jinwoo K." initials="JK" reps={312} tier="B" completion={1} avatarColors={[c.primary, c.secondary]} />
-            <LeaderboardRow position={2} name="Mara A." initials="MA" reps={288} tier="C" completion={1} avatarColors={['#2DD4BF', c.primary]} />
-            <LeaderboardRow position={3} name="You" initials="YOU" reps={240} tier="C" completion={0.86} avatarColors={[c.secondary, '#FF3D71']} isYou />
+            <LeaderboardRow position={1} name="Jinwoo K." initials="JK" reps={312} level={38} completion={1} avatarColors={[c.primary, c.secondary]} />
+            <LeaderboardRow position={2} name="Mara A." initials="MA" reps={288} level={24} completion={1} avatarColors={['#2DD4BF', c.primary]} />
+            <LeaderboardRow position={3} name="You" initials="YOU" reps={240} level={24} completion={0.86} avatarColors={[c.secondary, '#FF3D71']} isYou />
           </View>
         </View>
 

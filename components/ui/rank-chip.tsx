@@ -1,20 +1,23 @@
 import { View, Text, StyleSheet } from "react-native";
 
-import { ranks, fontFamily, type RankTier } from "@/lib/gaingang-theme";
+import { fontFamily, levelBadgeForLevel } from "@/lib/gaingang-theme";
 
-export function RankChip({ tier }: { tier: RankTier }) {
-  const r = ranks[tier];
+export function LevelChip({ level }: { level: number }) {
+  const badge = levelBadgeForLevel(Math.max(1, level));
   return (
     <View
       style={[
         styles.chip,
-        { borderColor: r.color, backgroundColor: hexA(r.color, 0.14) },
+        { borderColor: badge.color, backgroundColor: hexA(badge.color, 0.14) },
       ]}
     >
-      <Text style={[styles.text, { color: r.glow }]}>{tier}</Text>
+      <Text style={[styles.text, { color: badge.glow }]}>{level}</Text>
     </View>
   );
 }
+
+/** @deprecated Use LevelChip with `level` instead. */
+export const RankChip = LevelChip;
 
 function hexA(hex: string, a: number) {
   const n = parseInt(hex.slice(1), 16);
@@ -27,6 +30,8 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 5,
     borderWidth: 1,
+    minWidth: 22,
+    alignItems: "center",
   },
   text: { fontFamily: fontFamily.mono, fontSize: 9, letterSpacing: 0.5 },
 });

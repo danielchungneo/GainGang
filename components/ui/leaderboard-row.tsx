@@ -4,17 +4,16 @@ import {
   useTheme,
   fontFamily,
   status,
-  type RankTier,
 } from "@/lib/gaingang-theme";
 import { GradientView } from "./gradient-view";
-import { RankChip } from "./rank-chip";
+import { LevelChip } from "./rank-chip";
 
 export interface LeaderboardRowProps {
   position: number;
   name: string;
   initials: string;
   reps: number;
-  tier: RankTier;
+  level: number;
   completion?: number;
   avatarColors?: readonly [string, string];
   isYou?: boolean;
@@ -25,7 +24,7 @@ export function LeaderboardRow({
   name,
   initials,
   reps,
-  tier,
+  level,
   completion,
   avatarColors,
   isYou,
@@ -76,7 +75,7 @@ export function LeaderboardRow({
         )}
       </View>
 
-      <RankChip tier={tier} />
+      <LevelChip level={level} />
       <Text style={[styles.reps, { color: c.text }]}>{reps}</Text>
     </View>
   );

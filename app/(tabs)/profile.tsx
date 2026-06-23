@@ -2,6 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { router } from "expo-router";
 
+import { useState } from "react";
+
 import {
   ActivityIndicator,
   RefreshControl,
@@ -11,16 +13,20 @@ import {
   View,
 } from "react-native";
 
+import { ProfileActivitiesFeed } from "@/components/profile-activities-feed";
+import { ProfileStreakCalendar } from "@/components/profile-streak-calendar";
 import {
   Avatar,
   GlassSurface,
-  RankBadge,
+  LevelBadge,
+  ProgressBar,
   ScreenBackground,
   StreakPill,
-  XPBar,
 } from "@/components/ui";
 
-import { useAchievements } from "@/hooks/use-achievements";
+import { LevelUpOverlay } from "@/components/level-up-overlay";
+
+import { useAchievements, type AchievementWithProgress } from "@/hooks/use-achievements";
 
 import { useMyActivities } from "@/hooks/use-activities";
 
@@ -28,34 +34,37 @@ import { useProfile } from "@/hooks/use-profile";
 
 import { useThemeTokens } from "@/hooks/use-theme-tokens";
 
-import { formatAmount, timeAgo } from "@/lib/format";
-
 import { fontFamily, spacing, type } from "@/lib/gaingang-theme";
 
-import { RANK_ORDER, RANK_THRESHOLDS, rankProgress } from "@/types";
+import { levelProgress } from "@/types";
+
+type ProfileView = "streak" | "activities" | "badges";
 
 export default function ProfileScreen() {
   const t = useThemeTokens();
 
   const { data: profile, isLoading, refetch, isRefetching } = useProfile();
 
+  const [showLevelUpPreview, setShowLevelUpPreview] = useState(false);
+  const [levelUpPreviewKey, setLevelUpPreviewKey] = useState(0);
+  const [activeView, setActiveView] = useState<ProfileView>("streak");
+
   const { data: activities } = useMyActivities();
 
   const { data: achievements } = useAchievements();
 
-  const progress = rankProgress(profile?.xp ?? 0);
-
-  const floor = RANK_THRESHOLDS[progress.current];
-
-  const ceil = progress.next ? RANK_THRESHOLDS[progress.next] : floor;
+  const progress = levelProgress(profile?.xp ?? 0);
 
   const earned = (achievements ?? []).filter((a) => a.earned);
+  const totalActivities = activities?.length ?? 0;
 
-  const totalReps = (activities ?? [])
-
-    .filter((a) => a.unit === "reps")
-
-    .reduce((sum, a) => sum + a.amount, 0);
+  function handlePreviewLevelUp() {
+    setShowLevelUpPreview(false);
+    requestAnimationFrame(() => {
+      setLevelUpPreviewKey((k) => k + 1);
+      setShowLevelUpPreview(true);
+    });
+  }
 
   return (
     <ScreenBackground>
@@ -118,7 +127,22 @@ export default function ProfileScreen() {
                   ) : null}
                 </View>
 
-                <RankBadge rank={profile.rank} size={52} />
+                <LevelBadge level={progress.level} size={52} />
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <ProgressBar value={progress.ratio} height={8} />
+
+                <View className="flex-row items-center justify-between">
+                  <Text style={[type.dataSm, { color: t.body }]}>
+                    {progress.currentXp.toLocaleString()} /{" "}
+                    {progress.targetXp.toLocaleString()} XP
+                  </Text>
+
+                  <Text style={[type.dataSm, { color: t.body }]}>
+                    {progress.toNext.toLocaleString()} XP Needed
+                  </Text>
+                </View>
               </View>
 
               {profile.bio ? (
@@ -132,122 +156,77 @@ export default function ProfileScreen() {
               <StreakPill days={profile.current_streak} />
             ) : null}
 
-            <XPBar
-              level={RANK_ORDER.indexOf(progress.current) + 1}
-              fromTier={progress.current}
-              toTier={progress.next ?? progress.current}
-              currentXp={profile.xp - floor}
-              targetXp={progress.next ? ceil - floor : 1}
-            />
+            {__DEV__ ? (
+              <TouchableOpacity
+                onPress={handlePreviewLevelUp}
+                className="items-center rounded-xl border py-3"
+                style={{
+                  borderColor: t.buttonBorder,
+                  backgroundColor: t.buttonBg,
+                }}
+              >
+                <Text
+                  style={{ color: t.body }}
+                  className="text-sm font-semibold"
+                >
+                  Preview level up animation
+                </Text>
+              </TouchableOpacity>
+            ) : null}
 
             <View className="flex-row gap-3">
               <StatTile
                 icon="flame"
                 label="Streak"
                 value={`${profile.current_streak}`}
+                isActive={activeView === "streak"}
+                onPress={() => setActiveView("streak")}
               />
 
               <StatTile
-                icon="barbell"
-                label="Total reps"
-                value={totalReps.toLocaleString()}
+                icon="footsteps"
+                label="Activities"
+                value={totalActivities.toLocaleString()}
+                isActive={activeView === "activities"}
+                onPress={() => setActiveView("activities")}
               />
 
               <StatTile
                 icon="trophy"
                 label="Badges"
                 value={`${earned.length}`}
+                isActive={activeView === "badges"}
+                onPress={() => setActiveView("badges")}
               />
             </View>
 
-            <Text style={[type.label, { color: t.heading }]}>Achievements</Text>
+            {activeView === "streak" ? (
+              <ProfileStreakCalendar
+                activities={activities ?? []}
+                currentStreak={profile.current_streak ?? 0}
+              />
+            ) : null}
 
-            <View className="flex-row flex-wrap gap-3">
-              {(achievements ?? []).map((a) => (
-                <GlassSurface
-                  key={a.id}
-                  style={{
-                    padding: 14,
-                    width: "47%",
-                    gap: 6,
-                    opacity: a.earned ? 1 : 0.45,
-                  }}
-                >
-                  <Ionicons
-                    name={a.earned ? "trophy" : "lock-closed"}
-                    size={22}
-                    color={a.earned ? "#f59e0b" : t.body}
-                  />
+            {activeView === "activities" ? (
+              <ProfileActivitiesFeed activities={activities ?? []} />
+            ) : null}
 
-                  <Text
-                    style={[
-                      {
-                        fontFamily: fontFamily.bodySemi,
-                        fontSize: 14,
-                        color: t.heading,
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {a.is_secret && !a.earned ? "???" : a.title}
-                  </Text>
-
-                  <Text
-                    style={[type.bodySm, { color: t.body }]}
-                    numberOfLines={2}
-                  >
-                    {a.is_secret && !a.earned
-                      ? "Hidden achievement"
-                      : a.description}
-                  </Text>
-                </GlassSurface>
-              ))}
-            </View>
-
-            <Text style={[type.label, { color: t.heading }]} className="mt-2">
-              Recent activity
-            </Text>
-
-            {activities && activities.length > 0 ? (
-              <GlassSurface style={{ padding: 8 }}>
-                {activities.slice(0, 12).map((a) => (
-                  <View
-                    key={a.id}
-                    className="flex-row items-center justify-between px-2 py-2.5"
-                  >
-                    <View className="flex-1">
-                      <Text
-                        style={[
-                          {
-                            fontFamily: fontFamily.bodySemi,
-                            fontSize: 15,
-                            color: t.heading,
-                          },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {a.exercise_name}
-                      </Text>
-
-                      <Text style={[type.dataSm, { color: t.body }]}>
-                        {timeAgo(a.created_at)}
-                      </Text>
-                    </View>
-
-                    <Text style={[type.data, { color: t.accent }]}>
-                      {formatAmount(a.amount, a.unit)}
-                    </Text>
-                  </View>
-                ))}
-              </GlassSurface>
-            ) : (
-              <Text style={[type.bodySm, { color: t.body }]}>
-                No workouts logged yet. Tap the + on the Today tab to start.
-              </Text>
-            )}
+            {activeView === "badges" ? (
+              <ProfileBadgesGrid achievements={achievements ?? []} />
+            ) : null}
           </>
         )}
       </ScrollView>
+
+      {showLevelUpPreview ? (
+        <LevelUpOverlay
+          key={levelUpPreviewKey}
+          visible
+          fromLevel={progress.level}
+          toLevel={progress.level + 1}
+          onDismiss={() => setShowLevelUpPreview(false)}
+        />
+      ) : null}
     </ScreenBackground>
   );
 }
@@ -256,22 +235,100 @@ function StatTile({
   icon,
   label,
   value,
+  isActive,
+  onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
+  isActive: boolean;
+  onPress: () => void;
 }) {
   const t = useThemeTokens();
 
   return (
-    <GlassSurface
-      style={{ padding: 14, flex: 1, gap: 4, alignItems: "center" }}
+    <TouchableOpacity
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
+      accessibilityLabel={`${label}, ${value}`}
+      style={{ flex: 1 }}
     >
-      <Ionicons name={icon} size={22} color={t.accent} />
+      <GlassSurface
+        style={{
+          padding: 14,
+          flex: 1,
+          gap: 4,
+          alignItems: "center",
+          borderWidth: isActive ? 2 : 1,
+          borderColor: isActive ? t.accent : undefined,
+        }}
+      >
+        <Ionicons name={icon} size={22} color={t.accent} />
 
-      <Text style={[type.data, { color: t.heading }]}>{value}</Text>
+        <Text style={[type.data, { color: t.heading }]}>{value}</Text>
 
-      <Text style={[type.dataSm, { color: t.body }]}>{label}</Text>
-    </GlassSurface>
+        <Text style={[type.dataSm, { color: isActive ? t.heading : t.body }]}>
+          {label}
+        </Text>
+      </GlassSurface>
+    </TouchableOpacity>
+  );
+}
+
+function ProfileBadgesGrid({
+  achievements,
+}: {
+  achievements: AchievementWithProgress[];
+}) {
+  const t = useThemeTokens();
+  const list = achievements ?? [];
+
+  return (
+    <View style={{ gap: 12 }}>
+      <Text style={[type.label, { color: t.heading }]}>Achievements</Text>
+
+      <View className="flex-row flex-wrap gap-3">
+        {list.map((a) => (
+          <GlassSurface
+            key={a.id}
+            style={{
+              padding: 14,
+              width: "47%",
+              gap: 6,
+              opacity: a.earned ? 1 : 0.45,
+            }}
+          >
+            <Ionicons
+              name={a.earned ? "trophy" : "lock-closed"}
+              size={22}
+              color={a.earned ? "#f59e0b" : t.body}
+            />
+
+            <Text
+              style={[
+                {
+                  fontFamily: fontFamily.bodySemi,
+                  fontSize: 14,
+                  color: t.heading,
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {a.is_secret && !a.earned ? "???" : a.title}
+            </Text>
+
+            <Text
+              style={[type.bodySm, { color: t.body }]}
+              numberOfLines={2}
+            >
+              {a.is_secret && !a.earned
+                ? "Hidden achievement"
+                : a.description}
+            </Text>
+          </GlassSurface>
+        ))}
+      </View>
+    </View>
   );
 }

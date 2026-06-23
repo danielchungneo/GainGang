@@ -5,7 +5,8 @@ import { Text, TouchableOpacity, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/avatar';
 import { GlassSurface } from '@/components/ui/glass-surface';
-import { RankBadge } from '@/components/ui/rank-badge';
+import { LevelBadge } from '@/components/ui/rank-badge';
+import { levelFromXp } from '@/types';
 import { useToggleKudos } from '@/hooks/use-social';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { formatAmount, timeAgo } from '@/lib/format';
@@ -31,7 +32,9 @@ export function ActivityCard({ activity, gangId }: ActivityCardProps) {
             <Text style={{ color: t.heading }} className="font-bold" numberOfLines={1}>
               {name}
             </Text>
-            {activity.author?.rank ? <RankBadge rank={activity.author.rank} size={18} /> : null}
+            {activity.author?.xp != null ? (
+              <LevelBadge level={levelFromXp(activity.author.xp)} size={18} />
+            ) : null}
           </View>
           <Text style={{ color: t.body }} className="text-xs">
             {timeAgo(activity.created_at)}

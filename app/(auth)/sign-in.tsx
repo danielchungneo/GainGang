@@ -1,4 +1,6 @@
+import { GainGangLogo } from '@/brand';
 import { GlassSurface } from '@/components/ui/glass-surface';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { DarkGlass, Glass } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
@@ -118,11 +120,11 @@ export default function SignInScreen() {
 
   const form = (
     <>
-      <Text
-        style={{ color: isLight ? '#0284c7' : DarkGlass.neonCyan }}
-        className="text-sm font-bold uppercase tracking-widest mb-2">
-        GainGang
-      </Text>
+      <GainGangLogo
+        size="sm"
+        theme={isLight ? 'light' : 'dark'}
+        style={{ marginBottom: 24 }}
+      />
       <Text
         style={{ color: isLight ? Glass.textPrimary : DarkGlass.textPrimary }}
         className="text-3xl font-bold mb-8">
@@ -248,9 +250,11 @@ export default function SignInScreen() {
 
   return (
     <ScreenBackground>
-      <View className="flex-1 justify-center px-5">
+      <KeyboardAwareScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20 }}
+      >
         <GlassSurface style={{ padding: 24 }}>{form}</GlassSurface>
-      </View>
+      </KeyboardAwareScrollView>
     </ScreenBackground>
   );
 }

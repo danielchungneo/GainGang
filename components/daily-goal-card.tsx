@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 
 import { DailyGoalCard as DailyGoalCardView } from '@/components/ui/daily-goal-card';
-import { formatAmount, dayGoalLabel, timeLeftUntilDateEnd } from '@/lib/format';
+import { dayGoalLabel, timeLeftUntilDateEnd } from '@/lib/format';
 import { CATEGORY_LABELS, type DailyGoalWithProgress } from '@/types';
 
 interface DailyGoalCardProps {

@@ -1,15 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
 
-import { Tabs } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 
 import { HapticTab } from "@/components/haptic-tab";
+
+import { useAuth } from "@/context/auth-context";
 
 import { useTheme } from "@/lib/gaingang-theme";
 
 export default function TabLayout() {
   const { theme } = useTheme();
+  const { session, isPending } = useAuth();
 
   const c = theme.colors;
+
+  if (isPending) return null;
+
+  if (!session) return <Redirect href="/(auth)/sign-in" />;
 
   return (
     <Tabs

@@ -96,6 +96,16 @@ export function useWeeklyPlan(planId?: string) {
   });
 }
 
+/** Today's daily goal for a single gang (if one exists). */
+export function useGangTodaysDailyGoal(gangId: string) {
+  const { data: plan, isLoading, refetch, isRefetching, error } = useActiveWeeklyPlan(gangId);
+  const today = todayISO();
+  const goal =
+    plan?.daily_goals.find((g) => g.goal_date === today && g.exercises.length > 0) ?? null;
+
+  return { data: goal, isLoading, refetch, isRefetching, error };
+}
+
 /** Today's daily goals across all gangs the user belongs to. */
 export function useMyTodaysDailyGoals() {
   const { session } = useAuth();

@@ -31,6 +31,8 @@ export interface DailyGoalCardProps {
   rewards?: string[];
   ctaLabel?: string;
   onPressCta?: () => void;
+  /** When false, only gang progress bars are shown. Defaults to true. */
+  showIndividual?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -44,6 +46,7 @@ export function DailyGoalCard({
   rewards = [],
   ctaLabel = 'LOG ACTIVITY',
   onPressCta,
+  showIndividual = true,
   style,
 }: DailyGoalCardProps) {
   const { theme } = useTheme();
@@ -126,27 +129,29 @@ export function DailyGoalCard({
               />
             </View>
 
-            <View style={{ marginBottom: spacing.md }}>
-              <View style={styles.metaRow}>
-                <Text style={[styles.metaLabel, { color: c.textMuted }]}>
-                  YOU
-                </Text>
-                <Text style={[styles.metaVal, { color: c.secondaryGlow }]}>
-                  {formatAmount(ex.individual.current, ex.unit)} /{' '}
-                  {formatAmount(ex.individual.target, ex.unit)}
-                  {ex.individual.current >= ex.individual.target ? ' ✓' : ''}
-                </Text>
+            {showIndividual ? (
+              <View style={{ marginBottom: spacing.md }}>
+                <View style={styles.metaRow}>
+                  <Text style={[styles.metaLabel, { color: c.textMuted }]}>
+                    YOU
+                  </Text>
+                  <Text style={[styles.metaVal, { color: c.secondaryGlow }]}>
+                    {formatAmount(ex.individual.current, ex.unit)} /{' '}
+                    {formatAmount(ex.individual.target, ex.unit)}
+                    {ex.individual.current >= ex.individual.target ? ' ✓' : ''}
+                  </Text>
+                </View>
+                <ProgressBar
+                  value={
+                    ex.individual.target > 0
+                      ? ex.individual.current / ex.individual.target
+                      : 0
+                  }
+                  colors={[brand.violet, brand.violetGlow]}
+                  glowColor={brand.violet}
+                />
               </View>
-              <ProgressBar
-                value={
-                  ex.individual.target > 0
-                    ? ex.individual.current / ex.individual.target
-                    : 0
-                }
-                colors={[brand.violet, brand.violetGlow]}
-                glowColor={brand.violet}
-              />
-            </View>
+            ) : null}
           </View>
         ))}
 

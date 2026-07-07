@@ -1,9 +1,11 @@
 import { GainGangLogo } from '@/brand';
+import { AuthDivider, GoogleSignInButton, useGoogleAuth } from '@/components/google-sign-in-button';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { DarkGlass, Glass } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { isAppSession } from '@/lib/auth-session';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Link, router } from 'expo-router';
@@ -49,6 +51,10 @@ export default function SignInScreen() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
+  const { handleGoogleSignIn, isGoogleLoading } = useGoogleAuth({
+    onError: (message) => setError('root', { message }),
+  });
+
   useEffect(() => {
     async function checkBiometrics() {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -73,8 +79,18 @@ export default function SignInScreen() {
   }, [setValue]);
 
   async function signInWithCredentials(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message ?? 'Sign-in failed');
+
+    if (!isAppSession(data.session)) {
+      await supabase.auth.signOut();
+      router.replace({
+        pathname: '/(auth)/verify-email',
+        params: { email },
+      });
+      return;
+    }
+
     router.replace('/(tabs)');
   }
 
@@ -130,6 +146,14 @@ export default function SignInScreen() {
         className="text-3xl font-bold mb-8">
         Welcome back
       </Text>
+
+      <GoogleSignInButton
+        onPress={handleGoogleSignIn}
+        loading={isGoogleLoading}
+        disabled={isSubmitting}
+      />
+
+      <AuthDivider />
 
       <Controller
         control={control}
@@ -206,7 +230,7 @@ export default function SignInScreen() {
       <TouchableOpacity
         style={isLight ? styles.primaryButtonLight : styles.primaryButtonDark}
         onPress={handleSubmit(onSubmit)}
-        disabled={isSubmitting}>
+        disabled={isSubmitting || isGoogleLoading}>
         {isSubmitting ? (
           <ActivityIndicator color={isLight ? '#fff' : DarkGlass.primaryText} />
         ) : (

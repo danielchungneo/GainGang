@@ -19,7 +19,7 @@ import { ScreenBackground } from '@/components/ui/screen-background';
 import { useGangFeed } from '@/hooks/use-activities';
 import { useMyGangs } from '@/hooks/use-gangs';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
-import { useGangTodaysDailyGoal } from '@/hooks/use-weekly-plans';
+import { useActiveWeeklyPlan, useGangTodaysDailyGoal } from '@/hooks/use-weekly-plans';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
 
 export default function GroupsScreen() {
@@ -31,6 +31,9 @@ export default function GroupsScreen() {
     useMyGangs();
 
   const gangId = selectedGangId ?? gangs?.[0]?.id ?? '';
+  const selectedGang = gangs?.find((g) => g.id === gangId);
+  const isGangAdmin =
+    selectedGang?.role === 'owner' || selectedGang?.role === 'admin';
 
   const {
     data: dailyGoal,
@@ -38,6 +41,12 @@ export default function GroupsScreen() {
     refetch: refetchGoal,
     isRefetching: goalRefetching,
   } = useGangTodaysDailyGoal(gangId);
+
+  const {
+    data: weeklyPlan,
+    refetch: refetchPlan,
+    isRefetching: planRefetching,
+  } = useActiveWeeklyPlan(gangId);
 
   const {
     data: feed,
@@ -60,11 +69,13 @@ export default function GroupsScreen() {
     refetchGangs();
     if (gangId) {
       refetchGoal();
+      refetchPlan();
       refetchFeed();
     }
-  }, [refetchGangs, refetchGoal, refetchFeed, gangId]);
+  }, [refetchGangs, refetchGoal, refetchPlan, refetchFeed, gangId]);
 
-  const isRefetching = gangsRefetching || goalRefetching || feedRefetching;
+  const isRefetching =
+    gangsRefetching || goalRefetching || planRefetching || feedRefetching;
   const hasGangs = !!gangs && gangs.length > 0;
 
   return (
@@ -103,6 +114,64 @@ export default function GroupsScreen() {
               <ActivityIndicator color={t.accent} style={{ marginTop: 12 }} />
             ) : dailyGoal ? (
               <GangGoalProgress goal={dailyGoal} />
+            ) : isGangAdmin ? (
+              <GlassSurface style={{ padding: 18, gap: 10 }}>
+                <Text
+                  style={{
+                    fontFamily: fontFamily.bodySemi,
+                    fontSize: 16,
+                    color: t.heading,
+                  }}
+                >
+                  No gang goal today
+                </Text>
+                <Text style={[type.bodySm, { color: t.body }]}>
+                  {weeklyPlan
+                    ? 'Today is a rest day, or this day has no exercises in your weekly plan.'
+                    : 'Publish a weekly plan so your crew knows what to hit each day.'}
+                </Text>
+                {weeklyPlan ? (
+                  <TouchableOpacity
+                    onPress={() =>
+                      router.push({
+                        pathname: '/gang/new-goal',
+                        params: { gangId, planId: weeklyPlan.id },
+                      })
+                    }
+                    className="flex-row items-center justify-center gap-2 rounded-xl py-3"
+                    style={{
+                      backgroundColor: t.buttonBg,
+                      borderWidth: 1,
+                      borderColor: t.buttonBorder,
+                    }}
+                  >
+                    <Ionicons name="create-outline" size={18} color={t.accent} />
+                    <Text style={{ color: t.accent }} className="font-semibold">
+                      Edit weekly plan
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push({ pathname: '/gang/new-goal', params: { gangId } })
+                  }
+                  className="flex-row items-center justify-center gap-2 rounded-xl py-3"
+                  style={{
+                    backgroundColor: t.buttonBg,
+                    borderWidth: 1,
+                    borderColor: t.buttonBorder,
+                  }}
+                >
+                  <Ionicons
+                    name={weeklyPlan ? 'refresh-outline' : 'add-circle-outline'}
+                    size={18}
+                    color={t.accent}
+                  />
+                  <Text style={{ color: t.accent }} className="font-semibold">
+                    {weeklyPlan ? 'Replace with new plan' : 'Create weekly plan'}
+                  </Text>
+                </TouchableOpacity>
+              </GlassSurface>
             ) : (
               <GlassSurface style={{ padding: 18, gap: 6 }}>
                 <Text

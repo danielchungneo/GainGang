@@ -3,7 +3,12 @@ import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-n
 import { CircularProgress } from '@/components/ui/circular-progress';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { GradientView } from '@/components/ui/gradient-view';
-import { dayGoalLabel, formatAmount, timeLeftUntilDateEnd } from '@/lib/format';
+import {
+  formatAmount,
+  formatGoalActivityList,
+  formatGoalDate,
+  timeLeftUntilDateEnd,
+} from '@/lib/format';
 import {
   fontFamily,
   radius,
@@ -11,7 +16,7 @@ import {
   status,
   useTheme,
 } from '@/lib/gaingang-theme';
-import { CATEGORY_LABELS, type DailyGoalWithProgress } from '@/types';
+import type { DailyGoalWithProgress } from '@/types';
 
 interface GangGoalProgressProps {
   goal: DailyGoalWithProgress;
@@ -28,8 +33,6 @@ export function GangGoalProgress({ goal }: GangGoalProgressProps) {
   const { width: screenWidth } = useWindowDimensions();
   const timeLeft = timeLeftUntilDateEnd(goal.goal_date);
   const isEnded = timeLeft === 'Ended';
-  const title = goal.title || `${CATEGORY_LABELS[goal.day_category ?? 'core']} day`;
-
   const cardGap = spacing.sm + 4;
   const cardWidth = Math.min(148, screenWidth * 0.38);
 
@@ -45,7 +48,7 @@ export function GangGoalProgress({ goal }: GangGoalProgressProps) {
         style={[styles.headerBand, { borderBottomColor: c.border }]}
       >
         <Text style={[styles.kind, { color: c.primaryGlow }]}>
-          ⚔ {dayGoalLabel(goal.goal_date).toUpperCase()}
+          ⚔ DAILY GOAL
         </Text>
         <View style={styles.statusRow}>
           <View
@@ -67,10 +70,10 @@ export function GangGoalProgress({ goal }: GangGoalProgressProps) {
 
       <View style={styles.headerBody}>
         <Text style={[styles.title, { color: c.text }]} numberOfLines={2}>
-          {title}
+          {formatGoalDate(goal.goal_date)}
         </Text>
-        <Text style={[styles.subtitle, { color: c.textDim }]}>
-          Gang target · {goal.member_count} members
+        <Text style={[styles.subtitle, { color: c.textDim }]} numberOfLines={2}>
+          {formatGoalActivityList(goal.exercises)}
         </Text>
       </View>
 

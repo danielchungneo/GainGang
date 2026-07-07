@@ -1,5 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
-
 import { router } from "expo-router";
 
 import {
@@ -32,12 +30,7 @@ import { useThemeTokens } from "@/hooks/use-theme-tokens";
 
 import { fontFamily, spacing, type, useTheme } from "@/lib/gaingang-theme";
 
-import {
-  CATEGORY_LABELS,
-  levelFromXp,
-  todaysCategory,
-  WEEKLY_SCHEDULE
-} from "@/types";
+import { levelFromXp } from "@/types";
 
 export default function TodayScreen() {
   const t = useThemeTokens();
@@ -59,11 +52,9 @@ export default function TodayScreen() {
       " ",
     )[0];
 
-  const category = todaysCategory();
-
-  const daySchedule = WEEKLY_SCHEDULE.find((d) => d.category === category);
-
   const dailyGoalsList = dailyGoals ?? [];
+  const adminGangs =
+    gangs?.filter((g) => g.role === 'owner' || g.role === 'admin') ?? [];
 
   return (
     <ScreenBackground>
@@ -119,29 +110,6 @@ export default function TodayScreen() {
           </GlassSurface>
         )} */}
 
-        <GlassSurface style={{ padding: 18, gap: 6 }}>
-          <Text style={[type.labelSm, { color: t.body }]}>
-            Today&apos;s focus
-          </Text>
-
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="barbell" size={20} color={t.accent} />
-
-            <Text
-              style={[
-                type.goalTitle,
-                { color: t.heading, fontSize: 22, lineHeight: 26 },
-              ]}
-            >
-              {CATEGORY_LABELS[category]} day
-            </Text>
-          </View>
-
-          <Text style={[type.bodySm, { color: t.body }]}>
-            {daySchedule?.focus}
-          </Text>
-        </GlassSurface>
-
         {isLoading ? (
           <ActivityIndicator color={t.accent} style={{ marginTop: 20 }} />
         ) : !gangs || gangs.length === 0 ? (
@@ -166,7 +134,7 @@ export default function TodayScreen() {
             />
           </GlassSurface>
         ) : dailyGoalsList.length === 0 ? (
-          <GlassSurface style={{ padding: 20, gap: 6 }}>
+          <GlassSurface style={{ padding: 20, gap: adminGangs.length > 0 ? 12 : 6 }}>
             <Text
               style={[
                 {
@@ -180,9 +148,22 @@ export default function TodayScreen() {
             </Text>
 
             <Text style={[type.bodySm, { color: t.body }]}>
-              Your Gang leader hasn&apos;t published a weekly plan yet, or
-              today is a rest day.
+              {adminGangs.length > 0
+                ? 'Today is a rest day in your plan, or this day has no exercises yet.'
+                : 'Your Gang leader hasn\u2019t published a weekly plan yet, or today is a rest day.'}
             </Text>
+
+            {adminGangs.length > 0 ? (
+              <Button
+                label="MANAGE WEEKLY PLAN"
+                onPress={() =>
+                  router.push({
+                    pathname: '/gang/[id]',
+                    params: { id: adminGangs[0].id },
+                  })
+                }
+              />
+            ) : null}
           </GlassSurface>
         ) : (
           <View className="gap-3">

@@ -1,5 +1,6 @@
 import { GainGangLogo } from '@/brand';
-import { AuthDivider, GoogleSignInButton, useGoogleAuth } from '@/components/google-sign-in-button';
+// TODO(google-auth): Re-enable when Google sign-in is configured — see docs/GOOGLE_AUTH_TODO.md
+// import { AuthDivider, GoogleSignInButton, useGoogleAuth } from '@/components/google-sign-in-button';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenBackground } from '@/components/ui/screen-background';
@@ -51,9 +52,9 @@ export default function SignInScreen() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
-  const { handleGoogleSignIn, isGoogleLoading } = useGoogleAuth({
-    onError: (message) => setError('root', { message }),
-  });
+  // const { handleGoogleSignIn, isGoogleLoading } = useGoogleAuth({
+  //   onError: (message) => setError('root', { message }),
+  // });
 
   useEffect(() => {
     async function checkBiometrics() {
@@ -147,13 +148,14 @@ export default function SignInScreen() {
         Welcome back
       </Text>
 
+      {/* TODO(google-auth): Re-enable — see docs/GOOGLE_AUTH_TODO.md
       <GoogleSignInButton
         onPress={handleGoogleSignIn}
         loading={isGoogleLoading}
         disabled={isSubmitting}
       />
-
       <AuthDivider />
+      */}
 
       <Controller
         control={control}
@@ -230,7 +232,7 @@ export default function SignInScreen() {
       <TouchableOpacity
         style={isLight ? styles.primaryButtonLight : styles.primaryButtonDark}
         onPress={handleSubmit(onSubmit)}
-        disabled={isSubmitting || isGoogleLoading}>
+        disabled={isSubmitting}>
         {isSubmitting ? (
           <ActivityIndicator color={isLight ? '#fff' : DarkGlass.primaryText} />
         ) : (

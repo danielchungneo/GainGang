@@ -22,7 +22,7 @@ import {
 } from '@/hooks/use-weekly-plans';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { formatAmountInputValue, parseActivityAmount, sanitizeAmountInput } from '@/lib/activity-amount';
-import { formatAmount } from '@/lib/format';
+import { formatAmount, formatGoalDate, goalDateForWeekDay } from '@/lib/format';
 import {
   CATEGORY_LABELS,
   WEEK_DAYS,
@@ -33,16 +33,6 @@ import {
   type WeeklyPlanWithGoals,
 } from '@/types';
 
-const DAY_TITLE_SUGGESTIONS: Record<number, string[]> = {
-  1: ['Chest Crusher', 'Push Day', 'The Iron Oath'],
-  2: ['Leg Day', 'Lower Body Grind', 'Squat Protocol'],
-  3: ['Cardio Rush', 'Distance Trial', 'Endurance Run'],
-  4: ['Back Attack', 'Pull Day', 'Row Reckoning'],
-  5: ['Core Command', 'Trunk Trial', 'Abs Ascension'],
-  6: ['Active Recovery', 'Weekend Grind'],
-  7: ['Rest & Recharge', 'Sunday Stretch'],
-};
-
 interface DayExerciseDraft {
   exerciseId: string;
   name: string;
@@ -51,7 +41,6 @@ interface DayExerciseDraft {
 }
 
 interface DayDraft {
-  title: string;
   category: ExerciseCategory;
   exercises: DayExerciseDraft[];
 }
@@ -60,7 +49,6 @@ function buildInitialDays(): Record<number, DayDraft> {
   const days: Record<number, DayDraft> = {};
   for (const wd of WEEK_DAYS) {
     days[wd.dayOfWeek] = {
-      title: `${CATEGORY_LABELS[wd.defaultCategory]} day`,
       category: wd.defaultCategory,
       exercises: [],
     };
@@ -72,7 +60,6 @@ function buildDaysFromPlan(plan: WeeklyPlanWithGoals): Record<number, DayDraft> 
   const days = buildInitialDays();
   for (const goal of plan.daily_goals) {
     days[goal.day_of_week] = {
-      title: goal.title || days[goal.day_of_week].title,
       category: goal.day_category ?? days[goal.day_of_week].category,
       exercises: goal.exercises.map((e) => ({
         exerciseId: e.exercise_id,
@@ -117,13 +104,6 @@ export default function NewGoalScreen() {
     const used = new Set(currentDay.exercises.map((e) => e.exerciseId));
     return (exercises ?? []).filter((e) => !used.has(e.id));
   }, [exercises, currentDay.exercises]);
-
-  function patchDay(dayOfWeek: number, patch: Partial<DayDraft>) {
-    setDays((prev) => ({
-      ...prev,
-      [dayOfWeek]: { ...prev[dayOfWeek], ...patch },
-    }));
-  }
 
   function addExercise(exerciseId: string) {
     const ex = exercises?.find((e) => e.id === exerciseId);
@@ -288,6 +268,13 @@ export default function NewGoalScreen() {
 
         <GlassSurface style={{ padding: 20, gap: 16 }}>
           <View>
+            <Label>Date</Label>
+            <Text style={{ color: t.heading }} className="text-lg font-semibold">
+              {formatGoalDate(goalDateForWeekDay(weekStarts, selectedDay))}
+            </Text>
+          </View>
+
+          <View>
             <Label>Category</Label>
             <View className="flex-row flex-wrap gap-2">
               {WEEKLY_SCHEDULE.map((d) => (
@@ -302,31 +289,7 @@ export default function NewGoalScreen() {
           </View>
 
           <View>
-            <Label>Daily goal title</Label>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: t.inputBg, borderColor: t.inputBorder, color: t.heading },
-              ]}
-              value={currentDay.title}
-              onChangeText={(title) => patchDay(selectedDay, { title })}
-              placeholder="Chest day"
-              placeholderTextColor={t.placeholder}
-            />
-            <View className="mt-2 flex-row flex-wrap gap-2">
-              {(DAY_TITLE_SUGGESTIONS[selectedDay] ?? []).map((n) => (
-                <Chip
-                  key={n}
-                  label={n}
-                  active={currentDay.title === n}
-                  onPress={() => patchDay(selectedDay, { title: n })}
-                />
-              ))}
-            </View>
-          </View>
-
-          <View>
-            <Label>Exercises (optional — leave empty for rest day)</Label>
+            <Label>Activities (optional — leave empty for rest day)</Label>
             {currentDay.exercises.map((ex) => {
               const parsedTarget = parseActivityAmount(ex.individualTarget, ex.unit);
               const gangTarget =

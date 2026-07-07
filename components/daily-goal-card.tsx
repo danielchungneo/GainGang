@@ -1,21 +1,12 @@
 import { router } from 'expo-router';
 
 import { DailyGoalCard as DailyGoalCardView } from '@/components/ui/daily-goal-card';
-import { dayGoalLabel, timeLeftUntilDateEnd } from '@/lib/format';
-import { CATEGORY_LABELS, type DailyGoalWithProgress } from '@/types';
+import { formatGoalDate, timeLeftUntilDateEnd } from '@/lib/format';
+import type { DailyGoalWithProgress } from '@/types';
 
 interface DailyGoalCardProps {
   goal: DailyGoalWithProgress;
   loggable?: boolean;
-}
-
-function goalDescription(goal: DailyGoalWithProgress): string {
-  const parts: string[] = [];
-  if (goal.gang_name) parts.push(goal.gang_name);
-  if (goal.day_category) parts.push(CATEGORY_LABELS[goal.day_category]);
-  const exerciseCount = goal.exercises.length;
-  parts.push(`${exerciseCount} exercise${exerciseCount === 1 ? '' : 's'}`);
-  return parts.join(' · ');
 }
 
 /** Daily goal card wired to weekly plan data from the API. */
@@ -37,9 +28,8 @@ export function DailyGoalCard({ goal, loggable = true }: DailyGoalCardProps) {
 
   return (
     <DailyGoalCardView
-      kind={dayGoalLabel(goal.goal_date)}
-      title={goal.title || CATEGORY_LABELS[goal.day_category ?? 'core'] + ' day'}
-      description={goalDescription(goal)}
+      kind={goal.gang_name?.toUpperCase() ?? 'DAILY GOAL'}
+      title={formatGoalDate(goal.goal_date)}
       timeLeft={timeLeftUntilDateEnd(goal.goal_date)}
       exercises={goal.exercises.map((e) => ({
         name: e.exercise_name,

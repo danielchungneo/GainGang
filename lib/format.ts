@@ -141,6 +141,32 @@ export function dayGoalLabel(isoDate: string): string {
   return `${day} Goal`;
 }
 
+/** Display title for a daily goal — the calendar date. */
+export function formatGoalDate(isoDate: string): string {
+  return new Date(`${isoDate}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+/** ISO date for a day within a weekly plan (dayOfWeek: 1 = Mon … 7 = Sun). */
+export function goalDateForWeekDay(weekStartsOn: string, dayOfWeek: number): string {
+  const d = new Date(`${weekStartsOn}T12:00:00`);
+  d.setDate(d.getDate() + (dayOfWeek - 1));
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Comma-separated exercise names for a daily goal summary line. */
+export function formatGoalActivityList(
+  exercises: readonly { exercise_name: string }[],
+): string {
+  return exercises.map((e) => e.exercise_name).join(' · ');
+}
+
 /** Countdown until a calendar date ends, e.g. "14h left" or "Ended". */
 export function timeLeftUntilDateEnd(isoDate: string): string {
   return timeLeftStatus(isoDate, isoDate).label;

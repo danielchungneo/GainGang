@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import React, { useEffect, useId, type ReactNode } from 'react';
 import {
   View,
@@ -116,6 +117,45 @@ const T = {
   ring3: 2340,
   ringDur: 1100,
 };
+
+const H = {
+  card: T.cardDelay,
+  flash: T.flashDelay,
+  stamp: T.stampDelay + 160,
+  ring1: T.ring1,
+  ring2: T.ring2,
+  ring3: T.ring3,
+} as const;
+
+function scheduleLevelUpHaptics(): () => void {
+  if (Platform.OS === 'web') return () => {};
+
+  const timeouts: ReturnType<typeof setTimeout>[] = [];
+
+  function at(ms: number, fn: () => void) {
+    timeouts.push(setTimeout(fn, ms));
+  }
+
+  at(H.card, () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  });
+
+  at(H.flash, () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  });
+
+  at(H.stamp, () => {
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  });
+
+  for (const ms of [H.ring1, H.ring2, H.ring3]) {
+    at(ms, () => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    });
+  }
+
+  return () => timeouts.forEach(clearTimeout);
+}
 
 interface SvgGradientFillProps {
   colors: readonly [string, string];
@@ -257,12 +297,18 @@ export function LevelUpOverlay({
   }
 
   useEffect(() => {
-    if (visible) {
-      reset();
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => play());
-      });
-    }
+    if (!visible) return;
+
+    reset();
+    const cancelHaptics = scheduleLevelUpHaptics();
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => play());
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelHaptics();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 

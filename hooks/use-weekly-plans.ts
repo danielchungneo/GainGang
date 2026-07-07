@@ -251,7 +251,6 @@ export function buildDaysPayload(
   days: Record<
     number,
     {
-      title: string;
       category: ExerciseCategory;
       exercises: {
         exerciseId: string;
@@ -275,7 +274,7 @@ export function buildDaysPayload(
 
     return {
       dayOfWeek: wd.dayOfWeek,
-      title: day.title.trim(),
+      title: '',
       dayCategory: day.category,
       exercises: validExercises,
     };

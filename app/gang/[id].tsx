@@ -216,11 +216,15 @@ function GoalsTab({ gangId, isAdmin }: { gangId: string; isAdmin: boolean }) {
         </ScrollView>
       ) : (
         <EmptyCard
-          title="No active weekly plan"
+          title={plan ? 'No workout days this week' : 'No active weekly plan'}
           body={
             isAdmin
-              ? 'Create a weekly plan with daily goals for your Gang.'
-              : 'Your Gang leader hasn’t published a weekly plan yet.'
+              ? plan
+                ? 'Your weekly plan has no exercises yet. Use Edit weekly plan above to add workout days.'
+                : 'Create a weekly plan with daily goals for your Gang.'
+              : plan
+                ? 'No workout days are scheduled this week.'
+                : 'Your Gang leader hasn’t published a weekly plan yet.'
           }
         />
       )}

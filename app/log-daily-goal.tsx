@@ -27,8 +27,8 @@ import {
   sanitizeAmountInput,
   validateAmountInput,
 } from '@/lib/activity-amount';
-import { formatAmount } from '@/lib/format';
-import { CATEGORY_LABELS, getLevelUpInfo, type DailyGoalExerciseWithProgress, type ExerciseUnit } from '@/types';
+import { formatAmount, formatGoalActivityList, formatGoalDate } from '@/lib/format';
+import { getLevelUpInfo, type DailyGoalExerciseWithProgress, type ExerciseUnit } from '@/types';
 import type { Activity } from '@/types';
 
 interface ExerciseFormState {
@@ -237,7 +237,7 @@ export default function LogDailyGoalScreen() {
 
         if (levelUpInfo) setPendingLevelUp(levelUpInfo);
         setCelebration({
-          title: dailyGoal.title || CATEGORY_LABELS[dailyGoal.day_category ?? 'core'] + ' day',
+          title: formatGoalDate(dailyGoal.goal_date),
           xpEarned: totalXp,
           exercises,
         });
@@ -277,9 +277,6 @@ export default function LogDailyGoalScreen() {
     );
   }
 
-  const goalTitle =
-    dailyGoal.title || CATEGORY_LABELS[dailyGoal.day_category ?? 'core'] + ' day';
-
   return (
     <ScreenBackground>
       <KeyboardAwareScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
@@ -298,7 +295,10 @@ export default function LogDailyGoalScreen() {
               {dailyGoal.gang_name}
             </Text>
             <Text style={{ color: t.heading }} className="text-xl font-bold">
-              {goalTitle}
+              {formatGoalDate(dailyGoal.goal_date)}
+            </Text>
+            <Text style={{ color: t.body }} className="mt-1 text-sm">
+              {formatGoalActivityList(dailyGoal.exercises)}
             </Text>
           </View>
 

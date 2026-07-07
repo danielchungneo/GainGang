@@ -9,6 +9,8 @@
  *   5. "LEVEL UP" stamp springs in with bounce (covers full card)
  *   6. Aura rings burst outward (staggered ×3)
  *
+ * Haptics (expo-haptics) fire on card entrance, flash, stamp settle, and each ring.
+ *
  * Peer deps (should already be in a GainGang Expo project):
  *   npx expo install react-native-reanimated expo-linear-gradient
  *
@@ -20,6 +22,7 @@
  *     onDismiss={() => setJustLeveledUp(false)}
  *   />
  */
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect } from 'react';
 import {
@@ -72,6 +75,46 @@ const T = {
   ring3:        2340,
   ringDur:      1100,
 };
+
+// Haptic beats aligned to the visual timeline (ms from play start)
+const H = {
+  card:  T.cardDelay,
+  flash: T.flashDelay,
+  stamp: T.stampDelay + 160,
+  ring1: T.ring1,
+  ring2: T.ring2,
+  ring3: T.ring3,
+} as const;
+
+function scheduleLevelUpHaptics(): () => void {
+  if (Platform.OS === 'web') return () => {};
+
+  const timeouts: ReturnType<typeof setTimeout>[] = [];
+
+  function at(ms: number, fn: () => void) {
+    timeouts.push(setTimeout(fn, ms));
+  }
+
+  at(H.card, () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  });
+
+  at(H.flash, () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  });
+
+  at(H.stamp, () => {
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  });
+
+  for (const ms of [H.ring1, H.ring2, H.ring3]) {
+    at(ms, () => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    });
+  }
+
+  return () => timeouts.forEach(clearTimeout);
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -173,10 +216,16 @@ export function LevelUpOverlay({
   }
 
   useEffect(() => {
-    if (visible) {
-      reset();
-      requestAnimationFrame(() => play());
-    }
+    if (!visible) return;
+
+    reset();
+    const cancelHaptics = scheduleLevelUpHaptics();
+    const frame = requestAnimationFrame(() => play());
+
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelHaptics();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 

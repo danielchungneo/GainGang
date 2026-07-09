@@ -84,6 +84,11 @@ function RootNavigator() {
           options={{ presentation: "modal", headerShown: false }}
         />
 
+        <Stack.Screen
+          name="rep-counter"
+          options={{ presentation: "fullScreenModal", headerShown: false }}
+        />
+
         <Stack.Screen name="activity/[id]" options={{ headerShown: false }} />
 
         <Stack.Screen name="settings" options={{ headerShown: false }} />

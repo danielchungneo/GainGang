@@ -53,8 +53,6 @@ export default function TodayScreen() {
     )[0];
 
   const dailyGoalsList = dailyGoals ?? [];
-  const adminGangs =
-    gangs?.filter((g) => g.role === 'owner' || g.role === 'admin') ?? [];
 
   return (
     <ScreenBackground>
@@ -134,7 +132,7 @@ export default function TodayScreen() {
             />
           </GlassSurface>
         ) : dailyGoalsList.length === 0 ? (
-          <GlassSurface style={{ padding: 20, gap: adminGangs.length > 0 ? 12 : 6 }}>
+          <GlassSurface style={{ padding: 20, gap: 6 }}>
             <Text
               style={[
                 {
@@ -148,22 +146,8 @@ export default function TodayScreen() {
             </Text>
 
             <Text style={[type.bodySm, { color: t.body }]}>
-              {adminGangs.length > 0
-                ? 'Today is a rest day in your plan, or this day has no exercises yet.'
-                : 'Your Gang leader hasn\u2019t published a weekly plan yet, or today is a rest day.'}
+              Your Gang leader hasn&apos;t published a weekly plan yet, or today is a rest day.
             </Text>
-
-            {adminGangs.length > 0 ? (
-              <Button
-                label="MANAGE WEEKLY PLAN"
-                onPress={() =>
-                  router.push({
-                    pathname: '/gang/[id]',
-                    params: { id: adminGangs[0].id },
-                  })
-                }
-              />
-            ) : null}
           </GlassSurface>
         ) : (
           <View className="gap-3">
@@ -172,7 +156,7 @@ export default function TodayScreen() {
             </Text>
 
             {dailyGoalsList.map((g) => (
-              <DailyGoalCard key={g.id} goal={g} />
+              <DailyGoalCard key={g.id} goal={g} cameraActions />
             ))}
           </View>
         )}

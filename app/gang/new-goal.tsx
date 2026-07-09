@@ -286,11 +286,27 @@ export default function NewGoalScreen() {
                 />
               ))}
             </View>
+            {availableExercises.length > 0 ? (
+              <View className="mt-3 flex-row flex-wrap gap-2">
+                {availableExercises.map((ex) => (
+                  <Chip
+                    key={ex.id}
+                    label={`+ ${ex.name}`}
+                    active={false}
+                    onPress={() => addExercise(ex.id)}
+                  />
+                ))}
+              </View>
+            ) : currentDay.exercises.length === 0 ? (
+              <Text style={{ color: t.body }} className="mt-2 text-sm">
+                No exercises in this category yet.
+              </Text>
+            ) : null}
           </View>
 
           <View>
             <Label>Activities (optional — leave empty for rest day)</Label>
-            {currentDay.exercises.map((ex) => {
+            {[...currentDay.exercises].reverse().map((ex) => {
               const parsedTarget = parseActivityAmount(ex.individualTarget, ex.unit);
               const gangTarget =
                 parsedTarget !== null ? parsedTarget * memberCount : 0;
@@ -337,23 +353,6 @@ export default function NewGoalScreen() {
                 </View>
               );
             })}
-
-            {availableExercises.length > 0 ? (
-              <View className="mt-2 flex-row flex-wrap gap-2">
-                {availableExercises.map((ex) => (
-                  <Chip
-                    key={ex.id}
-                    label={`+ ${ex.name}`}
-                    active={false}
-                    onPress={() => addExercise(ex.id)}
-                  />
-                ))}
-              </View>
-            ) : currentDay.exercises.length === 0 ? (
-              <Text style={{ color: t.body }} className="text-sm">
-                No exercises in this category yet.
-              </Text>
-            ) : null}
           </View>
         </GlassSurface>
 

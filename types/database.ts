@@ -204,31 +204,23 @@ export type Database = {
           user_id: string;
           gang_id: string | null;
           quest_id: string | null;
-          daily_goal_exercise_id: string | null;
-          exercise_id: string | null;
-          exercise_name: string;
-          category: ExerciseCategory | null;
-          unit: ExerciseUnit;
-          amount: number;
-          sets: number | null;
+          daily_goal_id: string | null;
+          activity_date: string | null;
           notes: string | null;
           photo_url: string | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
           gang_id?: string | null;
           quest_id?: string | null;
-          daily_goal_exercise_id?: string | null;
-          exercise_id?: string | null;
-          exercise_name: string;
-          category?: ExerciseCategory | null;
-          unit?: ExerciseUnit;
-          amount?: number;
-          sets?: number | null;
+          daily_goal_id?: string | null;
+          activity_date?: string | null;
           notes?: string | null;
           photo_url?: string | null;
+          updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['activities']['Insert']>;
         Relationships: [
@@ -254,14 +246,60 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'activities_exercise_id_fkey';
+            foreignKeyName: 'activities_daily_goal_id_fkey';
+            columns: ['daily_goal_id'];
+            isOneToOne: false;
+            referencedRelation: 'daily_goals';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      activity_exercises: {
+        Row: {
+          id: string;
+          activity_id: string;
+          exercise_id: string | null;
+          exercise_name: string;
+          category: ExerciseCategory | null;
+          unit: ExerciseUnit;
+          amount: number;
+          sets: number | null;
+          notes: string | null;
+          daily_goal_exercise_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          activity_id: string;
+          exercise_id?: string | null;
+          exercise_name: string;
+          category?: ExerciseCategory | null;
+          unit?: ExerciseUnit;
+          amount?: number;
+          sets?: number | null;
+          notes?: string | null;
+          daily_goal_exercise_id?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['activity_exercises']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'activity_exercises_activity_id_fkey';
+            columns: ['activity_id'];
+            isOneToOne: false;
+            referencedRelation: 'activities';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'activity_exercises_exercise_id_fkey';
             columns: ['exercise_id'];
             isOneToOne: false;
             referencedRelation: 'exercises';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'activities_daily_goal_exercise_id_fkey';
+            foreignKeyName: 'activity_exercises_daily_goal_exercise_id_fkey';
             columns: ['daily_goal_exercise_id'];
             isOneToOne: false;
             referencedRelation: 'daily_goal_exercises';

@@ -3,8 +3,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/auth-context';
 import { rankForXp } from '@/types';
 import { queryKeys } from '@/lib/query-keys';
+import { todayISO } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
-import type { Activity, ActivityFeedItem, ExerciseCategory, ExerciseUnit } from '@/types';
+import type {
+  Activity,
+  ActivityExercise,
+  ActivityExerciseSnapshot,
+  ActivityFeedItem,
+  ActivityWithExercises,
+  ExerciseCategory,
+  ExerciseUnit,
+} from '@/types';
 
 /** Flat XP for logging a new activity. */
 export const XP_ACTIVITY_LOG = 10;
@@ -30,10 +39,13 @@ export interface ActivityXpRefs {
 
 export interface ActivitySaveResult {
   activity: Activity;
+  exercise: ActivityExercise;
   xpAwarded: number;
 }
 
 const PG_UNIQUE_VIOLATION = '23505';
+
+const ACTIVITY_SELECT = '*, exercises:activity_exercises(*)';
 
 /** Best-effort XP estimate for UI previews (does not check persisted awards). */
 export function estimateSessionXp(input: {
@@ -67,9 +79,9 @@ export function useGangFeed(gangId: string) {
     queryFn: async (): Promise<ActivityFeedItem[]> => {
       const { data, error } = await supabase
         .from('activities')
-        .select('*, author:profiles(id, full_name, username, avatar_url, xp)')
+        .select(`${ACTIVITY_SELECT}, author:profiles(id, full_name, username, avatar_url, xp)`)
         .eq('gang_id', gangId)
-        .order('created_at', { ascending: false })
+        .order('updated_at', { ascending: false })
         .limit(50);
       if (error) throw error;
       return hydrateFeed((data ?? []) as ActivityWithAuthor[], userId);
@@ -77,7 +89,7 @@ export function useGangFeed(gangId: string) {
   });
 }
 
-/** The signed-in user's activities for all exercises in a daily goal. */
+/** The signed-in user's exercise lines for a daily goal. */
 export function useDailyGoalActivities(dailyGoalId?: string) {
   const { session } = useAuth();
   const userId = session?.user.id;
@@ -85,31 +97,15 @@ export function useDailyGoalActivities(dailyGoalId?: string) {
   return useQuery({
     queryKey: queryKeys.dailyGoalActivities(dailyGoalId, userId),
     enabled: !!dailyGoalId && !!userId,
-    queryFn: async (): Promise<Activity[]> => {
-      const { data: exercises, error: eErr } = await supabase
-        .from('daily_goal_exercises')
-        .select('id')
-        .eq('daily_goal_id', dailyGoalId!);
-      if (eErr) throw eErr;
-      const exerciseGoalIds = (exercises ?? []).map((e) => e.id);
-      if (exerciseGoalIds.length === 0) return [];
-
-      const { data, error } = await supabase
+    queryFn: async (): Promise<ActivityExercise[]> => {
+      const { data: parent, error } = await supabase
         .from('activities')
-        .select('*')
+        .select(ACTIVITY_SELECT)
         .eq('user_id', userId!)
-        .in('daily_goal_exercise_id', exerciseGoalIds)
-        .order('created_at', { ascending: false });
+        .eq('daily_goal_id', dailyGoalId!)
+        .maybeSingle();
       if (error) throw error;
-
-      // One activity per exercise goal — keep the most recent if duplicates exist.
-      const byExercise = new Map<string, Activity>();
-      for (const row of data ?? []) {
-        if (row.daily_goal_exercise_id && !byExercise.has(row.daily_goal_exercise_id)) {
-          byExercise.set(row.daily_goal_exercise_id, row);
-        }
-      }
-      return [...byExercise.values()];
+      return (parent?.exercises as ActivityExercise[] | undefined) ?? [];
     },
   });
 }
@@ -122,17 +118,26 @@ export function useQuestActivity(questId?: string) {
   return useQuery({
     queryKey: queryKeys.questActivity(questId, userId),
     enabled: !!questId && !!userId,
-    queryFn: async (): Promise<Activity | null> => {
+    queryFn: async (): Promise<ActivityExerciseSnapshot | null> => {
       const { data, error } = await supabase
         .from('activities')
-        .select('*')
+        .select(ACTIVITY_SELECT)
         .eq('quest_id', questId!)
         .eq('user_id', userId!)
-        .order('created_at', { ascending: false })
-        .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      if (!data) return null;
+
+      const exercises = (data.exercises as ActivityExercise[] | undefined) ?? [];
+      const exercise = exercises[0];
+      if (!exercise) return null;
+
+      return {
+        ...exercise,
+        gang_id: data.gang_id,
+        quest_id: data.quest_id,
+        daily_goal_id: data.daily_goal_id,
+      };
     },
   });
 }
@@ -144,15 +149,18 @@ export function useMyActivities() {
   return useQuery({
     queryKey: queryKeys.myActivities(userId),
     enabled: !!userId,
-    queryFn: async (): Promise<Activity[]> => {
+    queryFn: async (): Promise<ActivityWithExercises[]> => {
       const { data, error } = await supabase
         .from('activities')
-        .select('*')
+        .select(ACTIVITY_SELECT)
         .eq('user_id', userId!)
-        .order('created_at', { ascending: false })
+        .order('updated_at', { ascending: false })
         .limit(100);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).map((row) => ({
+        ...(row as Activity),
+        exercises: (row.exercises as ActivityExercise[] | undefined) ?? [],
+      }));
     },
   });
 }
@@ -160,6 +168,7 @@ export function useMyActivities() {
 export interface LogActivityInput {
   gangId?: string;
   questId?: string;
+  dailyGoalId?: string;
   dailyGoalExerciseId?: string;
   exerciseId?: string;
   exerciseName: string;
@@ -169,11 +178,13 @@ export interface LogActivityInput {
   sets?: number;
   notes?: string;
   photoUrl?: string;
+  activityDate?: string;
   questXpContext?: QuestXpContext;
 }
 
 export interface UpdateActivityInput {
-  id: string;
+  exerciseRowId: string;
+  activityId: string;
   gangId?: string | null;
   exerciseId?: string;
   exerciseName: string;
@@ -184,6 +195,8 @@ export interface UpdateActivityInput {
   notes?: string;
   previousAmount: number;
   previousUnit: ExerciseUnit;
+  dailyGoalExerciseId?: string;
+  questId?: string;
   questXpContext?: QuestXpContext;
 }
 
@@ -196,8 +209,9 @@ export function useUpdateActivity() {
     mutationFn: async (input: UpdateActivityInput): Promise<ActivitySaveResult> => {
       if (!userId) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase
-        .from('activities')
+      const now = new Date().toISOString();
+      const { data: exercise, error } = await supabase
+        .from('activity_exercises')
         .update({
           exercise_id: input.exerciseId ?? null,
           exercise_name: input.exerciseName,
@@ -206,44 +220,34 @@ export function useUpdateActivity() {
           amount: input.amount,
           sets: input.sets ?? null,
           notes: input.notes ?? null,
+          updated_at: now,
         })
-        .eq('id', input.id)
+        .eq('id', input.exerciseRowId)
         .select('*')
         .single();
       if (error) throw error;
+
+      const { data: activity, error: activityError } = await supabase
+        .from('activities')
+        .update({ updated_at: now })
+        .eq('id', input.activityId)
+        .select('*')
+        .single();
+      if (activityError) throw activityError;
 
       const xpAwarded = await processActivityXp({
         userId,
         isNewActivity: false,
         questXpContext: input.questXpContext,
         refs: {
-          dailyGoalExerciseId: data.daily_goal_exercise_id ?? undefined,
-          questId: data.quest_id ?? undefined,
+          dailyGoalExerciseId: input.dailyGoalExerciseId ?? exercise.daily_goal_exercise_id ?? undefined,
+          questId: input.questId ?? activity.quest_id ?? undefined,
         },
       });
-      return { activity: data, xpAwarded };
+      return { activity, exercise, xpAwarded };
     },
     onSuccess: ({ activity }) => {
-      if (activity.gang_id) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.feed(activity.gang_id) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.gangQuests(activity.gang_id) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.activeWeeklyPlan(activity.gang_id) });
-      }
-      if (activity.quest_id) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.questActivity(activity.quest_id, userId),
-        });
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.quest(activity.quest_id, userId),
-        });
-      }
-      if (activity.daily_goal_exercise_id) {
-        queryClient.invalidateQueries({ queryKey: ['daily-goals'] });
-        queryClient.invalidateQueries({ queryKey: ['activities', 'daily-goal'] });
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });
-      queryClient.invalidateQueries({ queryKey: ['quests', 'mine'] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.profile(userId) });
+      invalidateActivityQueries(queryClient, activity, userId);
     },
   });
 }
@@ -257,99 +261,37 @@ export function useLogActivity() {
     mutationFn: async (input: LogActivityInput): Promise<ActivitySaveResult> => {
       if (!userId) throw new Error('Not authenticated');
 
-      if (input.dailyGoalExerciseId) {
-        const { data: existing, error: lookupError } = await supabase
-          .from('activities')
-          .select('id, amount, unit, daily_goal_exercise_id, quest_id')
-          .eq('user_id', userId)
-          .eq('daily_goal_exercise_id', input.dailyGoalExerciseId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (lookupError) throw lookupError;
+      const parent = await findOrCreateParentActivity(userId, input);
+      const { exercise, isNewExercise } = await upsertActivityExercise(parent.id, input);
 
-        if (existing) {
-          const { data, error } = await supabase
-            .from('activities')
-            .update({
-              exercise_id: input.exerciseId ?? null,
-              exercise_name: input.exerciseName,
-              category: input.category ?? null,
-              unit: input.unit,
-              amount: input.amount,
-              sets: input.sets ?? null,
-              notes: input.notes ?? null,
-            })
-            .eq('id', existing.id)
-            .select('*')
-            .single();
-          if (error) throw error;
+      const now = new Date().toISOString();
+      const activityUpdates = {
+        updated_at: now,
+        ...(input.photoUrl ? { photo_url: input.photoUrl } : {}),
+        ...(input.notes && !input.dailyGoalExerciseId ? { notes: input.notes } : {}),
+      };
 
-          const xpAwarded = await processActivityXp({
-            userId,
-            isNewActivity: false,
-            questXpContext: input.questXpContext,
-            refs: {
-              dailyGoalExerciseId: data.daily_goal_exercise_id ?? undefined,
-              questId: data.quest_id ?? undefined,
-            },
-          });
-          return { activity: data, xpAwarded };
-        }
-      }
-
-      const { data, error } = await supabase
+      const { data: activity, error: activityError } = await supabase
         .from('activities')
-        .insert({
-          user_id: userId,
-          gang_id: input.gangId ?? null,
-          quest_id: input.questId ?? null,
-          daily_goal_exercise_id: input.dailyGoalExerciseId ?? null,
-          exercise_id: input.exerciseId ?? null,
-          exercise_name: input.exerciseName,
-          category: input.category ?? null,
-          unit: input.unit,
-          amount: input.amount,
-          sets: input.sets ?? null,
-          notes: input.notes ?? null,
-          photo_url: input.photoUrl ?? null,
-        })
+        .update(activityUpdates)
+        .eq('id', parent.id)
         .select('*')
         .single();
-      if (error) throw error;
+      if (activityError) throw activityError;
 
       const xpAwarded = await processActivityXp({
         userId,
-        isNewActivity: true,
+        isNewActivity: isNewExercise,
         questXpContext: input.questXpContext,
         refs: {
           dailyGoalExerciseId: input.dailyGoalExerciseId,
           questId: input.questId,
         },
       });
-      return { activity: data, xpAwarded };
+      return { activity, exercise, xpAwarded };
     },
     onSuccess: ({ activity }) => {
-      if (activity.gang_id) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.feed(activity.gang_id) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.gangQuests(activity.gang_id) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.activeWeeklyPlan(activity.gang_id) });
-      }
-      if (activity.quest_id) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.questActivity(activity.quest_id, userId),
-        });
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.quest(activity.quest_id, userId),
-        });
-      }
-      if (activity.daily_goal_exercise_id) {
-        queryClient.invalidateQueries({ queryKey: ['daily-goals'] });
-        queryClient.invalidateQueries({ queryKey: ['activities', 'daily-goal'] });
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });
-      queryClient.invalidateQueries({ queryKey: ['quests', 'mine'] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.profile(userId) });
+      invalidateActivityQueries(queryClient, activity, userId);
     },
   });
 }
@@ -370,7 +312,7 @@ export function useDeleteActivity() {
 }
 
 // ---- helpers ----
-type ActivityWithAuthor = Activity & { author: ActivityFeedItem['author'] };
+type ActivityWithAuthor = ActivityWithExercises & { author: ActivityFeedItem['author'] };
 
 async function hydrateFeed(
   rows: ActivityWithAuthor[],
@@ -399,11 +341,149 @@ async function hydrateFeed(
     const e = engMap.get(a.id);
     return {
       ...a,
+      exercises: a.exercises ?? [],
       kudos_count: e?.kudos_count ?? 0,
       comment_count: e?.comment_count ?? 0,
       has_kudos: myKudos.has(a.id),
     };
   });
+}
+
+async function resolveDailyGoalMeta(dailyGoalExerciseId: string): Promise<{
+  dailyGoalId: string;
+  activityDate: string;
+}> {
+  const { data, error } = await supabase
+    .from('daily_goal_exercises')
+    .select('daily_goal_id, daily_goals(goal_date)')
+    .eq('id', dailyGoalExerciseId)
+    .single();
+  if (error) throw error;
+
+  const goalDate = (data.daily_goals as { goal_date: string } | null)?.goal_date;
+  if (!goalDate) throw new Error('Daily goal not found');
+
+  return { dailyGoalId: data.daily_goal_id, activityDate: goalDate };
+}
+
+async function findOrCreateParentActivity(
+  userId: string,
+  input: LogActivityInput,
+): Promise<Activity> {
+  let dailyGoalId = input.dailyGoalId ?? null;
+  let activityDate = input.activityDate ?? todayISO();
+
+  if (input.dailyGoalExerciseId) {
+    const meta = await resolveDailyGoalMeta(input.dailyGoalExerciseId);
+    dailyGoalId = meta.dailyGoalId;
+    activityDate = meta.activityDate;
+  }
+
+  let query = supabase.from('activities').select('*').eq('user_id', userId);
+
+  if (dailyGoalId) {
+    query = query.eq('daily_goal_id', dailyGoalId);
+  } else if (input.questId) {
+    query = query.eq('quest_id', input.questId);
+  } else if (input.gangId) {
+    query = query.eq('activity_date', activityDate).eq('gang_id', input.gangId).is('daily_goal_id', null).is('quest_id', null);
+  } else {
+    query = query.eq('activity_date', activityDate).is('gang_id', null).is('daily_goal_id', null).is('quest_id', null);
+  }
+
+  const { data: existing, error: lookupError } = await query.maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing) return existing;
+
+  const { data, error } = await supabase
+    .from('activities')
+    .insert({
+      user_id: userId,
+      gang_id: input.gangId ?? null,
+      quest_id: input.questId ?? null,
+      daily_goal_id: dailyGoalId,
+      activity_date: activityDate,
+      notes: input.notes && !input.dailyGoalExerciseId ? input.notes : null,
+      photo_url: input.photoUrl ?? null,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function upsertActivityExercise(
+  activityId: string,
+  input: LogActivityInput,
+): Promise<{ exercise: ActivityExercise; isNewExercise: boolean }> {
+  const now = new Date().toISOString();
+  const row = {
+    exercise_id: input.exerciseId ?? null,
+    exercise_name: input.exerciseName,
+    category: input.category ?? null,
+    unit: input.unit,
+    amount: input.amount,
+    sets: input.sets ?? null,
+    notes: input.notes ?? null,
+    daily_goal_exercise_id: input.dailyGoalExerciseId ?? null,
+    updated_at: now,
+  };
+
+  if (input.dailyGoalExerciseId) {
+    const { data: existing, error: lookupError } = await supabase
+      .from('activity_exercises')
+      .select('id')
+      .eq('activity_id', activityId)
+      .eq('daily_goal_exercise_id', input.dailyGoalExerciseId)
+      .maybeSingle();
+    if (lookupError) throw lookupError;
+
+    if (existing) {
+      const { data, error } = await supabase
+        .from('activity_exercises')
+        .update(row)
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return { exercise: data, isNewExercise: false };
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('activity_exercises')
+    .insert({ ...row, activity_id: activityId })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return { exercise: data, isNewExercise: true };
+}
+
+function invalidateActivityQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  activity: Activity,
+  userId?: string,
+) {
+  if (activity.gang_id) {
+    queryClient.invalidateQueries({ queryKey: queryKeys.feed(activity.gang_id) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.gangQuests(activity.gang_id) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.activeWeeklyPlan(activity.gang_id) });
+  }
+  if (activity.quest_id) {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.questActivity(activity.quest_id, userId),
+    });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.quest(activity.quest_id, userId),
+    });
+  }
+  if (activity.daily_goal_id) {
+    queryClient.invalidateQueries({ queryKey: ['daily-goals'] });
+    queryClient.invalidateQueries({ queryKey: ['activities', 'daily-goal'] });
+  }
+  queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });
+  queryClient.invalidateQueries({ queryKey: ['quests', 'mine'] });
+  queryClient.invalidateQueries({ queryKey: queryKeys.profile(userId) });
 }
 
 /** Adjust XP by a delta and re-derive rank from the new total. */

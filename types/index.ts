@@ -42,6 +42,7 @@ export type WeeklyPlan = Tables<'weekly_plans'>;
 export type DailyGoal = Tables<'daily_goals'>;
 export type DailyGoalExercise = Tables<'daily_goal_exercises'>;
 export type Activity = Tables<'activities'>;
+export type ActivityExercise = Tables<'activity_exercises'>;
 export type Comment = Tables<'comments'>;
 export type Achievement = Tables<'achievements'>;
 export type AppNotification = Tables<'notifications'>;
@@ -96,10 +97,23 @@ export interface WeeklyPlanWithGoals extends WeeklyPlan {
 /** An activity enriched for the social feed. */
 export interface ActivityFeedItem extends Activity {
   author: Pick<Profile, 'id' | 'full_name' | 'username' | 'avatar_url' | 'xp'>;
+  exercises: ActivityExercise[];
   kudos_count: number;
   comment_count: number;
   /** whether the signed-in user has given kudos */
   has_kudos: boolean;
+}
+
+/** Flattened exercise log used by legacy quest editing screens. */
+export interface ActivityExerciseSnapshot extends ActivityExercise {
+  gang_id: string | null;
+  quest_id: string | null;
+  daily_goal_id: string | null;
+}
+
+/** An activity with its exercise lines (profile, detail views). */
+export interface ActivityWithExercises extends Activity {
+  exercises: ActivityExercise[];
 }
 
 /** A comment joined with its author profile. */

@@ -29,7 +29,6 @@ export function useLeaderboard(gangId: string, period: LeaderboardPeriod = 'week
     queryKey: queryKeys.leaderboard(gangId, period),
     enabled: !!gangId,
     queryFn: async (): Promise<LeaderboardEntry[]> => {
-      // Member profiles so even zero-contribution members appear.
       const { data: members, error: mErr } = await supabase
         .from('gang_members')
         .select('user_id, profile:profiles(id, full_name, username, avatar_url, xp)')
@@ -38,15 +37,21 @@ export function useLeaderboard(gangId: string, period: LeaderboardPeriod = 'week
 
       let activityQuery = supabase
         .from('activities')
-        .select('user_id, amount')
+        .select('user_id, exercises:activity_exercises(amount)')
         .eq('gang_id', gangId);
       const start = periodStart(period);
-      if (start) activityQuery = activityQuery.gte('created_at', start);
+      if (start) activityQuery = activityQuery.gte('updated_at', start);
       const { data: acts, error: aErr } = await activityQuery;
       if (aErr) throw aErr;
 
       const totals = new Map<string, number>();
-      for (const a of acts ?? []) totals.set(a.user_id, (totals.get(a.user_id) ?? 0) + a.amount);
+      for (const a of acts ?? []) {
+        const amount = ((a.exercises as { amount: number }[] | undefined) ?? []).reduce(
+          (sum, ex) => sum + Number(ex.amount),
+          0,
+        );
+        totals.set(a.user_id, (totals.get(a.user_id) ?? 0) + amount);
+      }
 
       const rows: LeaderboardEntry[] = (members ?? []).map((m) => {
         const p = m.profile as unknown as {

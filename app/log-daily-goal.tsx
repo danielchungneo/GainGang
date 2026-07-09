@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -17,6 +17,7 @@ import {
   type GoalCompleteExerciseTarget,
 } from '@/components/goal-complete-overlay';
 import { LevelUpOverlay } from '@/components/level-up-overlay';
+import { CameraRepCountButton } from '@/components/rep-counter/camera-rep-count-button';
 import { useDailyGoalActivities, useLogActivity, useUpdateActivity, fetchPersonalGoalAwardedExerciseIds } from '@/hooks/use-activities';
 import { useDailyGoal } from '@/hooks/use-weekly-plans';
 import { useProfile } from '@/hooks/use-profile';
@@ -28,8 +29,12 @@ import {
   validateAmountInput,
 } from '@/lib/activity-amount';
 import { formatAmount, formatGoalActivityList, formatGoalDate } from '@/lib/format';
-import { getLevelUpInfo, type DailyGoalExerciseWithProgress, type ExerciseUnit } from '@/types';
-import type { Activity } from '@/types';
+import {
+  buildRepCounterSessionKey,
+  consumePendingRepCount,
+} from '@/lib/rep-counting/pending-result';
+import { supportsCameraRepCounting } from '@/lib/rep-counting/exercise-registry';
+import { getLevelUpInfo, type DailyGoalExerciseWithProgress, type ExerciseUnit, type ActivityExercise } from '@/types';
 
 interface ExerciseFormState {
   amount: string;
@@ -38,14 +43,9 @@ interface ExerciseFormState {
 
 function resolveExistingForExercise(
   ex: DailyGoalExerciseWithProgress,
-  byExercise: Record<string, Activity>,
-): Pick<Activity, 'id' | 'amount' | 'notes'> | undefined {
-  const fromQuery = byExercise[ex.id];
-  if (fromQuery) return fromQuery;
-  if (ex.activity_id) {
-    return { id: ex.activity_id, amount: ex.user_total, notes: null };
-  }
-  return undefined;
+  byExercise: Record<string, ActivityExercise>,
+): ActivityExercise | undefined {
+  return byExercise[ex.id];
 }
 
 export default function LogDailyGoalScreen() {
@@ -78,7 +78,7 @@ export default function LogDailyGoalScreen() {
   );
 
   const activityByExercise = useMemo(() => {
-    const map: Record<string, (typeof existingActivities extends (infer U)[] | undefined ? U : never)> = {};
+    const map: Record<string, ActivityExercise> = {};
     for (const a of existingActivities ?? []) {
       if (a.daily_goal_exercise_id) map[a.daily_goal_exercise_id] = a;
     }
@@ -90,7 +90,7 @@ export default function LogDailyGoalScreen() {
     const next: Record<string, ExerciseFormState> = {};
     for (const ex of dailyGoal.exercises) {
       const existing = activityByExercise[ex.id];
-      const amount = existing?.amount ?? (ex.activity_id ? ex.user_total : 0);
+      const amount = existing?.amount ?? (ex.user_total > 0 ? ex.user_total : 0);
       next[ex.id] = {
         amount: amount > 0 ? formatAmountInputValue(amount, ex.unit) : '',
         notes: existing?.notes ?? '',
@@ -102,6 +102,34 @@ export default function LogDailyGoalScreen() {
 
   const isPending = logActivity.isPending || updateActivity.isPending;
   const isLoading = loadingGoal || loadingActivities;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!dailyGoal) return;
+
+      setFormState((prev) => {
+        let changed = false;
+        const next = { ...prev };
+
+        for (const ex of dailyGoal.exercises) {
+          if (!supportsCameraRepCounting(ex.exercise_name) || ex.unit !== 'reps') continue;
+          const sessionKey = buildRepCounterSessionKey(ex.exercise_id, dailyGoal.id);
+          const pending = consumePendingRepCount(sessionKey);
+          if (pending === null) continue;
+
+          const current = parseActivityAmount(prev[ex.id]?.amount ?? '', ex.unit) ?? 0;
+          next[ex.id] = {
+            ...prev[ex.id],
+            amount: formatAmountInputValue(current + pending, ex.unit),
+            notes: prev[ex.id]?.notes ?? '',
+          };
+          changed = true;
+        }
+
+        return changed ? next : prev;
+      });
+    }, [dailyGoal]),
+  );
 
   function updateExerciseField(
     exerciseGoalId: string,
@@ -174,7 +202,8 @@ export default function LogDailyGoalScreen() {
         let xpAwarded = 0;
         if (existing) {
           const result = await updateActivity.mutateAsync({
-            id: existing.id,
+            exerciseRowId: existing.id,
+            activityId: existing.activity_id,
             gangId: gangId ?? dailyGoal.gang_id,
             exerciseId: ex.exercise_id,
             exerciseName: ex.exercise_name,
@@ -184,12 +213,14 @@ export default function LogDailyGoalScreen() {
             notes: formState[ex.id].notes.trim() || undefined,
             previousAmount: previousAmt,
             previousUnit: ex.unit,
+            dailyGoalExerciseId: ex.id,
             questXpContext,
           });
           xpAwarded = result.xpAwarded;
         } else {
           const result = await logActivity.mutateAsync({
             gangId: gangId ?? dailyGoal.gang_id,
+            dailyGoalId: dailyGoal.id,
             dailyGoalExerciseId: ex.id,
             exerciseId: ex.exercise_id,
             exerciseName: ex.exercise_name,
@@ -305,6 +336,9 @@ export default function LogDailyGoalScreen() {
           {dailyGoal.exercises.map((ex) => {
             const state = formState[ex.id] ?? { amount: '', notes: '' };
             const hasLogged = !!resolveExistingForExercise(ex, activityByExercise);
+            const requiresCamera =
+              ex.unit === 'reps' && supportsCameraRepCounting(ex.exercise_name);
+            const sessionKey = buildRepCounterSessionKey(ex.exercise_id, dailyGoal.id);
 
             return (
               <View
@@ -330,17 +364,47 @@ export default function LogDailyGoalScreen() {
                   {formatAmount(ex.gang_target, ex.unit)}
                 </Text>
 
-                <AmountInput
-                  unit={ex.unit}
-                  value={state.amount}
-                  onChangeValue={(v) => updateExerciseField(ex.id, ex.unit, 'amount', v)}
-                  label="Amount"
-                  inputBg={t.inputBg}
-                  inputBorder={t.inputBorder}
-                  textColor={t.heading}
-                  placeholderColor={t.placeholder}
-                  labelColor={t.body}
-                />
+                {requiresCamera ? (
+                  <>
+                    <CameraRepCountButton
+                      exerciseId={ex.exercise_id}
+                      exerciseName={ex.exercise_name}
+                      unit={ex.unit}
+                      contextId={dailyGoal.id}
+                      sessionKey={sessionKey}
+                      disabled={isPending}
+                    />
+                    <View className="mt-3">
+                      <Label>Reps (camera verified)</Label>
+                      <View
+                        className="rounded-xl border px-4 py-3"
+                        style={{ backgroundColor: t.inputBg, borderColor: t.inputBorder }}
+                      >
+                        <Text
+                          style={{
+                            color: state.amount ? t.heading : t.placeholder,
+                            fontSize: 18,
+                            fontWeight: '600',
+                          }}
+                        >
+                          {state.amount || 'Use the camera to count your reps'}
+                        </Text>
+                      </View>
+                    </View>
+                  </>
+                ) : (
+                  <AmountInput
+                    unit={ex.unit}
+                    value={state.amount}
+                    onChangeValue={(v) => updateExerciseField(ex.id, ex.unit, 'amount', v)}
+                    label="Amount"
+                    inputBg={t.inputBg}
+                    inputBorder={t.inputBorder}
+                    textColor={t.heading}
+                    placeholderColor={t.placeholder}
+                    labelColor={t.body}
+                  />
+                )}
 
                 <View className="mt-2">
                   <Label>Notes (optional)</Label>

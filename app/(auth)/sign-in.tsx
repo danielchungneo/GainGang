@@ -35,6 +35,13 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 type SavedCredentials = { email: string; password: string };
 
+function envString(key: string): string | undefined {
+  const value = (process.env as unknown as Record<string, unknown> | undefined)?.[key];
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 export default function SignInScreen() {
   const colorScheme = useColorScheme();
   const isLight = colorScheme !== 'dark';
@@ -43,6 +50,7 @@ export default function SignInScreen() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [hasSavedCredentials, setHasSavedCredentials] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
+  const [quickLoginKey, setQuickLoginKey] = useState<string | null>(null);
 
   const {
     control,
@@ -95,6 +103,26 @@ export default function SignInScreen() {
     router.replace('/(tabs)');
   }
 
+  const quickLogins = [
+    {
+      key: 'daniel',
+      label: 'Daniel',
+      email: envString('EXPO_PUBLIC_TEST_LOGIN_1_EMAIL'),
+      password: envString('EXPO_PUBLIC_TEST_LOGIN_1_PASSWORD'),
+    },
+    {
+      key: 'elevated',
+      label: 'Elevated',
+      email: envString('EXPO_PUBLIC_TEST_LOGIN_2_EMAIL'),
+      password: envString('EXPO_PUBLIC_TEST_LOGIN_2_PASSWORD'),
+    },
+  ].filter(
+    (l): l is { key: string; label: string; email: string; password: string } =>
+      !!l.email && !!l.password,
+  );
+
+  const showQuickLogins = __DEV__ && quickLogins.length > 0;
+
   async function onSubmit({ email, password }: FormData) {
     try {
       await signInWithCredentials(email, password);
@@ -105,6 +133,18 @@ export default function SignInScreen() {
       }
     } catch (err: any) {
       setError('root', { message: err.message });
+    }
+  }
+
+  async function signInQuick(login: { key: string; label: string; email: string; password: string }) {
+    setQuickLoginKey(login.key);
+    try {
+      // Intentionally does not save credentials to SecureStore.
+      await signInWithCredentials(login.email, login.password);
+    } catch (err: any) {
+      setError('root', { message: err.message ?? 'Sign-in failed' });
+    } finally {
+      setQuickLoginKey(null);
     }
   }
 
@@ -197,6 +237,31 @@ export default function SignInScreen() {
       {errors.root && (
         <Text style={isLight ? styles.errorLight : styles.errorDark}>{errors.root.message}</Text>
       )}
+
+      {showQuickLogins ? (
+        <View className="mt-4 gap-2">
+          <Text style={{ color: isLight ? Glass.textSecondary : DarkGlass.textSecondary }} className="text-xs font-semibold uppercase">
+            Quick test login
+          </Text>
+          {quickLogins.map((login) => (
+            <TouchableOpacity
+              key={login.key}
+              style={isLight ? styles.glassButton : styles.darkOutlineButton}
+              className="rounded-xl py-4 items-center justify-center"
+              onPress={() => signInQuick(login)}
+              disabled={quickLoginKey !== null || isSubmitting}
+            >
+              {quickLoginKey === login.key ? (
+                <ActivityIndicator color={isLight ? '#0369a1' : DarkGlass.neonCyan} />
+              ) : (
+                <Text style={{ color: isLight ? Glass.textPrimary : DarkGlass.primaryText }} className="text-base font-bold">
+                  Sign in as {login.label}
+                </Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
 
       {/* Remember Me */}
       <TouchableOpacity

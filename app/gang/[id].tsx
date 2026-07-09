@@ -21,6 +21,7 @@ import { useGangFeed } from '@/hooks/use-activities';
 import { useGang, useGangMembers } from '@/hooks/use-gangs';
 import { useLeaderboard, type LeaderboardPeriod } from '@/hooks/use-leaderboard';
 import { useActiveWeeklyPlan } from '@/hooks/use-weekly-plans';
+import { WeeklyPlanAdminActions } from '@/components/weekly-plan-admin-actions';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { todayISO } from '@/lib/format';
 
@@ -152,33 +153,11 @@ function GoalsTab({ gangId, isAdmin }: { gangId: string; isAdmin: boolean }) {
   return (
     <View className="gap-3">
       {isAdmin ? (
-        <View className="gap-2">
-          {plan ? (
-            <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: '/gang/new-goal',
-                  params: { gangId, planId: plan.id },
-                })
-              }
-              className="flex-row items-center justify-center gap-2 rounded-xl py-3"
-              style={{ backgroundColor: t.buttonBg, borderWidth: 1, borderColor: t.buttonBorder }}>
-              <Ionicons name="create-outline" size={18} color={t.accent} />
-              <Text style={{ color: t.accent }} className="font-semibold">
-                Edit weekly plan
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: '/gang/new-goal', params: { gangId } })}
-            className="flex-row items-center justify-center gap-2 rounded-xl py-3"
-            style={{ backgroundColor: t.buttonBg, borderWidth: 1, borderColor: t.buttonBorder }}>
-            <Ionicons name="add-circle-outline" size={18} color={t.accent} />
-            <Text style={{ color: t.accent }} className="font-semibold">
-              {plan ? 'Replace with new plan' : 'Create weekly plan'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <WeeklyPlanAdminActions
+          gangId={gangId}
+          planId={plan?.id}
+          hasActivePlan={!!plan}
+        />
       ) : null}
 
       {plan ? (

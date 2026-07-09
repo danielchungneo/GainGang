@@ -22,6 +22,8 @@ export function ActivityCard({ activity, gangId }: ActivityCardProps) {
   const toggleKudos = useToggleKudos(gangId);
 
   const name = activity.author?.full_name || 'Member';
+  const exercises = activity.exercises ?? [];
+  const primaryCategory = exercises.find((e) => e.category)?.category ?? null;
 
   return (
     <GlassSurface style={{ padding: 16, gap: 12 }}>
@@ -37,30 +39,49 @@ export function ActivityCard({ activity, gangId }: ActivityCardProps) {
             ) : null}
           </View>
           <Text style={{ color: t.body }} className="text-xs">
-            {timeAgo(activity.created_at)}
-            {activity.category ? `  ·  ${CATEGORY_LABELS[activity.category]}` : ''}
+            {timeAgo(activity.updated_at ?? activity.created_at)}
+            {primaryCategory ? `  ·  ${CATEGORY_LABELS[primaryCategory]}` : ''}
           </Text>
         </View>
       </View>
 
-      <View className="flex-row items-baseline gap-2">
-        <Text style={{ color: t.accent }} className="text-2xl font-extrabold">
-          {formatAmount(activity.amount, activity.unit)}
-        </Text>
-        <Text style={{ color: t.heading }} className="text-base font-semibold" numberOfLines={1}>
-          {activity.exercise_name}
-        </Text>
-        {activity.sets ? (
-          <Text style={{ color: t.body }} className="text-sm">
-            · {activity.sets} sets
-          </Text>
-        ) : null}
+      <View style={{ gap: 8 }}>
+        {exercises.map((exercise) => (
+          <View key={exercise.id} className="flex-row items-baseline gap-2">
+            <Text style={{ color: t.accent }} className="text-2xl font-extrabold">
+              {formatAmount(exercise.amount, exercise.unit)}
+            </Text>
+            <Text style={{ color: t.heading }} className="text-base font-semibold" numberOfLines={1}>
+              {exercise.exercise_name}
+            </Text>
+            {exercise.sets ? (
+              <Text style={{ color: t.body }} className="text-sm">
+                · {exercise.sets} sets
+              </Text>
+            ) : null}
+          </View>
+        ))}
       </View>
 
       {activity.notes ? (
         <Text style={{ color: t.body }} className="text-sm leading-5">
           {activity.notes}
         </Text>
+      ) : null}
+
+      {exercises.some((e) => e.notes) ? (
+        <View style={{ gap: 4 }}>
+          {exercises
+            .filter((e) => e.notes)
+            .map((exercise) => (
+              <Text key={exercise.id} style={{ color: t.body }} className="text-sm leading-5">
+                <Text style={{ color: t.heading }} className="font-semibold">
+                  {exercise.exercise_name}:{' '}
+                </Text>
+                {exercise.notes}
+              </Text>
+            ))}
+        </View>
       ) : null}
 
       {activity.photo_url ? (

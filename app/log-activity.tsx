@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -16,6 +16,7 @@ import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-v
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
 import { LevelUpOverlay } from '@/components/level-up-overlay';
 import { GoalProgressPreview } from '@/components/goal-progress-preview';
+import { CameraRepCountButton } from '@/components/rep-counter/camera-rep-count-button';
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { useLogActivity, useQuestActivity, useUpdateActivity, estimateSessionXp, hasPersonalGoalAward } from '@/hooks/use-activities';
 import { useExercises } from '@/hooks/use-exercises';
@@ -29,6 +30,11 @@ import {
   parseActivityAmount,
   validateAmountInput,
 } from '@/lib/activity-amount';
+import {
+  buildRepCounterSessionKey,
+  consumePendingRepCount,
+} from '@/lib/rep-counting/pending-result';
+import { supportsCameraRepCounting } from '@/lib/rep-counting/exercise-registry';
 import {
   CATEGORY_LABELS,
   WEEKLY_SCHEDULE,
@@ -116,6 +122,29 @@ export default function LogActivityScreen() {
 
   const unit = selectedExercise?.unit ?? 'reps';
   const isPending = logActivity.isPending || updateActivity.isPending;
+  const repCounterSessionKey = selectedExercise
+    ? buildRepCounterSessionKey(
+        selectedExercise.id,
+        params.questId ?? params.gangId ?? 'solo',
+      )
+    : null;
+  const requiresCameraCount =
+    !!selectedExercise &&
+    selectedExercise.unit === 'reps' &&
+    supportsCameraRepCounting(selectedExercise.name);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!repCounterSessionKey || !selectedExercise) return;
+      const pending = consumePendingRepCount(repCounterSessionKey);
+      if (pending === null) return;
+
+      setAmount((current) => {
+        const existing = parseActivityAmount(current, selectedExercise.unit) ?? 0;
+        return formatAmountInputValue(existing + pending, selectedExercise.unit);
+      });
+    }, [repCounterSessionKey, selectedExercise]),
+  );
 
   const goalProgress = useMemo(() => {
     if (!quest) return null;
@@ -186,7 +215,8 @@ export default function LogActivityScreen() {
       let xpAwarded = 0;
       if (isEditing && questActivity) {
         const result = await updateActivity.mutateAsync({
-          id: questActivity.id,
+          exerciseRowId: questActivity.id,
+          activityId: questActivity.activity_id,
           gangId: questActivity.gang_id,
           exerciseId: selectedExercise.id,
           exerciseName: selectedExercise.name,
@@ -196,6 +226,7 @@ export default function LogActivityScreen() {
           notes: notes.trim() || undefined,
           previousAmount: questActivity.amount,
           previousUnit: questActivity.unit,
+          questId: params.questId,
           questXpContext,
         });
         xpAwarded = result.xpAwarded;
@@ -383,17 +414,41 @@ export default function LogActivityScreen() {
           </View>
 
           <View>
-            <AmountInput
-              unit={unit}
-              value={amount}
-              onChangeValue={setAmount}
-              label="Amount"
-              inputBg={t.inputBg}
-              inputBorder={t.inputBorder}
-              textColor={t.heading}
-              placeholderColor={t.placeholder}
-              labelColor={t.body}
-            />
+            {requiresCameraCount && selectedExercise ? (
+              <>
+                <CameraRepCountButton
+                  exerciseId={selectedExercise.id}
+                  exerciseName={selectedExercise.name}
+                  unit={selectedExercise.unit}
+                  contextId={params.questId ?? params.gangId ?? 'solo'}
+                  sessionKey={repCounterSessionKey ?? undefined}
+                  disabled={isPending}
+                />
+                <View className="mt-3">
+                  <Label>Reps (camera verified)</Label>
+                  <View
+                    className="rounded-xl border px-4 py-3"
+                    style={{ backgroundColor: t.inputBg, borderColor: t.inputBorder }}
+                  >
+                    <Text style={{ color: amount ? t.heading : t.placeholder, fontSize: 18, fontWeight: '600' }}>
+                      {amount || 'Use the camera to count your reps'}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <AmountInput
+                unit={unit}
+                value={amount}
+                onChangeValue={setAmount}
+                label="Amount"
+                inputBg={t.inputBg}
+                inputBorder={t.inputBorder}
+                textColor={t.heading}
+                placeholderColor={t.placeholder}
+                labelColor={t.body}
+              />
+            )}
           </View>
 
           {/* notes */}

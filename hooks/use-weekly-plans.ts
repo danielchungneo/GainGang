@@ -342,14 +342,18 @@ async function hydrateDailyGoals(
       }
     }
 
+    const dailyGoalIds = rows.map((g) => g.id);
     const { data: acts } = await supabase
       .from('activities')
-      .select('id, daily_goal_exercise_id')
+      .select('id, daily_goal_id, exercises:activity_exercises(daily_goal_exercise_id)')
       .eq('user_id', userId)
-      .in('daily_goal_exercise_id', exerciseIds);
+      .in('daily_goal_id', dailyGoalIds);
     for (const a of acts ?? []) {
-      if (a.daily_goal_exercise_id) {
-        userActivities[a.daily_goal_exercise_id] = a.id;
+      const exerciseRows = (a.exercises as { daily_goal_exercise_id: string | null }[] | undefined) ?? [];
+      for (const ex of exerciseRows) {
+        if (ex.daily_goal_exercise_id) {
+          userActivities[ex.daily_goal_exercise_id] = a.id;
+        }
       }
     }
   }

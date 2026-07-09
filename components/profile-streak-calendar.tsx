@@ -8,10 +8,10 @@ import {
 
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
-import { isoTimestampToLocalDate, monthYearLabel, todayISO } from '@/lib/format';
+import { monthYearLabel, todayISO } from '@/lib/format';
 import { fontFamily, status, type } from '@/lib/gaingang-theme';
 import { useTheme } from '@/lib/gaingang-theme';
-import type { Activity } from '@/types';
+import type { ActivityWithExercises } from '@/types';
 
 const DAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 const STREAK_COL_WIDTH = 36;
@@ -25,7 +25,7 @@ interface CalendarDay {
 }
 
 interface ProfileStreakCalendarProps {
-  activities: Activity[];
+  activities: ActivityWithExercises[];
   currentStreak: number;
 }
 
@@ -54,10 +54,10 @@ function buildMonthGrid(year: number, month: number): CalendarDay[] {
   return days;
 }
 
-function countActivitiesByDate(activities: Activity[]): Map<string, number> {
+function countActiveDates(activities: ActivityWithExercises[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const activity of activities) {
-    const iso = isoTimestampToLocalDate(activity.created_at);
+    const iso = activity.activity_date ?? activity.created_at.slice(0, 10);
     counts.set(iso, (counts.get(iso) ?? 0) + 1);
   }
   return counts;
@@ -77,7 +77,7 @@ export function ProfileStreakCalendar({
   const [selectedDate, setSelectedDate] = useState(today);
 
   const activityCounts = useMemo(
-    () => countActivitiesByDate(activities),
+    () => countActiveDates(activities),
     [activities],
   );
 

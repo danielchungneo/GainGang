@@ -4,23 +4,31 @@ import { Text, TouchableOpacity, View } from 'react-native';
 
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
-import { activityDateLabel, formatAmount, isoTimestampToLocalDate } from '@/lib/format';
+import { activityDateLabel, formatAmount } from '@/lib/format';
 import { fontFamily, type } from '@/lib/gaingang-theme';
-import type { Activity } from '@/types';
+import type { ActivityWithExercises } from '@/types';
 
 interface ProfileActivitiesFeedProps {
-  activities: Activity[];
+  activities: ActivityWithExercises[];
 }
 
-function groupByDate(activities: Activity[]): [string, Activity[]][] {
-  const groups = new Map<string, Activity[]>();
+function groupByDate(activities: ActivityWithExercises[]): [string, ActivityWithExercises[]][] {
+  const groups = new Map<string, ActivityWithExercises[]>();
   for (const activity of activities) {
-    const iso = isoTimestampToLocalDate(activity.created_at);
+    const iso = activity.activity_date ?? activity.created_at.slice(0, 10);
     const list = groups.get(iso);
     if (list) list.push(activity);
     else groups.set(iso, [activity]);
   }
   return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+}
+
+function formatExerciseSummary(activity: ActivityWithExercises): string {
+  const exercises = activity.exercises ?? [];
+  if (exercises.length === 0) return 'Activity logged';
+  return exercises
+    .map((e) => `${formatAmount(e.amount, e.unit)} ${e.exercise_name}`)
+    .join(' · ');
 }
 
 export function ProfileActivitiesFeed({ activities }: ProfileActivitiesFeedProps) {
@@ -53,39 +61,35 @@ export function ProfileActivitiesFeed({ activities }: ProfileActivitiesFeedProps
                     params: { id: activity.id },
                   })
                 }
-                className="flex-row items-center justify-between px-2 py-2.5"
+                className="px-2 py-2.5"
                 style={
                   index < items.length - 1
                     ? { borderBottomWidth: 1, borderBottomColor: t.buttonBorder }
                     : undefined
                 }
                 accessibilityRole="button"
-                accessibilityLabel={`${activity.exercise_name}, ${formatAmount(activity.amount, activity.unit)}`}
+                accessibilityLabel={formatExerciseSummary(activity)}
               >
-                <View className="flex-1">
-                  <Text
-                    style={[
-                      {
-                        fontFamily: fontFamily.bodySemi,
-                        fontSize: 15,
-                        color: t.heading,
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {activity.exercise_name}
-                  </Text>
+                <Text
+                  style={[
+                    {
+                      fontFamily: fontFamily.bodySemi,
+                      fontSize: 15,
+                      color: t.heading,
+                    },
+                  ]}
+                >
+                  {formatExerciseSummary(activity)}
+                </Text>
 
-                  <Text style={[type.dataSm, { color: t.body }]}>
-                    {new Date(activity.created_at).toLocaleTimeString(undefined, {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                </View>
-
-                <Text style={[type.data, { color: t.accent }]}>
-                  {formatAmount(activity.amount, activity.unit)}
+                <Text style={[type.dataSm, { color: t.body, marginTop: 4 }]}>
+                  {new Date(activity.updated_at ?? activity.created_at).toLocaleTimeString(undefined, {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                  {(activity.exercises?.length ?? 0) > 1
+                    ? ` · ${activity.exercises.length} exercises`
+                    : ''}
                 </Text>
               </TouchableOpacity>
             ))}

@@ -38,7 +38,7 @@ export default function ActivityDetailScreen() {
     queryFn: async (): Promise<ActivityFeedItem | null> => {
       const { data, error } = await supabase
         .from('activities')
-        .select('*, author:profiles(id, full_name, username, avatar_url, rank)')
+        .select('*, author:profiles(id, full_name, username, avatar_url, rank), exercises:activity_exercises(*)')
         .eq('id', activityId)
         .maybeSingle();
       if (error) throw error;
@@ -51,7 +51,8 @@ export default function ActivityDetailScreen() {
           : Promise.resolve({ data: null }),
       ]);
       return {
-        ...(data as ActivityFeedItem),
+        ...(data as unknown as ActivityFeedItem),
+        exercises: (data.exercises as ActivityFeedItem['exercises'] | undefined) ?? [],
         kudos_count: kudosCount ?? 0,
         comment_count: commentCount ?? 0,
         has_kudos: !!mine,

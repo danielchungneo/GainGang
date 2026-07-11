@@ -9,6 +9,8 @@ import {
 } from "react-native";
 
 import { DailyGoalCard } from "@/components/daily-goal-card";
+import { GoalCompleteOverlay } from "@/components/goal-complete-overlay";
+import { LevelUpOverlay } from "@/components/level-up-overlay";
 
 import {
   Button,
@@ -19,6 +21,8 @@ import {
 } from "@/components/ui";
 
 import { useAuth } from "@/context/auth-context";
+
+import { useDailyGoalSaveCelebrations } from "@/hooks/use-daily-goal-save-celebrations";
 
 import { useMyGangs } from "@/hooks/use-gangs";
 
@@ -45,6 +49,16 @@ export default function TodayScreen() {
 
   const { data: dailyGoals, isLoading, refetch, isRefetching } =
     useMyTodaysDailyGoals();
+
+  const {
+    celebration,
+    celebrationKey,
+    levelUp,
+    levelUpKey,
+    handleActivitySaved,
+    dismissCelebration,
+    dismissLevelUp,
+  } = useDailyGoalSaveCelebrations();
 
   const firstName =
     profile?.full_name?.split(" ")[0] ||
@@ -156,11 +170,38 @@ export default function TodayScreen() {
             </Text>
 
             {dailyGoalsList.map((g) => (
-              <DailyGoalCard key={g.id} goal={g} cameraActions />
+              <DailyGoalCard
+                key={g.id}
+                goal={g}
+                cameraActions
+                onActivitySaved={handleActivitySaved}
+              />
             ))}
           </View>
         )}
       </ScrollView>
+
+      {celebration ? (
+        <GoalCompleteOverlay
+          key={celebrationKey}
+          visible
+          questTitle={celebration.title}
+          questKind="Daily Goal"
+          xpEarned={celebration.xpEarned}
+          exercises={celebration.exercises}
+          onDismiss={dismissCelebration}
+        />
+      ) : null}
+
+      {levelUp && !celebration ? (
+        <LevelUpOverlay
+          key={levelUpKey}
+          visible
+          fromLevel={levelUp.fromLevel}
+          toLevel={levelUp.toLevel}
+          onDismiss={dismissLevelUp}
+        />
+      ) : null}
     </ScreenBackground>
   );
 }

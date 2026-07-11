@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import {
   GoalCompleteOverlay,
@@ -8,28 +8,34 @@ import {
 import { LevelUpOverlay } from '@/components/level-up-overlay';
 import { DailyGoalCard as DailyGoalCardView } from '@/components/ui/daily-goal-card';
 import {
-  fetchPersonalGoalAwardedExerciseIds,
   useLogActivity,
   type ActivitySaveResult,
 } from '@/hooks/use-activities';
 import { useProfile } from '@/hooks/use-profile';
 import { formatGoalDate, timeLeftUntilDateEnd } from '@/lib/format';
 import {
+  buildDailyGoalTotalsAfter,
+  resolvePostSaveCelebration,
+} from '@/lib/daily-goal-celebration';
+import {
   buildRepCounterSessionKey,
   consumePendingRepCount,
 } from '@/lib/rep-counting/pending-result';
 import { supportsCameraRepCounting } from '@/lib/rep-counting/exercise-registry';
-import {
-  getLevelUpInfo,
-  type DailyGoalExerciseWithProgress,
-  type DailyGoalWithProgress,
-} from '@/types';
+import type { DailyGoalExerciseWithProgress, DailyGoalWithProgress } from '@/types';
 
 interface DailyGoalCardProps {
   goal: DailyGoalWithProgress;
   loggable?: boolean;
   /** Camera-first flow: per-exercise perform buttons and auto-save counted reps. */
   cameraActions?: boolean;
+  /** When set, celebrations render on the parent screen instead of inside the card. */
+  onActivitySaved?: (input: {
+    goal: DailyGoalWithProgress;
+    totalsBefore: number[];
+    totalsAfter: number[];
+    xpAwarded: number;
+  }) => void;
 }
 
 async function saveCameraReps(
@@ -73,40 +79,21 @@ async function saveExerciseAmount(
   });
 }
 
-function buildTotalsAfter(
-  goal: DailyGoalWithProgress,
-  updates: Record<string, number>,
-): number[] {
-  return goal.exercises.map((ex) => updates[ex.id] ?? ex.user_total);
-}
-
-function isDailyGoalNewlyComplete(
-  goal: DailyGoalWithProgress,
-  totalsBefore: number[],
-  totalsAfter: number[],
-  awardedIdsBefore: Set<string>,
-): boolean {
-  const isExerciseMet = (ex: DailyGoalExerciseWithProgress, total: number) =>
-    ex.individual_target > 0 && total >= ex.individual_target;
-
-  const allCompleteBefore = goal.exercises.every(
-    (ex, i) => awardedIdsBefore.has(ex.id) || isExerciseMet(ex, totalsBefore[i]),
-  );
-  const allCompleteAfter = goal.exercises.every((ex, i) =>
-    isExerciseMet(ex, totalsAfter[i]),
-  );
-
-  return allCompleteAfter && !allCompleteBefore;
-}
-
 /** Daily goal card wired to weekly plan data from the API. */
 export function DailyGoalCard({
   goal,
   loggable = true,
   cameraActions = false,
+  onActivitySaved,
 }: DailyGoalCardProps) {
   const logActivity = useLogActivity();
   const { data: profile } = useProfile();
+  const goalRef = useRef(goal);
+  goalRef.current = goal;
+
+  const onActivitySavedRef = useRef(onActivitySaved);
+  onActivitySavedRef.current = onActivitySaved;
+
   const [savingExerciseId, setSavingExerciseId] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<{
     title: string;
@@ -119,64 +106,70 @@ export function DailyGoalCard({
   const [pendingLevelUp, setPendingLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(
     null,
   );
+  const processingPendingRepsRef = useRef(false);
 
-  const showPostSaveCelebrations = useCallback(
+  const notifyActivitySaved = useCallback(
     (
+      savedGoal: DailyGoalWithProgress,
       totalsBefore: number[],
       totalsAfter: number[],
-      awardedIdsBefore: Set<string>,
       xpAwarded: number,
     ) => {
-      const levelUpInfo = getLevelUpInfo(profile?.xp ?? 0, xpAwarded);
-
-      if (isDailyGoalNewlyComplete(goal, totalsBefore, totalsAfter, awardedIdsBefore)) {
-        const exercises: GoalCompleteExerciseTarget[] = goal.exercises.map((ex, i) => ({
-          name: ex.exercise_name,
-          unit: ex.unit,
-          from: totalsBefore[i],
-          target: ex.individual_target,
-        }));
-
-        if (levelUpInfo) setPendingLevelUp(levelUpInfo);
-        setCelebration({
-          title: formatGoalDate(goal.goal_date),
-          xpEarned: xpAwarded,
-          exercises,
+      const parentHandler = onActivitySavedRef.current;
+      if (parentHandler) {
+        parentHandler({
+          goal: savedGoal,
+          totalsBefore,
+          totalsAfter,
+          xpAwarded,
         });
+        return;
+      }
+
+      const { celebration: nextCelebration, levelUp: nextLevelUp } = resolvePostSaveCelebration({
+        goal: savedGoal,
+        totalsBefore,
+        totalsAfter,
+        xpAwarded,
+        profileXp: profile?.xp ?? 0,
+      });
+
+      if (nextCelebration) {
+        if (nextLevelUp) setPendingLevelUp(nextLevelUp);
+        setCelebration(nextCelebration);
         setCelebrationKey((k) => k + 1);
         return;
       }
 
-      if (levelUpInfo) {
-        setLevelUp(levelUpInfo);
+      if (nextLevelUp) {
+        setLevelUp(nextLevelUp);
         setLevelUpKey((k) => k + 1);
       }
     },
-    [goal, profile?.xp],
+    [profile?.xp],
   );
 
-  const handlePendingReps = useCallback(
-    async (exerciseGoalId?: string) => {
-      const totalsBefore = goal.exercises.map((ex) => ex.user_total);
-      const totalsAfterUpdates: Record<string, number> = {};
-      let totalXpAwarded = 0;
-      let savedAny = false;
+  const handlePendingReps = useCallback(async () => {
+    if (processingPendingRepsRef.current) return;
+    processingPendingRepsRef.current = true;
 
-      const awardedIdsBefore = await fetchPersonalGoalAwardedExerciseIds(
-        goal.exercises.map((ex) => ex.id),
-      );
+    const currentGoal = goalRef.current;
+    const totalsBefore = currentGoal.exercises.map((ex) => ex.user_total);
+    const totalsAfterUpdates: Record<string, number> = {};
+    let totalXpAwarded = 0;
+    let savedAny = false;
 
-      for (const ex of goal.exercises) {
-        if (exerciseGoalId && ex.id !== exerciseGoalId) continue;
+    try {
+      for (const ex of currentGoal.exercises) {
         if (!supportsCameraRepCounting(ex.exercise_name) || ex.unit !== 'reps') continue;
 
-        const sessionKey = buildRepCounterSessionKey(ex.exercise_id, goal.id);
+        const sessionKey = buildRepCounterSessionKey(ex.exercise_id, currentGoal.id);
         const pending = consumePendingRepCount(sessionKey);
         if (pending === null || pending <= 0) continue;
 
         setSavingExerciseId(ex.id);
         try {
-          const result = await saveCameraReps(ex, goal, pending, logActivity);
+          const result = await saveCameraReps(ex, currentGoal, pending, logActivity);
           totalsAfterUpdates[ex.id] = ex.user_total + pending;
           totalXpAwarded += result.xpAwarded;
           savedAny = true;
@@ -186,22 +179,26 @@ export function DailyGoalCard({
       }
 
       if (savedAny) {
-        showPostSaveCelebrations(
+        notifyActivitySaved(
+          currentGoal,
           totalsBefore,
-          buildTotalsAfter(goal, totalsAfterUpdates),
-          awardedIdsBefore,
+          buildDailyGoalTotalsAfter(currentGoal, totalsAfterUpdates),
           totalXpAwarded,
         );
       }
-    },
-    [goal, logActivity, showPostSaveCelebrations],
-  );
+    } finally {
+      processingPendingRepsRef.current = false;
+    }
+  }, [logActivity, notifyActivitySaved]);
+
+  const handlePendingRepsRef = useRef(handlePendingReps);
+  handlePendingRepsRef.current = handlePendingReps;
 
   useFocusEffect(
     useCallback(() => {
       if (!cameraActions || !loggable) return;
-      void handlePendingReps();
-    }, [cameraActions, loggable, handlePendingReps]),
+      void handlePendingRepsRef.current();
+    }, [cameraActions, loggable]),
   );
 
   function openRepCounter(ex: DailyGoalExerciseWithProgress) {
@@ -218,19 +215,17 @@ export function DailyGoalCard({
   }
 
   async function handleManualLog(ex: DailyGoalExerciseWithProgress, addedAmount: number) {
-    const totalsBefore = goal.exercises.map((e) => e.user_total);
+    const currentGoal = goalRef.current;
+    const totalsBefore = currentGoal.exercises.map((e) => e.user_total);
     const userTotalAfter = ex.user_total + addedAmount;
 
     setSavingExerciseId(ex.id);
     try {
-      const awardedIdsBefore = await fetchPersonalGoalAwardedExerciseIds(
-        goal.exercises.map((e) => e.id),
-      );
-      const result = await saveExerciseAmount(ex, goal, userTotalAfter, logActivity);
-      showPostSaveCelebrations(
+      const result = await saveExerciseAmount(ex, currentGoal, userTotalAfter, logActivity);
+      notifyActivitySaved(
+        currentGoal,
         totalsBefore,
-        buildTotalsAfter(goal, { [ex.id]: userTotalAfter }),
-        awardedIdsBefore,
+        buildDailyGoalTotalsAfter(currentGoal, { [ex.id]: userTotalAfter }),
         result.xpAwarded,
       );
     } finally {
@@ -239,6 +234,7 @@ export function DailyGoalCard({
   }
 
   const useCameraFlow = cameraActions && loggable;
+  const renderLocalOverlays = !onActivitySaved;
 
   return (
     <>
@@ -289,7 +285,7 @@ export function DailyGoalCard({
         }
       />
 
-      {celebration ? (
+      {renderLocalOverlays && celebration ? (
         <GoalCompleteOverlay
           key={celebrationKey}
           visible
@@ -308,7 +304,7 @@ export function DailyGoalCard({
         />
       ) : null}
 
-      {levelUp && !celebration ? (
+      {renderLocalOverlays && levelUp && !celebration ? (
         <LevelUpOverlay
           key={levelUpKey}
           visible

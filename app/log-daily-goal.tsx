@@ -12,13 +12,10 @@ import {
 
 import { GlassSurface, KeyboardAwareScrollView, ScreenBackground } from '@/components/ui';
 import { AmountInput } from '@/components/ui/amount-input';
-import {
-  GoalCompleteOverlay,
-  type GoalCompleteExerciseTarget,
-} from '@/components/goal-complete-overlay';
+import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
 import { LevelUpOverlay } from '@/components/level-up-overlay';
 import { CameraRepCountButton } from '@/components/rep-counter/camera-rep-count-button';
-import { useDailyGoalActivities, useLogActivity, useUpdateActivity, fetchPersonalGoalAwardedExerciseIds } from '@/hooks/use-activities';
+import { useDailyGoalActivities, useLogActivity, useUpdateActivity } from '@/hooks/use-activities';
 import { useDailyGoal } from '@/hooks/use-weekly-plans';
 import { useProfile } from '@/hooks/use-profile';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
@@ -28,13 +25,15 @@ import {
   sanitizeAmountInput,
   validateAmountInput,
 } from '@/lib/activity-amount';
+import { resolvePostSaveCelebration } from '@/lib/daily-goal-celebration';
+import type { DailyGoalCelebrationPayload } from '@/lib/daily-goal-celebration';
 import { formatAmount, formatGoalActivityList, formatGoalDate } from '@/lib/format';
 import {
   buildRepCounterSessionKey,
   consumePendingRepCount,
 } from '@/lib/rep-counting/pending-result';
 import { supportsCameraRepCounting } from '@/lib/rep-counting/exercise-registry';
-import { getLevelUpInfo, type DailyGoalExerciseWithProgress, type ExerciseUnit, type ActivityExercise } from '@/types';
+import type { DailyGoalExerciseWithProgress, ExerciseUnit, ActivityExercise } from '@/types';
 
 interface ExerciseFormState {
   amount: string;
@@ -65,11 +64,7 @@ export default function LogDailyGoalScreen() {
   const [formState, setFormState] = useState<Record<string, ExerciseFormState>>({});
   const [hasPrefilled, setHasPrefilled] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [celebration, setCelebration] = useState<{
-    title: string;
-    xpEarned: number;
-    exercises: GoalCompleteExerciseTarget[];
-  } | null>(null);
+  const [celebration, setCelebration] = useState<DailyGoalCelebrationPayload | null>(null);
   const [celebrationKey, setCelebrationKey] = useState(0);
   const [levelUp, setLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(null);
   const [levelUpKey, setLevelUpKey] = useState(0);
@@ -170,15 +165,7 @@ export default function LogDailyGoalScreen() {
     try {
       let totalXp = 0;
 
-      const totalsBefore = dailyGoal.exercises.map((ex) => {
-        const existing = resolveExistingForExercise(ex, activityByExercise);
-        const previousAmt = existing?.amount ?? 0;
-        return ex.user_total - previousAmt;
-      });
-
-      const awardedExerciseIds = await fetchPersonalGoalAwardedExerciseIds(
-        dailyGoal.exercises.map((ex) => ex.id),
-      );
+      const totalsBefore = dailyGoal.exercises.map((ex) => ex.user_total);
 
       for (const ex of toSave) {
         const amt = parseActivityAmount(formState[ex.id].amount, ex.unit)!;
@@ -236,41 +223,26 @@ export default function LogDailyGoalScreen() {
         totalXp += xpAwarded;
       }
 
-      const totalsAfter = dailyGoal.exercises.map((ex, index) => {
+      const totalsAfter = dailyGoal.exercises.map((ex) => {
         const saved = toSave.some((s) => s.id === ex.id);
-        if (!saved) return totalsBefore[index];
-        const amt = parseActivityAmount(formState[ex.id].amount, ex.unit)!;
-        return totalsBefore[index] + amt;
+        if (!saved) return ex.user_total;
+        return parseActivityAmount(formState[ex.id].amount, ex.unit)!;
       });
 
-      const isExerciseMet = (ex: (typeof dailyGoal.exercises)[0], total: number) =>
-        ex.individual_target > 0 && total >= ex.individual_target;
+      const { celebration: nextCelebration, levelUp: levelUpInfo } = resolvePostSaveCelebration({
+        goal: dailyGoal,
+        totalsBefore,
+        totalsAfter,
+        xpAwarded: totalXp,
+        profileXp: profile?.xp ?? 0,
+      });
 
-      const wasExerciseCompleteBefore = (ex: (typeof dailyGoal.exercises)[0], index: number) =>
-        awardedExerciseIds.has(ex.id) || isExerciseMet(ex, totalsBefore[index]);
-
-      const allCompleteBefore = dailyGoal.exercises.every((ex, i) =>
-        wasExerciseCompleteBefore(ex, i),
-      );
-      const allCompleteAfter = dailyGoal.exercises.every((ex, i) =>
-        isExerciseMet(ex, totalsAfter[i]),
-      );
-
-      const levelUpInfo = getLevelUpInfo(profile?.xp ?? 0, totalXp);
-
-      if (allCompleteAfter && !allCompleteBefore) {
-        const exercises: GoalCompleteExerciseTarget[] = dailyGoal.exercises.map((ex, i) => ({
-          name: ex.exercise_name,
-          unit: ex.unit,
-          from: totalsBefore[i],
-          target: ex.individual_target,
-        }));
-
+      if (nextCelebration) {
         if (levelUpInfo) setPendingLevelUp(levelUpInfo);
         setCelebration({
-          title: formatGoalDate(dailyGoal.goal_date),
-          xpEarned: totalXp,
-          exercises,
+          title: nextCelebration.title,
+          xpEarned: nextCelebration.xpEarned,
+          exercises: nextCelebration.exercises,
         });
         setCelebrationKey((k) => k + 1);
         return;

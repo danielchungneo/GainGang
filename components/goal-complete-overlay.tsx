@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import {
   View,
@@ -48,6 +49,66 @@ const T = {
   ringDur: 1100,
   xpDur: 480,
 };
+
+const H = {
+  card: T.cardDelay,
+  glow: 40,
+  stamp: 80,
+  stampSettle: 280,
+  ring1: 160,
+  ring2: 310,
+  ring3: 460,
+  xp: 700,
+} as const;
+
+function scheduleGoalCompleteEntranceHaptics(): () => void {
+  if (Platform.OS === 'web') return () => {};
+
+  const timeout = setTimeout(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, H.card);
+
+  return () => clearTimeout(timeout);
+}
+
+function scheduleGoalCompleteCelebrationHaptics(): () => void {
+  if (Platform.OS === 'web') return () => {};
+
+  const timeouts: ReturnType<typeof setTimeout>[] = [];
+
+  function at(ms: number, fn: () => void) {
+    timeouts.push(setTimeout(fn, ms));
+  }
+
+  at(H.glow, () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  });
+
+  at(H.stamp, () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  });
+
+  at(H.stampSettle, () => {
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  });
+
+  for (const ms of [H.ring1, H.ring2, H.ring3]) {
+    at(ms, () => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    });
+  }
+
+  at(H.xp, () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  });
+
+  return () => timeouts.forEach(clearTimeout);
+}
+
+function pulseExerciseBarHaptic() {
+  if (Platform.OS === 'web') return;
+  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+}
 
 export interface GoalCompleteExerciseTarget {
   name: string;
@@ -141,6 +202,7 @@ function AnimatedExerciseBar({ exercise, delay, duration, onFinished }: Animated
   );
 
   const handleFinished = useCallback(() => {
+    pulseExerciseBarHaptic();
     setComplete(true);
     onFinished?.();
   }, [onFinished]);
@@ -236,6 +298,7 @@ export function GoalCompleteOverlay({
   const [celebrationShown, setCelebrationShown] = useState(false);
   const hasPlayed = useRef(false);
   const finishedBars = useRef(0);
+  const cancelCelebrationHapticsRef = useRef<(() => void) | null>(null);
 
   const easeOut = Easing.out(Easing.cubic);
 
@@ -246,6 +309,9 @@ export function GoalCompleteOverlay({
       : `All ${exercises.length} exercises complete.`);
 
   function playCelebration() {
+    cancelCelebrationHapticsRef.current?.();
+    cancelCelebrationHapticsRef.current = scheduleGoalCompleteCelebrationHaptics();
+
     glowPow.value = withDelay(40, withTiming(1, { duration: T.glowDur, easing: easeOut }));
 
     stampOpa.value = withDelay(80, withTiming(1, { duration: 280, easing: easeOut }));
@@ -310,6 +376,8 @@ export function GoalCompleteOverlay({
       hasPlayed.current = false;
       setCelebrationShown(false);
       finishedBars.current = 0;
+      cancelCelebrationHapticsRef.current?.();
+      cancelCelebrationHapticsRef.current = null;
     }
   }, [visible]);
 
@@ -317,7 +385,14 @@ export function GoalCompleteOverlay({
     if (!visible || hasPlayed.current) return;
     reset();
     hasPlayed.current = true;
-    requestAnimationFrame(() => playEntrance());
+    const cancelEntranceHaptics = scheduleGoalCompleteEntranceHaptics();
+    const frame = requestAnimationFrame(() => playEntrance());
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelEntranceHaptics();
+      cancelCelebrationHapticsRef.current?.();
+      cancelCelebrationHapticsRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, exercises]);
 

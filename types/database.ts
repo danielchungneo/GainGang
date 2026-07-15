@@ -32,8 +32,15 @@ export type NotificationType =
   | 'quest'
   | 'achievement'
   | 'rank_up'
-  | 'gang';
-export type XpAwardKind = 'activity_log' | 'personal_goal' | 'gang_goal';
+  | 'gang'
+  | 'poke'
+  | 'daily_goal';
+
+export type PushPlatform = 'ios' | 'android' | 'web' | 'unknown';
+export type XpAwardKind = 'activity_log' | 'personal_goal' | 'gang_goal' | 'crate_reward';
+export type RewardCrateStatus = 'sealed' | 'opened';
+export type RewardCrateSource = 'daily_completion';
+export type RewardCrateTier = 'aura' | 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 
 export type Database = {
   public: {
@@ -315,6 +322,7 @@ export type Database = {
           gang_id: string | null;
           daily_goal_exercise_id: string | null;
           quest_id: string | null;
+          reward_crate_id: string | null;
           xp_amount: number;
           created_at: string;
         };
@@ -325,10 +333,25 @@ export type Database = {
           gang_id?: string | null;
           daily_goal_exercise_id?: string | null;
           quest_id?: string | null;
+          reward_crate_id?: string | null;
           xp_amount: number;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['xp_awards']['Insert']>;
+        Relationships: [];
+      };
+      app_settings: {
+        Row: {
+          key: string;
+          value: Json;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          value: Json;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['app_settings']['Insert']>;
         Relationships: [];
       };
       weekly_plans: {
@@ -338,6 +361,7 @@ export type Database = {
           starts_on: string;
           ends_on: string;
           status: WeeklyPlanStatus;
+          is_adaptive: boolean;
           created_at: string;
         };
         Insert: {
@@ -346,6 +370,7 @@ export type Database = {
           starts_on: string;
           ends_on: string;
           status?: WeeklyPlanStatus;
+          is_adaptive?: boolean;
         };
         Update: Partial<Database['public']['Tables']['weekly_plans']['Insert']>;
         Relationships: [
@@ -512,6 +537,9 @@ export type Database = {
           type: NotificationType;
           actor_id: string | null;
           activity_id: string | null;
+          gang_id: string | null;
+          daily_goal_id: string | null;
+          daily_goal_exercise_id: string | null;
           body: string;
           is_read: boolean;
           created_at: string;
@@ -522,11 +550,74 @@ export type Database = {
           type: NotificationType;
           actor_id?: string | null;
           activity_id?: string | null;
+          gang_id?: string | null;
+          daily_goal_id?: string | null;
+          daily_goal_exercise_id?: string | null;
           body: string;
           is_read?: boolean;
         };
         Update: Partial<Database['public']['Tables']['notifications']['Insert']>;
         Relationships: [];
+      };
+      push_tokens: {
+        Row: {
+          id: string;
+          user_id: string;
+          token: string;
+          platform: PushPlatform;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          token: string;
+          platform?: PushPlatform;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['push_tokens']['Insert']>;
+        Relationships: [];
+      };
+      user_reward_crates: {
+        Row: {
+          id: string;
+          user_id: string;
+          source: RewardCrateSource;
+          source_date: string;
+          status: RewardCrateStatus;
+          tier: RewardCrateTier;
+          title: string;
+          subtitle: string | null;
+          contents: Json | null;
+          claimed_at: string;
+          opened_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          source?: RewardCrateSource;
+          source_date: string;
+          status?: RewardCrateStatus;
+          tier?: RewardCrateTier;
+          title?: string;
+          subtitle?: string | null;
+          contents?: Json | null;
+          claimed_at?: string;
+          opened_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['user_reward_crates']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'user_reward_crates_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
       };
     };
     Views: {
@@ -588,6 +679,10 @@ export type Database = {
         Args: { p_invite_code: string };
         Returns: Database['public']['Tables']['gangs']['Row'];
       };
+      preview_gang_invite: {
+        Args: { p_invite_code: string };
+        Returns: Json;
+      };
       join_public_gang: {
         Args: { p_gang_id: string };
         Returns: Database['public']['Tables']['gangs']['Row'];
@@ -600,6 +695,22 @@ export type Database = {
         Args: { p_gang_id: string; p_user_id?: string };
         Returns: boolean;
       };
+      is_gang_owner: {
+        Args: { p_gang_id: string; p_user_id?: string };
+        Returns: boolean;
+      };
+      gang_member_count_on_date: {
+        Args: { p_gang_id: string; p_on_date: string; p_timezone?: string };
+        Returns: number;
+      };
+      weekly_plan_gang_completed: {
+        Args: { p_plan_id: string; p_timezone?: string };
+        Returns: boolean;
+      };
+      rollover_weekly_plans: {
+        Args: { p_force?: boolean };
+        Returns: Json;
+      };
       shares_gang: {
         Args: { p_user_a: string; p_user_b: string };
         Returns: boolean;
@@ -609,6 +720,7 @@ export type Database = {
           p_gang_id: string;
           p_starts_on: string;
           p_days: Json;
+          p_is_adaptive?: boolean;
         };
         Returns: Database['public']['Tables']['weekly_plans']['Row'];
       };
@@ -616,8 +728,32 @@ export type Database = {
         Args: {
           p_plan_id: string;
           p_days: Json;
+          p_is_adaptive?: boolean;
         };
         Returns: Database['public']['Tables']['weekly_plans']['Row'];
+      };
+      claim_daily_reward: {
+        Args: { p_reward_date?: string };
+        Returns: Database['public']['Tables']['user_reward_crates']['Row'];
+      };
+      open_reward_crate: {
+        Args: { p_crate_id: string };
+        Returns: Database['public']['Tables']['user_reward_crates']['Row'];
+      };
+      send_gang_poke: {
+        Args: {
+          p_gang_id: string;
+          p_target_user_id: string;
+          p_daily_goal_exercise_id: string;
+        };
+        Returns: Database['public']['Tables']['notifications']['Row'];
+      };
+      register_push_token: {
+        Args: {
+          p_token: string;
+          p_platform?: string;
+        };
+        Returns: Database['public']['Tables']['push_tokens']['Row'];
       };
     };
     Enums: Record<string, never>;

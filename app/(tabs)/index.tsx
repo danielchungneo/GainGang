@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { DailyGoalCard } from "@/components/daily-goal-card";
+import { DailyRewardClaimBanner } from "@/components/daily-reward-claim-banner";
 import { GoalCompleteOverlay } from "@/components/goal-complete-overlay";
 import { LevelUpOverlay } from "@/components/level-up-overlay";
 
@@ -86,13 +87,21 @@ export default function TodayScreen() {
       >
         <View className="mt-4 flex-row items-center justify-between gap-3">
           <View className="flex-1 gap-2">
-            <Text style={[type.labelSm, { color: t.body }]}>
-              {new Date().toLocaleDateString(undefined, {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-              })}
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Text style={[type.labelSm, { color: t.body }]}>
+                {new Date().toLocaleDateString(undefined, {
+                  weekday: "long",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </Text>
+              {(profile?.current_streak ?? 0) > 0 ? (
+                <>
+                  <Text style={[type.labelSm, { color: t.placeholder }]}>·</Text>
+                  <StreakPill days={profile?.current_streak ?? 0} />
+                </>
+              ) : null}
+            </View>
 
             <Text style={[type.heading, { color: t.heading }]}>
               {firstName ? `Let's gain, ${firstName}` : "Let's gain"}
@@ -104,8 +113,8 @@ export default function TodayScreen() {
           ) : null}
         </View>
 
-        {(profile?.current_streak ?? 0) > 0 ? (
-          <StreakPill days={profile?.current_streak ?? 0} />
+        {dailyGoalsList.length > 0 ? (
+          <DailyRewardClaimBanner goals={dailyGoalsList} />
         ) : null}
 
         {/* {profile ? (

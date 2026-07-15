@@ -20,8 +20,9 @@ import {
 import {
   buildRepCounterSessionKey,
   consumePendingRepCount,
+  serializeRepCounterQueue,
 } from '@/lib/rep-counting/pending-result';
-import { supportsCameraRepCounting } from '@/lib/rep-counting/exercise-registry';
+import { supportsCameraTracking } from '@/lib/rep-counting/exercise-registry';
 import type { DailyGoalExerciseWithProgress, DailyGoalWithProgress } from '@/types';
 
 interface DailyGoalCardProps {
@@ -161,7 +162,7 @@ export function DailyGoalCard({
 
     try {
       for (const ex of currentGoal.exercises) {
-        if (!supportsCameraRepCounting(ex.exercise_name) || ex.unit !== 'reps') continue;
+        if (!supportsCameraTracking(ex.exercise_name, ex.unit)) continue;
 
         const sessionKey = buildRepCounterSessionKey(ex.exercise_id, currentGoal.id);
         const pending = consumePendingRepCount(sessionKey);
@@ -203,6 +204,17 @@ export function DailyGoalCard({
 
   function openRepCounter(ex: DailyGoalExerciseWithProgress) {
     const sessionKey = buildRepCounterSessionKey(ex.exercise_id, goal.id);
+    const cameraExercises = goal.exercises.filter((e) =>
+      supportsCameraTracking(e.exercise_name, e.unit),
+    );
+    const currentIndex = cameraExercises.findIndex((e) => e.id === ex.id);
+    const nextQueue = cameraExercises.slice(currentIndex + 1).map((e) => ({
+      exerciseId: e.exercise_id,
+      exerciseName: e.exercise_name,
+      unit: e.unit,
+      targetSeconds: e.unit === 'seconds' ? e.individual_target : undefined,
+    }));
+
     router.push({
       pathname: '/rep-counter',
       params: {
@@ -210,6 +222,13 @@ export function DailyGoalCard({
         exerciseName: ex.exercise_name,
         sessionKey,
         contextId: goal.id,
+        unit: ex.unit,
+        ...(ex.unit === 'seconds'
+          ? { targetSeconds: String(ex.individual_target) }
+          : {}),
+        ...(nextQueue.length > 0
+          ? { exerciseQueue: serializeRepCounterQueue(nextQueue) }
+          : {}),
       },
     });
   }
@@ -245,8 +264,7 @@ export function DailyGoalCard({
         showProgressToggle={useCameraFlow}
         showIndividual={!useCameraFlow}
         exercises={goal.exercises.map((e) => {
-          const cameraSupported =
-            e.unit === 'reps' && supportsCameraRepCounting(e.exercise_name);
+          const cameraSupported = supportsCameraTracking(e.exercise_name, e.unit);
 
           return {
             key: e.id,

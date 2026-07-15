@@ -239,6 +239,8 @@ export function LevelUpOverlay({
     cardY.value = 50;
     cardOpa.value = 0;
     cardW.value = CARD_W_BASE;
+    // Keep height unconstrained until expand so the card can measure naturally.
+    // Driving height from 0 makes overflow:hidden collapse the card into a sliver.
     cardH.value = 0;
     cardHBase.value = 0;
     barPct.value = 0.35;
@@ -273,10 +275,10 @@ export function LevelUpOverlay({
     stampOpa.value = withDelay(T.stampDelay, withTiming(1, { duration: 260, easing: easeOut }));
     stampSc.value = withDelay(T.stampDelay, withSpring(1, { damping: 11, stiffness: 180, mass: 0.9 }));
     bodyOpa.value = withDelay(T.stampDelay, withTiming(0, { duration: 220, easing: easeOut }));
-    const expandSpring = { damping: 14, stiffness: 150, mass: 0.9 };
-    const stampHeight = Math.max(CARD_H_STAMP, cardHBase.value);
-    cardW.value = withDelay(T.stampDelay, withSpring(CARD_W_STAMP, expandSpring));
-    cardH.value = withDelay(T.stampDelay, withSpring(stampHeight, expandSpring));
+    cardW.value = withDelay(
+      T.stampDelay,
+      withSpring(CARD_W_STAMP, { damping: 14, stiffness: 150, mass: 0.9 }),
+    );
 
     (
       [
@@ -305,8 +307,18 @@ export function LevelUpOverlay({
       requestAnimationFrame(() => play());
     });
 
+    // Expand height on the JS clock so we read the measured base after onLayout,
+    // instead of springing from 0 (which onLayout can then lock in as ~1px).
+    const expandTimer = setTimeout(() => {
+      const base = cardHBase.value > 0 ? cardHBase.value : CARD_H_STAMP;
+      const stampHeight = Math.max(CARD_H_STAMP, base);
+      cardH.value = base;
+      cardH.value = withSpring(stampHeight, { damping: 14, stiffness: 150, mass: 0.9 });
+    }, T.stampDelay);
+
     return () => {
       cancelAnimationFrame(frame);
+      clearTimeout(expandTimer);
       cancelHaptics();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -400,9 +412,11 @@ export function LevelUpOverlay({
             style={[s.card, cardStyle]}
             onLayout={(e: LayoutChangeEvent) => {
               const h = e.nativeEvent.layout.height;
-              if (h > 0 && cardHBase.value === 0) {
+              // Only capture natural height while unconstrained (cardH === 0).
+              // If we also write cardH here during a from-0 spring, onLayout can
+              // freeze the card at a 1–2px sliver and cancel the expand animation.
+              if (h > 0 && cardHBase.value === 0 && cardH.value === 0) {
                 cardHBase.value = h;
-                cardH.value = h;
               }
             }}>
           <Animated.View style={[s.body, bodyStyle]}>

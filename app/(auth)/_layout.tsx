@@ -1,14 +1,43 @@
 import { Stack, Redirect } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+
 import { useAuth } from '@/context/auth-context';
+import { consumePendingGangInvite } from '@/lib/gang-invite';
 
 export default function AuthLayout() {
   const { session, isPending } = useAuth();
+  const [pendingInvite, setPendingInvite] = useState<string | null | undefined>(undefined);
 
-  // Wait for session check before deciding to redirect
+  useEffect(() => {
+    if (!session) {
+      setPendingInvite(undefined);
+      return;
+    }
+
+    let cancelled = false;
+    void consumePendingGangInvite().then((code) => {
+      if (!cancelled) setPendingInvite(code);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
   if (isPending) return null;
 
-  // Already authenticated — send to main app
-  if (session) return <Redirect href="/(tabs)" />;
+  if (session) {
+    if (pendingInvite === undefined) {
+      return (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator />
+        </View>
+      );
+    }
+    if (pendingInvite) return <Redirect href={`/invite/${pendingInvite}`} />;
+    return <Redirect href="/(tabs)" />;
+  }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

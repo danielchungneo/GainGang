@@ -1,17 +1,43 @@
-/** Pass rep count back to the log screen after a camera session. */
-let pending: { sessionKey: string; repCount: number } | null = null;
+/** Pass rep counts back to the log screen after camera sessions. */
+const pendingBySession = new Map<string, number>();
 
 export function setPendingRepCount(sessionKey: string, repCount: number) {
-  pending = { sessionKey, repCount };
+  pendingBySession.set(sessionKey, repCount);
 }
 
 export function consumePendingRepCount(sessionKey: string): number | null {
-  if (!pending || pending.sessionKey !== sessionKey) return null;
-  const count = pending.repCount;
-  pending = null;
+  if (!pendingBySession.has(sessionKey)) return null;
+  const count = pendingBySession.get(sessionKey)!;
+  pendingBySession.delete(sessionKey);
   return count;
 }
 
 export function buildRepCounterSessionKey(exerciseId: string, contextId?: string): string {
   return `${contextId ?? 'solo'}:${exerciseId}`;
+}
+
+export interface RepCounterQueueItem {
+  exerciseId: string;
+  exerciseName: string;
+  unit?: string;
+  targetSeconds?: number;
+}
+
+export function serializeRepCounterQueue(queue: RepCounterQueueItem[]): string {
+  return JSON.stringify(queue);
+}
+
+export function parseRepCounterQueue(raw: string | undefined): RepCounterQueueItem[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is RepCounterQueueItem => {
+      if (typeof item !== 'object' || item === null) return false;
+      const row = item as RepCounterQueueItem;
+      return typeof row.exerciseId === 'string' && typeof row.exerciseName === 'string';
+    });
+  } catch {
+    return [];
+  }
 }

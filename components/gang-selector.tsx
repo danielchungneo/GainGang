@@ -30,11 +30,13 @@ export function GangSelector({ gangs, selectedId, onSelect }: GangSelectorProps)
   const titleStyle = [type.heading, { color: t.heading, flexShrink: 1 }];
 
   const title = (
-    <View className="flex-row items-center gap-1" style={{ flexShrink: 1 }}>
+    <View className="flex-row items-center gap-1" style={{ flexShrink: 1, maxWidth: '100%' }}>
       <Text style={titleStyle} numberOfLines={1}>
         {selected.name}
       </Text>
-      {hasMultipleGangs ? <Ionicons name="chevron-down" size={22} color={t.heading} /> : null}
+      {hasMultipleGangs ? (
+        <Ionicons name="chevron-down" size={22} color={t.heading} style={{ flexShrink: 0 }} />
+      ) : null}
     </View>
   );
 
@@ -46,7 +48,7 @@ export function GangSelector({ gangs, selectedId, onSelect }: GangSelectorProps)
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={`Viewing ${selected.name}. Tap to switch gang.`}
-          style={{ flexShrink: 1 }}
+          style={{ flexShrink: 1, maxWidth: '100%' }}
         >
           {title}
         </TouchableOpacity>

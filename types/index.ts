@@ -16,6 +16,10 @@ export type {
   WeeklyPlanStatus,
   AchievementCategory,
   NotificationType,
+  PushPlatform,
+  RewardCrateStatus,
+  RewardCrateSource,
+  RewardCrateTier,
 } from './database';
 
 import type {
@@ -46,6 +50,8 @@ export type ActivityExercise = Tables<'activity_exercises'>;
 export type Comment = Tables<'comments'>;
 export type Achievement = Tables<'achievements'>;
 export type AppNotification = Tables<'notifications'>;
+export type PushToken = Tables<'push_tokens'>;
+export type UserRewardCrate = Tables<'user_reward_crates'>;
 
 /** A gang the current user belongs to, with their role + member count. */
 export interface GangSummary extends Gang {
@@ -333,10 +339,12 @@ export function mondayOfWeek(date = new Date()): string {
   return new Date(d.getTime() - tz).toISOString().slice(0, 10);
 }
 
-/** Add days to a YYYY-MM-DD string. */
+/** Add days to a YYYY-MM-DD string (local calendar arithmetic). */
 export function addDaysISO(iso: string, days: number): string {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + days);
-  const tz = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
+  const [year, month, day] = iso.split('-').map(Number);
+  const d = new Date(year!, month! - 1, day! + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
 }

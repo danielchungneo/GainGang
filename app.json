@@ -13,7 +13,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.danielchungneo.gaingang",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "GainGang needs photo library access so you can set a profile picture.",
+        "NSCameraUsageDescription": "GainGang needs camera access so you can take a profile picture."
       }
     },
     "android": {
@@ -27,7 +29,8 @@
       "permissions": [
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES"
       ]
     },
     "web": {
@@ -57,6 +60,21 @@
       ],
       "expo-font",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/gaingang/icon.png",
+          "color": "#0E1524",
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GainGang needs photo library access so you can set a profile picture.",
+          "cameraPermission": "GainGang needs camera access so you can take a profile picture."
+        }
+      ],
+      [
         "react-native-vision-camera",
         {
           "cameraPermissionText": "GainGang uses the camera to count your reps during exercises.",
@@ -72,7 +90,8 @@
           "minTrackingConfidence": 0.5
         }
       ],
-      "./plugins/with-mediapipe-pose-ios"
+      "./plugins/with-mediapipe-pose-ios",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,

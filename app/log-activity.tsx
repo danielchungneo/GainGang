@@ -34,7 +34,7 @@ import {
   buildRepCounterSessionKey,
   consumePendingRepCount,
 } from '@/lib/rep-counting/pending-result';
-import { supportsCameraRepCounting } from '@/lib/rep-counting/exercise-registry';
+import { supportsCameraTracking } from '@/lib/rep-counting/exercise-registry';
 import {
   CATEGORY_LABELS,
   WEEKLY_SCHEDULE,
@@ -129,9 +129,7 @@ export default function LogActivityScreen() {
       )
     : null;
   const requiresCameraCount =
-    !!selectedExercise &&
-    selectedExercise.unit === 'reps' &&
-    supportsCameraRepCounting(selectedExercise.name);
+    !!selectedExercise && supportsCameraTracking(selectedExercise.name, selectedExercise.unit);
 
   useFocusEffect(
     useCallback(() => {
@@ -425,13 +423,20 @@ export default function LogActivityScreen() {
                   disabled={isPending}
                 />
                 <View className="mt-3">
-                  <Label>Reps (camera verified)</Label>
+                  <Label>
+                    {selectedExercise.unit === 'seconds'
+                      ? 'Seconds (camera verified)'
+                      : 'Reps (camera verified)'}
+                  </Label>
                   <View
                     className="rounded-xl border px-4 py-3"
                     style={{ backgroundColor: t.inputBg, borderColor: t.inputBorder }}
                   >
                     <Text style={{ color: amount ? t.heading : t.placeholder, fontSize: 18, fontWeight: '600' }}>
-                      {amount || 'Use the camera to count your reps'}
+                      {amount ||
+                        (selectedExercise.unit === 'seconds'
+                          ? 'Use the camera to time your hold'
+                          : 'Use the camera to count your reps')}
                     </Text>
                   </View>
                 </View>

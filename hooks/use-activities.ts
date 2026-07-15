@@ -4,6 +4,7 @@ import { useAuth } from '@/context/auth-context';
 import { rankForXp } from '@/types';
 import { queryKeys } from '@/lib/query-keys';
 import { todayISO } from '@/lib/format';
+import { refreshPersonalStreak } from '@/lib/streaks';
 import { supabase } from '@/lib/supabase';
 import type {
   Activity,
@@ -244,6 +245,7 @@ export function useUpdateActivity() {
           questId: input.questId ?? activity.quest_id ?? undefined,
         },
       });
+      await refreshPersonalStreak(userId);
       return { activity, exercise, xpAwarded };
     },
     onSuccess: ({ activity }) => {
@@ -288,6 +290,7 @@ export function useLogActivity() {
           questId: input.questId,
         },
       });
+      await refreshPersonalStreak(userId);
       return { activity, exercise, xpAwarded };
     },
     onSuccess: ({ activity }) => {
@@ -299,14 +302,17 @@ export function useLogActivity() {
 export function useDeleteActivity() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
+  const userId = session?.user.id;
   return useMutation({
     mutationFn: async (activity: Pick<Activity, 'id' | 'gang_id'>): Promise<void> => {
       const { error } = await supabase.from('activities').delete().eq('id', activity.id);
       if (error) throw error;
+      if (userId) await refreshPersonalStreak(userId);
     },
     onSuccess: (_d, activity) => {
       if (activity.gang_id) queryClient.invalidateQueries({ queryKey: queryKeys.feed(activity.gang_id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(session?.user.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile(userId) });
     },
   });
 }

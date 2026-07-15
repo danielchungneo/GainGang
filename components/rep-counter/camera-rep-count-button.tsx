@@ -3,8 +3,16 @@ import { router } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
-import { buildRepCounterSessionKey } from '@/lib/rep-counting/pending-result';
-import { supportsCameraRepCounting } from '@/lib/rep-counting/exercise-registry';
+import {
+  buildRepCounterSessionKey,
+  serializeRepCounterQueue,
+  type RepCounterQueueItem,
+} from '@/lib/rep-counting/pending-result';
+import {
+  getCameraExerciseType,
+  getCameraTrackingMode,
+  supportsCameraTracking,
+} from '@/lib/rep-counting/exercise-registry';
 
 interface CameraRepCountButtonProps {
   exerciseId: string;
@@ -13,6 +21,10 @@ interface CameraRepCountButtonProps {
   contextId?: string;
   sessionKey?: string;
   disabled?: boolean;
+  /** Goal duration for hold exercises (plank). */
+  targetSeconds?: number;
+  /** Remaining camera exercises after this one (daily goal flow). */
+  nextExercises?: RepCounterQueueItem[];
 }
 
 export function CameraRepCountButton({
@@ -22,12 +34,17 @@ export function CameraRepCountButton({
   contextId,
   sessionKey,
   disabled,
+  targetSeconds,
+  nextExercises,
 }: CameraRepCountButtonProps) {
   const t = useThemeTokens();
 
-  if (unit !== 'reps' || !supportsCameraRepCounting(exerciseName)) {
+  if (!supportsCameraTracking(exerciseName, unit)) {
     return null;
   }
+
+  const type = getCameraExerciseType(exerciseName);
+  const isHold = type ? getCameraTrackingMode(type) === 'hold' : false;
 
   const resolvedSessionKey =
     sessionKey ?? buildRepCounterSessionKey(exerciseId, contextId);
@@ -40,6 +57,13 @@ export function CameraRepCountButton({
         exerciseName,
         sessionKey: resolvedSessionKey,
         contextId: contextId ?? '',
+        unit,
+        ...(isHold && targetSeconds != null
+          ? { targetSeconds: String(targetSeconds) }
+          : {}),
+        ...(nextExercises && nextExercises.length > 0
+          ? { exerciseQueue: serializeRepCounterQueue(nextExercises) }
+          : {}),
       },
     });
   }
@@ -59,10 +83,14 @@ export function CameraRepCountButton({
     >
       <View style={styles.row}>
         <Ionicons name="videocam" size={18} color={t.accent} />
-        <Text style={{ color: t.heading, fontWeight: '700' }}>Count with camera</Text>
+        <Text style={{ color: t.heading, fontWeight: '700' }}>
+          {isHold ? 'Time with camera' : 'Count with camera'}
+        </Text>
       </View>
       <Text style={{ color: t.body, fontSize: 12, marginTop: 4 }}>
-        Auto-count reps with live pose tracking (POC)
+        {isHold
+          ? 'Auto-time your hold with live pose tracking'
+          : 'Auto-count reps with live pose tracking (POC)'}
       </Text>
     </TouchableOpacity>
   );

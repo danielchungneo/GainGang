@@ -32,7 +32,7 @@ import {
   buildRepCounterSessionKey,
   consumePendingRepCount,
 } from '@/lib/rep-counting/pending-result';
-import { supportsCameraRepCounting } from '@/lib/rep-counting/exercise-registry';
+import { supportsCameraTracking } from '@/lib/rep-counting/exercise-registry';
 import type { DailyGoalExerciseWithProgress, ExerciseUnit, ActivityExercise } from '@/types';
 
 interface ExerciseFormState {
@@ -107,7 +107,7 @@ export default function LogDailyGoalScreen() {
         const next = { ...prev };
 
         for (const ex of dailyGoal.exercises) {
-          if (!supportsCameraRepCounting(ex.exercise_name) || ex.unit !== 'reps') continue;
+          if (!supportsCameraTracking(ex.exercise_name, ex.unit)) continue;
           const sessionKey = buildRepCounterSessionKey(ex.exercise_id, dailyGoal.id);
           const pending = consumePendingRepCount(sessionKey);
           if (pending === null) continue;
@@ -305,12 +305,22 @@ export default function LogDailyGoalScreen() {
             </Text>
           </View>
 
-          {dailyGoal.exercises.map((ex) => {
+          {dailyGoal.exercises.map((ex, index) => {
             const state = formState[ex.id] ?? { amount: '', notes: '' };
             const hasLogged = !!resolveExistingForExercise(ex, activityByExercise);
-            const requiresCamera =
-              ex.unit === 'reps' && supportsCameraRepCounting(ex.exercise_name);
+            const requiresCamera = supportsCameraTracking(ex.exercise_name, ex.unit);
             const sessionKey = buildRepCounterSessionKey(ex.exercise_id, dailyGoal.id);
+            const nextCameraExercises = requiresCamera
+              ? dailyGoal.exercises
+                  .slice(index + 1)
+                  .filter((e) => supportsCameraTracking(e.exercise_name, e.unit))
+                  .map((e) => ({
+                    exerciseId: e.exercise_id,
+                    exerciseName: e.exercise_name,
+                    unit: e.unit,
+                    targetSeconds: e.unit === 'seconds' ? e.individual_target : undefined,
+                  }))
+              : [];
 
             return (
               <View
@@ -345,9 +355,17 @@ export default function LogDailyGoalScreen() {
                       contextId={dailyGoal.id}
                       sessionKey={sessionKey}
                       disabled={isPending}
+                      targetSeconds={
+                        ex.unit === 'seconds' ? ex.individual_target : undefined
+                      }
+                      nextExercises={nextCameraExercises}
                     />
                     <View className="mt-3">
-                      <Label>Reps (camera verified)</Label>
+                      <Label>
+                        {ex.unit === 'seconds'
+                          ? 'Seconds (camera verified)'
+                          : 'Reps (camera verified)'}
+                      </Label>
                       <View
                         className="rounded-xl border px-4 py-3"
                         style={{ backgroundColor: t.inputBg, borderColor: t.inputBorder }}
@@ -359,7 +377,10 @@ export default function LogDailyGoalScreen() {
                             fontWeight: '600',
                           }}
                         >
-                          {state.amount || 'Use the camera to count your reps'}
+                          {state.amount ||
+                            (ex.unit === 'seconds'
+                              ? 'Use the camera to time your hold'
+                              : 'Use the camera to count your reps')}
                         </Text>
                       </View>
                     </View>

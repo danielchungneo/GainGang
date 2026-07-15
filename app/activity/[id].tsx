@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -65,6 +66,7 @@ export default function ActivityDetailScreen() {
 
   async function handleSend() {
     if (!draft.trim()) return;
+    Keyboard.dismiss();
     await addComment.mutateAsync({ activityId, body: draft });
     setDraft('');
   }

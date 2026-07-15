@@ -8,45 +8,18 @@ import { fontFamily, type } from '@/lib/gaingang-theme';
 
 interface WeeklyPlanAdminActionsProps {
   gangId: string;
-  planId?: string;
-  hasActivePlan: boolean;
-  /** When set, wraps actions in a card with helper copy (rest day / no plan). */
+  /** When set, wraps the create CTA in a card with helper copy. */
   helperText?: string;
 }
 
-export function WeeklyPlanAdminActions({
-  gangId,
-  planId,
-  hasActivePlan,
-  helperText,
-}: WeeklyPlanAdminActionsProps) {
+/** Create CTA only — shown when the gang has no active weekly plan. */
+export function WeeklyPlanAdminActions({ gangId, helperText }: WeeklyPlanAdminActionsProps) {
   const t = useThemeTokens();
 
   const actions = (
     <View className="gap-2">
       {helperText ? (
         <Text style={[type.bodySm, { color: t.body }]}>{helperText}</Text>
-      ) : null}
-      {hasActivePlan && planId ? (
-        <TouchableOpacity
-          onPress={() =>
-            router.push({
-              pathname: '/gang/new-goal',
-              params: { gangId, planId },
-            })
-          }
-          className="flex-row items-center justify-center gap-2 rounded-xl py-3"
-          style={{
-            backgroundColor: t.buttonBg,
-            borderWidth: 1,
-            borderColor: t.buttonBorder,
-          }}
-        >
-          <Ionicons name="create-outline" size={18} color={t.accent} />
-          <Text style={{ color: t.accent, fontFamily: fontFamily.bodySemi }} className="font-semibold">
-            Edit weekly plan
-          </Text>
-        </TouchableOpacity>
       ) : null}
       <TouchableOpacity
         onPress={() => router.push({ pathname: '/gang/new-goal', params: { gangId } })}
@@ -57,13 +30,9 @@ export function WeeklyPlanAdminActions({
           borderColor: t.buttonBorder,
         }}
       >
-        <Ionicons
-          name={hasActivePlan ? 'refresh-outline' : 'add-circle-outline'}
-          size={18}
-          color={t.accent}
-        />
+        <Ionicons name="add-circle-outline" size={18} color={t.accent} />
         <Text style={{ color: t.accent, fontFamily: fontFamily.bodySemi }} className="font-semibold">
-          {hasActivePlan ? 'Replace with new plan' : 'Create weekly plan'}
+          Create weekly plan
         </Text>
       </TouchableOpacity>
     </View>
@@ -74,4 +43,70 @@ export function WeeklyPlanAdminActions({
   }
 
   return actions;
+}
+
+interface WeeklyPlanWeekHeaderProps {
+  gangId: string;
+  startsOn: string;
+  endsOn: string;
+  isAdaptive?: boolean;
+  canEdit?: boolean;
+  planId?: string;
+}
+
+/** Week range label with optional edit affordance for gang owners. */
+export function WeeklyPlanWeekHeader({
+  gangId,
+  startsOn,
+  endsOn,
+  isAdaptive = false,
+  canEdit = false,
+  planId,
+}: WeeklyPlanWeekHeaderProps) {
+  const t = useThemeTokens();
+
+  const range = `${new Date(startsOn + 'T12:00:00').toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })} – ${new Date(endsOn + 'T12:00:00').toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })}`;
+
+  return (
+    <View className="flex-row items-center gap-2">
+      <Text
+        style={{
+          flex: 1,
+          color: t.heading,
+          fontFamily: fontFamily.bodySemi,
+          fontSize: 17,
+          lineHeight: 22,
+        }}
+      >
+        Week of {range}
+        {isAdaptive ? ' · Adaptive' : ''}
+      </Text>
+      {canEdit && planId ? (
+        <TouchableOpacity
+          onPress={() =>
+            router.push({
+              pathname: '/gang/new-goal',
+              params: { gangId, planId },
+            })
+          }
+          accessibilityLabel="Edit weekly plan"
+          hitSlop={10}
+          className="h-9 w-9 items-center justify-center rounded-full"
+          style={{
+            backgroundColor: t.buttonBg,
+            borderWidth: 1,
+            borderColor: t.buttonBorder,
+          }}
+        >
+          <Ionicons name="create-outline" size={18} color={t.accent} />
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
 }

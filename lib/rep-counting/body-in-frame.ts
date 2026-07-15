@@ -1,20 +1,21 @@
-import { PoseLandmarkIndex } from '@/lib/rep-counting/pose-landmarks';
+import { MIN_LANDMARK_VISIBILITY, PoseLandmarkIndex } from '@/lib/rep-counting/pose-landmarks';
 import type { CameraExerciseType, Landmark } from '@/lib/rep-counting/types';
 import { pickSide } from '@/utils/pose-math';
 
-const MIN_BODY_VISIBILITY = 0.5;
-const FRAME_MARGIN = 0.06;
+/** Allow tiny overflow so edge joints still count when the overlay draws them. */
+const ON_CAMERA_SLOP = 0.02;
 
 export interface BodyInFrameResult {
   ok: boolean;
   message: string;
 }
 
+/** True when the joint would still render on the skeleton overlay. */
 function isLandmarkInFrame(landmark: Landmark | undefined): boolean {
   if (!landmark) return false;
-  if (landmark.visibility < MIN_BODY_VISIBILITY) return false;
-  if (landmark.x < FRAME_MARGIN || landmark.x > 1 - FRAME_MARGIN) return false;
-  if (landmark.y < FRAME_MARGIN || landmark.y > 1 - FRAME_MARGIN) return false;
+  if (landmark.visibility < MIN_LANDMARK_VISIBILITY) return false;
+  if (landmark.x < -ON_CAMERA_SLOP || landmark.x > 1 + ON_CAMERA_SLOP) return false;
+  if (landmark.y < -ON_CAMERA_SLOP || landmark.y > 1 + ON_CAMERA_SLOP) return false;
   return true;
 }
 
@@ -97,29 +98,70 @@ function checkSquatBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
   return { ok: true, message: '' };
 }
 
-function checkSitupBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
-  const side = pickSide(landmarks[PoseLandmarkIndex.LEFT_HIP], landmarks[PoseLandmarkIndex.RIGHT_HIP]);
-  const indices =
-    side === 'left'
-      ? [
-          PoseLandmarkIndex.LEFT_SHOULDER,
-          PoseLandmarkIndex.LEFT_HIP,
-          PoseLandmarkIndex.LEFT_KNEE,
-          PoseLandmarkIndex.LEFT_ANKLE,
-        ]
-      : [
-          PoseLandmarkIndex.RIGHT_SHOULDER,
-          PoseLandmarkIndex.RIGHT_HIP,
-          PoseLandmarkIndex.RIGHT_KNEE,
-          PoseLandmarkIndex.RIGHT_ANKLE,
-        ];
+/** Core moves only need one side's torso through knees — no arms or ankles. */
+function checkCoreBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
+  const leftIndices = [
+    PoseLandmarkIndex.LEFT_SHOULDER,
+    PoseLandmarkIndex.LEFT_HIP,
+    PoseLandmarkIndex.LEFT_KNEE,
+  ];
+  const rightIndices = [
+    PoseLandmarkIndex.RIGHT_SHOULDER,
+    PoseLandmarkIndex.RIGHT_HIP,
+    PoseLandmarkIndex.RIGHT_KNEE,
+  ];
 
-  const missing = indices.filter((index) => !isLandmarkInFrame(landmarks[index]));
-  if (missing.length > 0) {
-    return { ok: false, message: 'Step back — keep your full body in frame' };
+  const left = checkIndicesInFrame(landmarks, leftIndices, '');
+  if (left.ok) return left;
+
+  const right = checkIndicesInFrame(landmarks, rightIndices, '');
+  if (right.ok) return right;
+
+  return { ok: false, message: 'Keep your torso and knees in frame' };
+}
+
+/** Side-profile plank: one torso/knee chain + any one arm (can be opposite side). */
+function checkPlankBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
+  const leftBody = checkIndicesInFrame(
+    landmarks,
+    [
+      PoseLandmarkIndex.LEFT_SHOULDER,
+      PoseLandmarkIndex.LEFT_HIP,
+      PoseLandmarkIndex.LEFT_KNEE,
+    ],
+    '',
+  );
+  const rightBody = checkIndicesInFrame(
+    landmarks,
+    [
+      PoseLandmarkIndex.RIGHT_SHOULDER,
+      PoseLandmarkIndex.RIGHT_HIP,
+      PoseLandmarkIndex.RIGHT_KNEE,
+    ],
+    '',
+  );
+  if (!leftBody.ok && !rightBody.ok) {
+    return { ok: false, message: 'Keep shoulder, hip, and knee in frame' };
   }
 
-  return { ok: true, message: '' };
+  const leftArm = checkIndicesInFrame(
+    landmarks,
+    [PoseLandmarkIndex.LEFT_ELBOW, PoseLandmarkIndex.LEFT_WRIST],
+    '',
+  );
+  const rightArm = checkIndicesInFrame(
+    landmarks,
+    [PoseLandmarkIndex.RIGHT_ELBOW, PoseLandmarkIndex.RIGHT_WRIST],
+    '',
+  );
+  // Wrist alone is enough if the elbow is briefly occluded mid-hold.
+  const leftWristOk = isLandmarkInFrame(landmarks[PoseLandmarkIndex.LEFT_WRIST]);
+  const rightWristOk = isLandmarkInFrame(landmarks[PoseLandmarkIndex.RIGHT_WRIST]);
+  if (leftArm.ok || rightArm.ok || leftWristOk || rightWristOk) {
+    return { ok: true, message: '' };
+  }
+
+  return { ok: false, message: 'Keep one arm or wrist in frame' };
 }
 
 export function checkBodyInFrame(
@@ -129,10 +171,7 @@ export function checkBodyInFrame(
   if (!landmarks || landmarks.length < 17) {
     return {
       ok: false,
-      message:
-        exerciseType === 'pushup'
-          ? 'Keep your upper body in frame'
-          : 'Step back — keep your full body in frame',
+      message: defaultFrameMessage(exerciseType),
     };
   }
 
@@ -140,8 +179,23 @@ export function checkBodyInFrame(
     case 'pushup':
       return checkPushupBodyInFrame(landmarks);
     case 'squat':
+    case 'lunge':
       return checkSquatBodyInFrame(landmarks);
+    case 'plank':
+      return checkPlankBodyInFrame(landmarks);
     case 'situp':
-      return checkSitupBodyInFrame(landmarks);
+    case 'crunch':
+      return checkCoreBodyInFrame(landmarks);
   }
+}
+
+function defaultFrameMessage(exerciseType: CameraExerciseType): string {
+  if (exerciseType === 'pushup') return 'Keep your upper body in frame';
+  if (exerciseType === 'situp' || exerciseType === 'crunch') {
+    return 'Keep your torso and knees in frame';
+  }
+  if (exerciseType === 'plank') {
+    return 'Keep shoulder, hip, knee, and one arm in frame';
+  }
+  return 'Step back — keep your full body in frame';
 }

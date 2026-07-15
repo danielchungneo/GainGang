@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -85,12 +86,14 @@ export default function NewGoalScreen() {
 
   const [selectedDay, setSelectedDay] = useState(1);
   const [days, setDays] = useState(() => buildInitialDays());
+  const [isAdaptive, setIsAdaptive] = useState(false);
   const [hasPrefilled, setHasPrefilled] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isEditing || !existingPlan || hasPrefilled) return;
     setDays(buildDaysFromPlan(existingPlan));
+    setIsAdaptive(existingPlan.is_adaptive);
     setHasPrefilled(true);
   }, [isEditing, existingPlan, hasPrefilled]);
 
@@ -185,12 +188,13 @@ export default function NewGoalScreen() {
 
     try {
       if (isEditing && planId) {
-        await updatePlan.mutateAsync({ planId, days: payload });
+        await updatePlan.mutateAsync({ planId, days: payload, isAdaptive });
       } else {
         await createPlan.mutateAsync({
           gangId: gangId!,
           startsOn: weekStarts,
           days: payload,
+          isAdaptive,
         });
       }
       router.back();
@@ -248,6 +252,28 @@ export default function NewGoalScreen() {
             Gang targets = per-member target × {memberCount} member
             {memberCount === 1 ? '' : 's'}
           </Text>
+        </GlassSurface>
+
+        <GlassSurface style={{ padding: 16, gap: 10 }}>
+          <View className="flex-row items-center justify-between gap-3">
+            <View className="flex-1 gap-1">
+              <Text style={{ color: t.heading }} className="text-base font-semibold">
+                Adaptive plan
+              </Text>
+              <Text style={{ color: t.body }} className="text-sm">
+                If the gang completes every exercise every day, next week’s targets go up (+5 reps,
+                +30 sec, or +0.5 mi). Miss a week and the same plan repeats.
+              </Text>
+            </View>
+            <Switch
+              value={isAdaptive}
+              onValueChange={setIsAdaptive}
+              trackColor={{ false: t.buttonBorder, true: t.accent }}
+              thumbColor={t.accentOnPrimary}
+              accessibilityLabel="Adaptive plan"
+              accessibilityHint="Increases difficulty next week when the gang completes all goals"
+            />
+          </View>
         </GlassSurface>
 
         <View>

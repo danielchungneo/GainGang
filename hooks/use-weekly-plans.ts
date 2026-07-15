@@ -38,11 +38,13 @@ export interface CreateWeeklyPlanInput {
   gangId: string;
   startsOn?: string;
   days: CreateWeeklyPlanDayInput[];
+  isAdaptive?: boolean;
 }
 
 export interface UpdateWeeklyPlanInput {
   planId: string;
   days: CreateWeeklyPlanDayInput[];
+  isAdaptive?: boolean;
 }
 
 export type WeeklyPlanDayInput = CreateWeeklyPlanDayInput;
@@ -204,6 +206,7 @@ export function useCreateWeeklyPlan() {
         p_gang_id: input.gangId,
         p_starts_on: input.startsOn ?? mondayOfWeek(),
         p_days: days,
+        p_is_adaptive: input.isAdaptive ?? false,
       });
       if (error) throw error;
       return data;
@@ -234,6 +237,7 @@ export function useUpdateWeeklyPlan() {
       const { data, error } = await supabase.rpc('update_weekly_plan', {
         p_plan_id: input.planId,
         p_days: days,
+        p_is_adaptive: input.isAdaptive ?? false,
       });
       if (error) throw error;
       return data;

@@ -1,22 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { ActivityCard } from '@/components/activity-card';
-import { GangAddMenu } from '@/components/gang-add-menu';
+import { GangOptionsDrawer } from '@/components/gang-add-menu';
 import { GangGoalProgress } from '@/components/gang-goal-progress';
 import { GangSelector } from '@/components/gang-selector';
-import { WeeklyPlanAdminActions } from '@/components/weekly-plan-admin-actions';
+import { WeeklyPlanAdminActions, WeeklyPlanWeekHeader } from '@/components/weekly-plan-admin-actions';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { GradientTabSelect } from '@/components/ui/gradient-tab-select';
 import { LeaderboardRow } from '@/components/ui/leaderboard-row';
@@ -27,7 +26,8 @@ import { useMyGangs } from '@/hooks/use-gangs';
 import { useLeaderboard, type LeaderboardPeriod } from '@/hooks/use-leaderboard';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { useActiveWeeklyPlan } from '@/hooks/use-weekly-plans';
-import { todayISO } from '@/lib/format';
+import { formatGoalDate, todayISO } from '@/lib/format';
+import { shareGangInvite } from '@/lib/gang-invite';
 import { fontFamily, spacing, type, useTheme } from '@/lib/gaingang-theme';
 
 type GangViewTab = 'progress' | 'activity' | 'leaderboard';
@@ -41,9 +41,14 @@ const VIEW_TABS: { key: GangViewTab; label: string }[] = [
 export default function GroupsScreen() {
   const t = useThemeTokens();
   const queryClient = useQueryClient();
+  const { gangId: gangIdParam, tab: tabParam } = useLocalSearchParams<{
+    gangId?: string;
+    tab?: string;
+  }>();
   const [selectedGangId, setSelectedGangId] = useState<string | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [viewTab, setViewTab] = useState<GangViewTab>('progress');
+  const [isSharingInvite, setIsSharingInvite] = useState(false);
 
   const { data: gangs, isLoading: gangsLoading, refetch: refetchGangs, isRefetching: gangsRefetching } =
     useMyGangs();
@@ -51,6 +56,7 @@ export default function GroupsScreen() {
   const gangId = selectedGangId ?? gangs?.[0]?.id ?? '';
   const selectedGang = gangs?.find((g) => g.id === gangId);
   const isGangOwner = selectedGang?.role === 'owner';
+  const canInvite = !!selectedGang;
 
   const {
     data: weeklyPlan,
@@ -71,10 +77,22 @@ export default function GroupsScreen() {
       setSelectedGangId(null);
       return;
     }
+
+    if (gangIdParam && gangs.some((g) => g.id === gangIdParam)) {
+      setSelectedGangId(gangIdParam);
+      return;
+    }
+
     if (!selectedGangId || !gangs.some((g) => g.id === selectedGangId)) {
       setSelectedGangId(gangs[0].id);
     }
-  }, [gangs, selectedGangId]);
+  }, [gangs, selectedGangId, gangIdParam]);
+
+  useEffect(() => {
+    if (tabParam === 'progress' || tabParam === 'activity' || tabParam === 'leaderboard') {
+      setViewTab(tabParam);
+    }
+  }, [tabParam]);
 
   const onRefresh = useCallback(() => {
     refetchGangs();
@@ -84,6 +102,16 @@ export default function GroupsScreen() {
       queryClient.invalidateQueries({ queryKey: ['leaderboard', gangId] });
     }
   }, [refetchGangs, refetchPlan, refetchFeed, gangId, queryClient]);
+
+  async function handleShareInvite() {
+    if (!selectedGang || isSharingInvite) return;
+    setIsSharingInvite(true);
+    try {
+      await shareGangInvite(selectedGang.name, selectedGang.invite_code);
+    } finally {
+      setIsSharingInvite(false);
+    }
+  }
 
   const isRefetching = gangsRefetching || planRefetching || feedRefetching;
   const hasGangs = !!gangs && gangs.length > 0;
@@ -96,25 +124,65 @@ export default function GroupsScreen() {
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} />
         }
       >
-        <View className="mt-4 flex-row items-center justify-between gap-3">
-          {hasGangs && selectedGang ? (
-            <GangSelector
-              gangs={gangs}
-              selectedId={gangId}
-              onSelect={setSelectedGangId}
-            />
-          ) : (
-            <Text style={[type.heading, { color: t.heading }]}>Gangs</Text>
-          )}
+        <View className="mt-4 flex-row items-center gap-3">
+          <View style={{ flex: 1, minWidth: 0 }}>
+            {hasGangs && selectedGang ? (
+              <GangSelector
+                gangs={gangs}
+                selectedId={gangId}
+                onSelect={setSelectedGangId}
+              />
+            ) : (
+              <Text style={[type.heading, { color: t.heading }]}>Gangs</Text>
+            )}
+          </View>
           {hasGangs ? (
-            <TouchableOpacity
-              onPress={() => setAddMenuOpen(true)}
-              className="h-10 w-10 items-center justify-center rounded-full"
-              style={{ backgroundColor: t.accent }}
-              accessibilityLabel="Add gang"
-            >
-              <Ionicons name="add" size={24} color={t.accentOnPrimary} />
-            </TouchableOpacity>
+            <View className="flex-row items-center gap-2" style={{ flexShrink: 0 }}>
+              {canInvite ? (
+                <TouchableOpacity
+                  onPress={handleShareInvite}
+                  disabled={isSharingInvite}
+                  className="h-10 flex-row items-center gap-1.5 rounded-full px-4"
+                  style={{
+                    backgroundColor: t.accent,
+                    opacity: isSharingInvite ? 0.75 : 1,
+                    shadowColor: t.accent,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.35,
+                    shadowRadius: 8,
+                    elevation: 4,
+                  }}
+                  accessibilityLabel="Invite friends to this gang"
+                >
+                  {isSharingInvite ? (
+                    <ActivityIndicator size="small" color={t.accentOnPrimary} />
+                  ) : (
+                    <Ionicons name="person-add" size={17} color={t.accentOnPrimary} />
+                  )}
+                  <Text
+                    style={{
+                      color: t.accentOnPrimary,
+                      fontFamily: fontFamily.bodySemi,
+                      fontSize: 14,
+                    }}
+                  >
+                    Invite
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                onPress={() => setAddMenuOpen(true)}
+                className="h-10 w-10 items-center justify-center rounded-full"
+                style={{
+                  backgroundColor: t.buttonBg,
+                  borderWidth: 1,
+                  borderColor: t.buttonBorder,
+                }}
+                accessibilityLabel="Open gang options"
+              >
+                <Ionicons name="ellipsis-horizontal" size={20} color={t.accent} />
+              </TouchableOpacity>
+            </View>
           ) : null}
         </View>
 
@@ -152,7 +220,8 @@ export default function GroupsScreen() {
               You&apos;re not in a Gang yet
             </Text>
             <Text style={[type.bodySm, { color: t.body }]}>
-              Create your own crew or join one with an invite code to start gaining together.
+              Create your own crew or browse public gangs to start gaining together. Friends can
+              also text you an invite link.
             </Text>
 
             <TouchableOpacity
@@ -175,7 +244,7 @@ export default function GroupsScreen() {
               }}
             >
               <Text style={{ color: t.accent }} className="font-semibold">
-                Join a Gang
+                Discover Gangs
               </Text>
             </TouchableOpacity>
           </GlassSurface>
@@ -183,7 +252,13 @@ export default function GroupsScreen() {
       </ScrollView>
 
       {hasGangs ? (
-        <GangAddMenu visible={addMenuOpen} onClose={() => setAddMenuOpen(false)} />
+        <GangOptionsDrawer
+          visible={addMenuOpen}
+          onClose={() => setAddMenuOpen(false)}
+          gangId={gangId}
+          showSettings={isGangOwner}
+          weeklyPlanId={weeklyPlan?.id ?? null}
+        />
       ) : null}
     </ScreenBackground>
   );
@@ -201,11 +276,8 @@ function GangProgressTab({
   isLoading: boolean;
 }) {
   const t = useThemeTokens();
-  const { width: screenWidth } = useWindowDimensions();
-  const carouselRef = useRef<ScrollView>(null);
   const today = todayISO();
-  const cardGap = spacing.md;
-  const cardWidth = screenWidth - spacing.lg * 2;
+  const [dayIndex, setDayIndex] = useState(0);
 
   const weekGoals = useMemo(() => {
     const goals = (weeklyPlan?.daily_goals ?? []).filter((g) => g.exercises.length > 0);
@@ -213,70 +285,94 @@ function GangProgressTab({
   }, [weeklyPlan?.daily_goals]);
 
   useEffect(() => {
-    if (weekGoals.length === 0) return;
+    if (weekGoals.length === 0) {
+      setDayIndex(0);
+      return;
+    }
     const todayIndex = weekGoals.findIndex((g) => g.goal_date === today);
-    if (todayIndex < 0) return;
-    carouselRef.current?.scrollTo({ x: todayIndex * (cardWidth + cardGap), animated: false });
-  }, [weekGoals, today, cardWidth, cardGap]);
+    setDayIndex(todayIndex >= 0 ? todayIndex : 0);
+  }, [weekGoals, today, gangId, weeklyPlan?.id]);
+
+  const selectedGoal = weekGoals[dayIndex] ?? null;
+  const canGoPrev = dayIndex > 0;
+  const canGoNext = dayIndex < weekGoals.length - 1;
 
   return (
     <View className="gap-3">
-      {isGangOwner ? (
+      {weeklyPlan ? (
+        <WeeklyPlanWeekHeader
+          gangId={gangId}
+          planId={weeklyPlan.id}
+          startsOn={weeklyPlan.starts_on}
+          endsOn={weeklyPlan.ends_on}
+          isAdaptive={weeklyPlan.is_adaptive}
+          canEdit={isGangOwner}
+        />
+      ) : isGangOwner ? (
         <WeeklyPlanAdminActions
           gangId={gangId}
-          planId={weeklyPlan?.id}
-          hasActivePlan={!!weeklyPlan}
-          helperText={
-            weekGoals.length > 0
-              ? undefined
-              : weeklyPlan
-                ? 'Today is a rest day, or this day has no exercises in your weekly plan.'
-                : 'Publish a weekly plan so your crew knows what to hit each day.'
-          }
+          helperText="Publish a weekly plan so your crew knows what to hit each day."
         />
-      ) : null}
-
-      {weeklyPlan ? (
-        <Text style={[type.bodySm, { color: t.body }]}>
-          Week of{' '}
-          {new Date(weeklyPlan.starts_on + 'T12:00:00').toLocaleDateString(undefined, {
-            month: 'short',
-            day: 'numeric',
-          })}
-          {' – '}
-          {new Date(weeklyPlan.ends_on + 'T12:00:00').toLocaleDateString(undefined, {
-            month: 'short',
-            day: 'numeric',
-          })}
-        </Text>
       ) : null}
 
       {isLoading ? (
         <ActivityIndicator color={t.accent} style={{ marginTop: 20 }} />
-      ) : weekGoals.length > 0 ? (
-        <ScrollView
-          ref={carouselRef}
-          horizontal
-          nestedScrollEnabled
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-          snapToInterval={cardWidth + cardGap}
-          snapToAlignment="start"
-          contentContainerStyle={{ gap: cardGap }}
-        >
-          {weekGoals.map((goal) => (
-            <View key={goal.id} style={{ width: cardWidth }}>
-              <GangGoalProgress goal={goal} />
+      ) : weekGoals.length > 0 && selectedGoal ? (
+        <View className="gap-3">
+          <View
+            className="flex-row items-center gap-2 rounded-xl px-2 py-2"
+            style={{ backgroundColor: t.buttonBg, borderWidth: 1, borderColor: t.buttonBorder }}
+          >
+            <TouchableOpacity
+              onPress={() => setDayIndex((i) => Math.max(0, i - 1))}
+              disabled={!canGoPrev}
+              accessibilityLabel="Previous day"
+              hitSlop={8}
+              className="h-10 w-10 items-center justify-center rounded-lg"
+              style={{ opacity: canGoPrev ? 1 : 0.35 }}
+            >
+              <Ionicons name="chevron-back" size={22} color={t.heading} />
+            </TouchableOpacity>
+
+            <View className="flex-1 items-center px-1">
+              <Text
+                style={{
+                  color: t.heading,
+                  fontFamily: fontFamily.bodySemi,
+                  fontSize: 15,
+                  textAlign: 'center',
+                }}
+                numberOfLines={1}
+              >
+                {formatGoalDate(selectedGoal.goal_date)}
+              </Text>
+              <Text style={[type.bodySm, { color: t.body, fontSize: 12 }]}>
+                Day {dayIndex + 1} of {weekGoals.length}
+                {selectedGoal.goal_date === today ? ' · Today' : ''}
+              </Text>
             </View>
-          ))}
-        </ScrollView>
+
+            <TouchableOpacity
+              onPress={() => setDayIndex((i) => Math.min(weekGoals.length - 1, i + 1))}
+              disabled={!canGoNext}
+              accessibilityLabel="Next day"
+              hitSlop={8}
+              className="h-10 w-10 items-center justify-center rounded-lg"
+              style={{ opacity: canGoNext ? 1 : 0.35 }}
+            >
+              <Ionicons name="chevron-forward" size={22} color={t.heading} />
+            </TouchableOpacity>
+          </View>
+
+          <GangGoalProgress goal={selectedGoal} gangId={gangId} />
+        </View>
       ) : (
         <EmptyCard
           title={weeklyPlan ? 'No workout days this week' : 'No active weekly plan'}
           body={
             isGangOwner
               ? weeklyPlan
-                ? 'Your weekly plan has no exercises yet. Use Edit weekly plan above to add workout days.'
+                ? 'Your weekly plan has no exercises yet. Tap the edit icon next to the week range to add workout days.'
                 : 'Create a weekly plan with daily goals for your gang.'
               : weeklyPlan
                 ? 'No workout days are scheduled this week.'

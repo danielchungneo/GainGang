@@ -14,9 +14,11 @@ import { AuthProvider } from "@/context/auth-context";
 
 import { QueryProvider } from "@/context/query-client";
 
-import { GainGangProvider, useGainGangFonts, useTheme } from "@/lib/gaingang-theme";
-
 import { useColorScheme } from "@/hooks/use-color-scheme";
+
+import { usePushNotifications } from "@/hooks/use-push-notifications";
+
+import { GainGangProvider, useGainGangFonts, useTheme } from "@/lib/gaingang-theme";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +33,7 @@ export const unstable_settings = {
 function RootNavigator() {
   const colorScheme = useColorScheme();
   const { theme } = useTheme();
+  usePushNotifications();
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
@@ -65,6 +68,11 @@ function RootNavigator() {
         />
 
         <Stack.Screen
+          name="invite/[code]"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+
+        <Stack.Screen
           name="gang/new-goal"
           options={{ presentation: "modal", headerShown: false }}
         />
@@ -92,6 +100,15 @@ function RootNavigator() {
         <Stack.Screen name="activity/[id]" options={{ headerShown: false }} />
 
         <Stack.Screen name="settings" options={{ headerShown: false }} />
+
+        <Stack.Screen
+          name="edit-profile"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+
+        <Stack.Screen name="inventory" options={{ headerShown: false }} />
+
+        <Stack.Screen name="alerts" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );

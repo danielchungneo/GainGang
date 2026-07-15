@@ -77,12 +77,25 @@ export function DailyGoalCard({
   const { theme } = useTheme();
   const c = theme.colors;
   const isEnded = timeLeft === 'Ended';
+  const allComplete =
+    exercises.length > 0 &&
+    exercises.every(
+      (ex) => ex.individual.target <= 0 || ex.individual.current >= ex.individual.target,
+    );
   const [progressMode, setProgressMode] = useState<DailyGoalProgressMode>('individual');
   const [manualLogKey, setManualLogKey] = useState<string | null>(null);
   const [manualAmount, setManualAmount] = useState('');
   const [manualError, setManualError] = useState<string | null>(null);
 
   const manualExercise = exercises.find((ex) => ex.key === manualLogKey) ?? null;
+  const statusColor = allComplete ? status.success : isEnded ? ranks.E.glow : status.success;
+  const statusLabel = allComplete
+    ? 'Complete'
+    : isEnded
+      ? 'Ended'
+      : timeLeft
+        ? `Active · ${timeLeft}`
+        : null;
 
   function openManualLog(exercise: DailyGoalExerciseDisplay) {
     setManualLogKey(exercise.key);
@@ -125,9 +138,9 @@ export function DailyGoalCard({
         styles.card,
         {
           backgroundColor: c.surface,
-          borderColor: c.borderGlow,
-          shadowColor: c.primary,
-          shadowOpacity: theme.mode === 'dark' ? 0.55 : 0.3,
+          borderColor: allComplete ? 'rgba(45,212,191,0.55)' : c.borderGlow,
+          shadowColor: allComplete ? status.success : c.primary,
+          shadowOpacity: theme.mode === 'dark' ? (allComplete ? 0.45 : 0.55) : 0.3,
           shadowRadius: 24,
           shadowOffset: { width: 0, height: 8 },
           elevation: 8,
@@ -136,42 +149,71 @@ export function DailyGoalCard({
       ]}
     >
       <GradientView
-        colors={[
-          theme.mode === 'dark'
-            ? 'rgba(77,140,255,0.16)'
-            : 'rgba(47,109,255,0.10)',
-          theme.mode === 'dark'
-            ? 'rgba(157,78,221,0.10)'
-            : 'rgba(123,47,222,0.08)',
-        ]}
+        colors={
+          allComplete
+            ? [
+                theme.mode === 'dark'
+                  ? 'rgba(45,212,191,0.22)'
+                  : 'rgba(45,212,191,0.16)',
+                theme.mode === 'dark'
+                  ? 'rgba(45,212,191,0.08)'
+                  : 'rgba(45,212,191,0.06)',
+              ]
+            : [
+                theme.mode === 'dark'
+                  ? 'rgba(77,140,255,0.16)'
+                  : 'rgba(47,109,255,0.10)',
+                theme.mode === 'dark'
+                  ? 'rgba(157,78,221,0.10)'
+                  : 'rgba(123,47,222,0.08)',
+              ]
+        }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={[styles.header, { borderBottomColor: c.border }]}
+        style={[
+          styles.header,
+          {
+            borderBottomColor: allComplete ? 'rgba(45,212,191,0.28)' : c.border,
+          },
+        ]}
       >
-        <Text style={[styles.kind, { color: c.primaryGlow }]}>
-          ⚔ {kind.toUpperCase()}
+        <Text
+          style={[
+            styles.kind,
+            { color: allComplete ? status.success : c.primaryGlow },
+          ]}
+        >
+          {allComplete ? '✓ CLEARED' : `⚔ ${kind.toUpperCase()}`}
         </Text>
-        {!!timeLeft && (
+        {!!statusLabel && (
           <View style={styles.statusRow}>
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: isEnded ? ranks.E.glow : status.success },
-              ]}
-            />
-            <Text
-              style={[
-                styles.status,
-                { color: isEnded ? ranks.E.glow : status.success },
-              ]}
-            >
-              {isEnded ? 'Ended' : `Active · ${timeLeft}`}
-            </Text>
+            <View style={[styles.dot, { backgroundColor: statusColor }]} />
+            <Text style={[styles.status, { color: statusColor }]}>{statusLabel}</Text>
           </View>
         )}
       </GradientView>
 
       <View style={styles.body}>
+        {allComplete ? (
+          <View
+            style={[
+              styles.completeBanner,
+              {
+                backgroundColor:
+                  theme.mode === 'dark'
+                    ? 'rgba(45,212,191,0.12)'
+                    : 'rgba(45,212,191,0.10)',
+                borderColor: 'rgba(45,212,191,0.35)',
+              },
+            ]}
+          >
+            <Ionicons name="checkmark-circle" size={18} color={status.success} />
+            <Text style={[styles.completeBannerText, { color: status.success }]}>
+              All goals complete
+            </Text>
+          </View>
+        ) : null}
+
         <Text style={[styles.title, { color: c.text }]}>{title}</Text>
         {!!description && (
           <Text style={[styles.desc, { color: c.textDim }]}>{description}</Text>
@@ -241,24 +283,45 @@ export function DailyGoalCard({
           const showYouBar = showProgressToggle
             ? progressMode === 'individual'
             : showIndividual;
+          const youComplete =
+            ex.individual.target <= 0 || ex.individual.current >= ex.individual.target;
+          const gangComplete =
+            ex.gang.target <= 0 || ex.gang.current >= ex.gang.target;
 
           return (
             <View key={ex.key} style={styles.exerciseBlock}>
               <View style={styles.exerciseHeader}>
-                <Text
-                  style={[styles.exerciseName, { color: c.text }]}
-                  numberOfLines={1}
-                >
-                  {ex.name}
-                </Text>
+                <View style={styles.exerciseNameRow}>
+                  {allComplete || youComplete ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={16}
+                      color={status.success}
+                      style={styles.exerciseCheck}
+                    />
+                  ) : null}
+                  <Text
+                    style={[
+                      styles.exerciseName,
+                      { color: allComplete ? status.success : c.text },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {ex.name}
+                  </Text>
+                </View>
 
                 {ex.onPerform ? (
                   <ExerciseActionButton
                     icon="videocam"
-                    label="Count"
+                    label={ex.unit === 'seconds' ? 'Time' : 'Count'}
                     loading={ex.isPerforming}
                     onPress={ex.onPerform}
-                    accessibilityLabel={`Count ${ex.name} with camera`}
+                    accessibilityLabel={
+                      ex.unit === 'seconds'
+                        ? `Time ${ex.name} with camera`
+                        : `Count ${ex.name} with camera`
+                    }
                   />
                 ) : ex.onManualLog ? (
                   <ExerciseActionButton
@@ -285,13 +348,32 @@ export function DailyGoalCard({
                       <Text style={[styles.metaLabel, { color: c.textMuted }]}>
                         GANG
                       </Text>
-                      <Text style={[styles.metaVal, { color: c.primaryGlow }]}>
+                      <Text
+                        style={[
+                          styles.metaVal,
+                          {
+                            color:
+                              allComplete || gangComplete
+                                ? status.success
+                                : c.primaryGlow,
+                          },
+                        ]}
+                      >
                         {formatAmount(ex.gang.current, ex.unit)} /{' '}
                         {formatAmount(ex.gang.target, ex.unit)}
+                        {gangComplete ? ' ✓' : ''}
                       </Text>
                     </View>
                     <ProgressBar
                       value={ex.gang.target > 0 ? ex.gang.current / ex.gang.target : 0}
+                      colors={
+                        allComplete || gangComplete
+                          ? [status.success, status.success]
+                          : undefined
+                      }
+                      glowColor={
+                        allComplete || gangComplete ? status.success : undefined
+                      }
                     />
                   </View>
                 ) : null}
@@ -307,10 +389,20 @@ export function DailyGoalCard({
                       <Text style={[styles.metaLabel, { color: c.textMuted }]}>
                         YOU
                       </Text>
-                      <Text style={[styles.metaVal, { color: c.secondaryGlow }]}>
+                      <Text
+                        style={[
+                          styles.metaVal,
+                          {
+                            color:
+                              allComplete || youComplete
+                                ? status.success
+                                : c.secondaryGlow,
+                          },
+                        ]}
+                      >
                         {formatAmount(ex.individual.current, ex.unit)} /{' '}
                         {formatAmount(ex.individual.target, ex.unit)}
-                        {ex.individual.current >= ex.individual.target ? ' ✓' : ''}
+                        {youComplete ? ' ✓' : ''}
                       </Text>
                     </View>
                     <ProgressBar
@@ -319,8 +411,14 @@ export function DailyGoalCard({
                           ? ex.individual.current / ex.individual.target
                           : 0
                       }
-                      colors={[brand.violet, brand.violetGlow]}
-                      glowColor={brand.violet}
+                      colors={
+                        allComplete || youComplete
+                          ? [status.success, status.success]
+                          : [brand.violet, brand.violetGlow]
+                      }
+                      glowColor={
+                        allComplete || youComplete ? status.success : brand.violet
+                      }
                     />
                   </View>
                 ) : null}
@@ -598,6 +696,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 19,
     marginBottom: spacing.sm,
+  },
+  completeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'stretch',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  completeBannerText: {
+    fontFamily: fontFamily.mono,
+    fontSize: 12,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  exerciseNameRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 0,
+  },
+  exerciseCheck: {
+    marginRight: 6,
   },
   segment: {
     flexDirection: 'row',

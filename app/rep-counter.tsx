@@ -1,18 +1,29 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExerciseSetupGuide } from '@/components/rep-counter/exercise-setup-guide';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
-import { getCameraExerciseType, SETUP_GUIDES } from '@/lib/rep-counting/exercise-registry';
+import {
+  getCameraExerciseType,
+  getCameraTrackingMode,
+  SETUP_GUIDES,
+} from '@/lib/rep-counting/exercise-registry';
 import {
   buildRepCounterSessionKey,
+  parseRepCounterQueue,
+  serializeRepCounterQueue,
   setPendingRepCount,
+  type RepCounterQueueItem,
 } from '@/lib/rep-counting/pending-result';
 import { isRepCounterNativeSupported, repCounterUnsupportedMessage } from '@/lib/rep-counting/platform';
-import type { CameraExerciseType } from '@/lib/rep-counting/types';
+import {
+  isCameraSetupSkipped,
+  setCameraSetupSkipped,
+} from '@/lib/rep-counting/setup-preference';
+import type { CameraExerciseType, CameraTrackingMode } from '@/lib/rep-counting/types';
 
 const RepCounterCamera = lazy(() =>
   import('@/components/rep-counter/rep-counter-camera').then((mod) => ({
@@ -20,7 +31,20 @@ const RepCounterCamera = lazy(() =>
   })),
 );
 
+const HoldCounterCamera = lazy(() =>
+  import('@/components/rep-counter/hold-counter-camera').then((mod) => ({
+    default: mod.HoldCounterCamera,
+  })),
+);
+
 type SessionStep = 'setup' | 'active' | 'review';
+
+function formatHoldReview(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins <= 0) return `${secs}`;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
 
 export default function RepCounterScreen() {
   const params = useLocalSearchParams<{
@@ -28,6 +52,9 @@ export default function RepCounterScreen() {
     exerciseName: string;
     sessionKey?: string;
     contextId?: string;
+    exerciseQueue?: string;
+    unit?: string;
+    targetSeconds?: string;
   }>();
   const t = useThemeTokens();
   const nativeSupported = isRepCounterNativeSupported();
@@ -37,21 +64,103 @@ export default function RepCounterScreen() {
     [params.exerciseName],
   );
 
+  const trackingMode: CameraTrackingMode | null = exerciseType
+    ? getCameraTrackingMode(exerciseType)
+    : null;
+  const isHold = trackingMode === 'hold';
   const guide = exerciseType ? SETUP_GUIDES[exerciseType] : null;
   const [step, setStep] = useState<SessionStep>('setup');
-  const [repCount, setRepCount] = useState(0);
+  const [trackedAmount, setTrackedAmount] = useState(0);
+  const [dontShowSetupAgain, setDontShowSetupAgain] = useState(false);
+  const [isSetupPreferenceReady, setIsSetupPreferenceReady] = useState(false);
+  const [isHintModalVisible, setIsHintModalVisible] = useState(false);
+
+  const targetSeconds = useMemo(() => {
+    const raw = Array.isArray(params.targetSeconds)
+      ? params.targetSeconds[0]
+      : params.targetSeconds;
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : undefined;
+  }, [params.targetSeconds]);
 
   const sessionKey =
     params.sessionKey ??
     buildRepCounterSessionKey(params.exerciseId ?? 'unknown', params.contextId);
 
+  const exerciseQueue = useMemo(
+    () => parseRepCounterQueue(
+      Array.isArray(params.exerciseQueue) ? params.exerciseQueue[0] : params.exerciseQueue,
+    ),
+    [params.exerciseQueue],
+  );
+  const nextExercise = exerciseQueue[0] ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveInitialStep() {
+      setTrackedAmount(0);
+      setDontShowSetupAgain(false);
+      setIsSetupPreferenceReady(false);
+
+      if (!exerciseType) {
+        if (!cancelled) {
+          setStep('setup');
+          setIsSetupPreferenceReady(true);
+        }
+        return;
+      }
+
+      const skipped = await isCameraSetupSkipped(exerciseType);
+      if (cancelled) return;
+      setStep(skipped ? 'active' : 'setup');
+      setIsSetupPreferenceReady(true);
+    }
+
+    void resolveInitialStep();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.exerciseId, sessionKey, exerciseType]);
+
+  async function handleStartCounting() {
+    if (dontShowSetupAgain && exerciseType) {
+      await setCameraSetupSkipped(exerciseType, true);
+    }
+    setStep('active');
+  }
+
+  function acceptAmount() {
+    if (trackedAmount <= 0) return;
+    setPendingRepCount(sessionKey, trackedAmount);
+  }
+
   function handleFinish() {
-    if (repCount <= 0) return;
-    setPendingRepCount(sessionKey, repCount);
+    if (trackedAmount <= 0) return;
+    acceptAmount();
     router.back();
   }
 
-  if (!exerciseType || !guide) {
+  function handleAcceptAndNext(next: RepCounterQueueItem) {
+    acceptAmount();
+    const remaining = exerciseQueue.slice(1);
+    router.replace({
+      pathname: '/rep-counter',
+      params: {
+        exerciseId: next.exerciseId,
+        exerciseName: next.exerciseName,
+        sessionKey: buildRepCounterSessionKey(next.exerciseId, params.contextId),
+        contextId: params.contextId ?? '',
+        unit: next.unit ?? '',
+        targetSeconds:
+          next.targetSeconds != null ? String(next.targetSeconds) : '',
+        exerciseQueue:
+          remaining.length > 0 ? serializeRepCounterQueue(remaining) : '',
+      },
+    });
+  }
+
+  if (!exerciseType || !guide || !trackingMode) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: '#05070F' }]}>
         <View style={styles.centered}>
@@ -59,7 +168,7 @@ export default function RepCounterScreen() {
             Exercise not supported
           </Text>
           <Text style={{ color: t.body, textAlign: 'center', marginTop: 8 }}>
-            Camera rep counting is only available for push-ups, squats, and sit-ups in this POC.
+            Camera tracking is not available for this exercise yet.
           </Text>
           <TouchableOpacity onPress={() => router.back()} style={[styles.primaryBtn, { backgroundColor: t.accent }]}>
             <Text style={{ color: t.accentOnPrimary, fontWeight: '700' }}>Go back</Text>
@@ -92,35 +201,82 @@ export default function RepCounterScreen() {
     );
   }
 
+  if (!isSetupPreferenceReady) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: '#05070F' }]}>
+        <View style={styles.centered}>
+          <ActivityIndicator color="#22d3ee" size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const activeSubtitle = isHold
+    ? step === 'active'
+      ? 'Live hold'
+      : step === 'review'
+        ? 'Review hold'
+        : 'Setup'
+    : step === 'active'
+      ? 'Live counting'
+      : step === 'review'
+        ? 'Review reps'
+        : 'Setup';
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: '#000' }]} edges={['bottom']}>
       <Header
         title={guide.title}
         onClose={() => router.back()}
-        subtitle={step === 'active' ? 'Live counting' : step === 'review' ? 'Review reps' : 'Setup'}
+        subtitle={activeSubtitle}
         rightAction={
           step === 'active' ? (
-            <TouchableOpacity
-              onPress={() => setStep('review')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Finish set"
-            >
-              <Text style={{ color: '#22d3ee', fontWeight: '700', fontSize: 16 }}>Finish</Text>
-            </TouchableOpacity>
+            <View style={styles.activeHeaderActions}>
+              <TouchableOpacity
+                onPress={() => setIsHintModalVisible(true)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Show camera setup hints"
+              >
+                <Ionicons name="help-circle-outline" size={26} color="#F8FAFC" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setStep('review')}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={isHold ? 'Finish hold' : 'Finish set'}
+              >
+                <Text style={{ color: '#22d3ee', fontWeight: '700', fontSize: 16 }}>Finish</Text>
+              </TouchableOpacity>
+            </View>
           ) : undefined
         }
       />
 
       {step === 'setup' ? (
         <View style={styles.setupBody}>
-          <ExerciseSetupGuide guide={guide} />
+          <ExerciseSetupGuide
+            exerciseType={exerciseType}
+            guide={guide}
+            dontShowAgain={dontShowSetupAgain}
+            onDontShowAgainChange={setDontShowSetupAgain}
+          />
+          {isHold && targetSeconds ? (
+            <Text style={{ color: '#94A3B8', textAlign: 'center', fontSize: 14 }}>
+              Goal: hold for {formatHoldReview(targetSeconds)}
+              {targetSeconds >= 60 ? '' : ' seconds'}
+            </Text>
+          ) : null}
           <TouchableOpacity
-            onPress={() => setStep('active')}
+            onPress={() => {
+              void handleStartCounting();
+            }}
             style={[styles.primaryBtn, { backgroundColor: t.accent }]}
           >
             <Ionicons name="play" size={18} color={t.accentOnPrimary} />
-            <Text style={{ color: t.accentOnPrimary, fontWeight: '700', fontSize: 16 }}>Start counting</Text>
+            <Text style={{ color: t.accentOnPrimary, fontWeight: '700', fontSize: 16 }}>
+              {isHold ? 'Start hold' : 'Start counting'}
+            </Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -134,20 +290,34 @@ export default function RepCounterScreen() {
               </View>
             }
           >
-            <RepCounterCamera
-              exerciseType={exerciseType as CameraExerciseType}
-              onRepCountChange={setRepCount}
-            />
+            {isHold ? (
+              <HoldCounterCamera
+                targetSeconds={targetSeconds}
+                initialElapsedSeconds={trackedAmount}
+                onElapsedChange={setTrackedAmount}
+              />
+            ) : (
+              <RepCounterCamera
+                exerciseType={exerciseType as CameraExerciseType}
+                onRepCountChange={setTrackedAmount}
+              />
+            )}
           </Suspense>
         </View>
       ) : null}
 
       {step === 'review' ? (
         <View style={styles.reviewBody}>
-          <Text style={styles.reviewCount}>{repCount}</Text>
-          <Text style={{ color: '#94A3B8', fontSize: 16, fontWeight: '600' }}>reps counted</Text>
+          <Text style={styles.reviewCount}>
+            {isHold ? formatHoldReview(trackedAmount) : trackedAmount}
+          </Text>
+          <Text style={{ color: '#94A3B8', fontSize: 16, fontWeight: '600' }}>
+            {isHold ? 'seconds held' : 'reps counted'}
+          </Text>
           <Text style={{ color: '#CBD5E1', textAlign: 'center', marginTop: 12, lineHeight: 22 }}>
-            Accept these reps to save your progress.
+            {isHold
+              ? 'Accept this hold time to save your progress.'
+              : 'Accept these reps to save your progress.'}
           </Text>
 
           <View style={styles.reviewActions}>
@@ -159,17 +329,69 @@ export default function RepCounterScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleFinish}
-              disabled={repCount <= 0}
+              disabled={trackedAmount <= 0}
               style={[
                 styles.primaryBtn,
-                { backgroundColor: repCount > 0 ? t.accent : '#334155', flex: 1 },
+                { backgroundColor: trackedAmount > 0 ? t.accent : '#334155', flex: 1 },
               ]}
             >
-              <Text style={{ color: t.accentOnPrimary, fontWeight: '700' }}>Accept {repCount} reps</Text>
+              <Text style={{ color: t.accentOnPrimary, fontWeight: '700' }}>
+                {isHold
+                  ? `Accept ${formatHoldReview(trackedAmount)}s`
+                  : `Accept ${trackedAmount} reps`}
+              </Text>
             </TouchableOpacity>
           </View>
+
+          {nextExercise && trackedAmount > 0 ? (
+            <TouchableOpacity
+              onPress={() => handleAcceptAndNext(nextExercise)}
+              style={[styles.nextBtn, { borderColor: t.accent }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Accept and start ${nextExercise.exerciseName}`}
+            >
+              <Text style={{ color: t.heading, fontWeight: '700', flex: 1 }}>
+                Accept & next: {nextExercise.exerciseName}
+              </Text>
+              <Ionicons name="arrow-forward" size={18} color={t.accent} />
+            </TouchableOpacity>
+          ) : null}
         </View>
       ) : null}
+
+      <Modal
+        visible={isHintModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsHintModalVisible(false)}
+      >
+        <SafeAreaView style={styles.hintModalSafe} edges={['top', 'bottom']}>
+          <View style={styles.hintModalHeader}>
+            <Text style={styles.hintModalTitle}>Camera hints</Text>
+            <TouchableOpacity
+              onPress={() => setIsHintModalVisible(false)}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Close camera hints"
+            >
+              <Ionicons name="close" size={28} color="#F8FAFC" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.hintModalBody}>
+            {isHintModalVisible ? (
+              <ExerciseSetupGuide exerciseType={exerciseType} guide={guide} />
+            ) : null}
+            <TouchableOpacity
+              onPress={() => setIsHintModalVisible(false)}
+              style={[styles.primaryBtn, { backgroundColor: t.accent }]}
+            >
+              <Text style={{ color: t.accentOnPrimary, fontWeight: '700', fontSize: 16 }}>
+                Got it
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -228,12 +450,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  activeHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
   setupBody: {
     flex: 1,
     padding: 20,
-    gap: 20,
+    gap: 16,
     backgroundColor: '#05070F',
-    justifyContent: 'center',
+  },
+  hintModalSafe: {
+    flex: 1,
+    backgroundColor: '#05070F',
+  },
+  hintModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  hintModalTitle: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  hintModalBody: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 16,
   },
   cameraBody: {
     flex: 1,
@@ -256,6 +504,18 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 28,
     width: '100%',
+  },
+  nextBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(14, 21, 36, 0.9)',
   },
   primaryBtn: {
     flexDirection: 'row',

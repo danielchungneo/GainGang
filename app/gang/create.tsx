@@ -54,7 +54,7 @@ export default function CreateGangScreen() {
         icon,
         privacy,
       });
-      router.replace({ pathname: '/gang/[id]', params: { id: gang.id } });
+      router.replace({ pathname: '/(tabs)/groups', params: { gangId: gang.id } });
     } catch (e) {
       setError('root', { message: e instanceof Error ? e.message : 'Could not create Gang' });
     }

@@ -8,6 +8,7 @@ export const queryKeys = {
   gang: (gangId: string) => ['gangs', gangId] as const,
   gangMembers: (gangId: string) => ['gangs', gangId, 'members'] as const,
   discoverGangs: (search?: string) => ['gangs', 'discover', search ?? ''] as const,
+  gangInvitePreview: (inviteCode: string) => ['gangs', 'invite', inviteCode] as const,
   exercises: (category?: string, gangId?: string) =>
     ['exercises', category ?? 'all', gangId ?? 'global'] as const,
   gangQuests: (gangId: string) => ['quests', 'gang', gangId] as const,
@@ -30,4 +31,9 @@ export const queryKeys = {
   achievements: () => ['achievements'] as const,
   userAchievements: (userId?: string) => ['achievements', 'user', userId] as const,
   notifications: (userId?: string) => ['notifications', userId] as const,
+  exerciseContributions: (gangId: string, exerciseId?: string) =>
+    ['gangs', gangId, 'exercise-contributions', exerciseId] as const,
+  rewardCrates: (userId?: string) => ['reward-crates', userId] as const,
+  todaysRewardCrate: (userId?: string, date?: string) =>
+    ['reward-crates', 'today', userId, date] as const,
 } as const;

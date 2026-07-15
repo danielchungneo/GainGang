@@ -1,7 +1,19 @@
-import Svg, { Circle, Line } from 'react-native-svg';
+import { Fragment } from 'react';
+import Svg, {
+  Circle,
+  Defs,
+  Line,
+  LinearGradient,
+  Stop,
+} from 'react-native-svg';
 
-import { BODY_LANDMARK_INDICES, MIN_LANDMARK_VISIBILITY, POSE_CONNECTIONS } from '@/lib/rep-counting/pose-landmarks';
+import {
+  BODY_LANDMARK_INDICES,
+  MIN_LANDMARK_VISIBILITY,
+  POSE_CONNECTIONS,
+} from '@/lib/rep-counting/pose-landmarks';
 import type { Landmark } from '@/lib/rep-counting/types';
+import { brand } from '@/lib/gaingang-theme';
 
 interface PoseSkeletonOverlayProps {
   landmarks: Landmark[] | null;
@@ -29,13 +41,27 @@ export function PoseSkeletonOverlay({
     return y * height;
   }
 
-  const bodyLandmarks = BODY_LANDMARK_INDICES.map((index) => landmarks[index]).filter(
-    (landmark): landmark is Landmark =>
-      !!landmark && landmark.visibility >= MIN_LANDMARK_VISIBILITY,
+  const bodyLandmarks = BODY_LANDMARK_INDICES.map((index) => ({
+    index,
+    landmark: landmarks[index],
+  })).filter(
+    (entry): entry is { index: number; landmark: Landmark } =>
+      !!entry.landmark && entry.landmark.visibility >= MIN_LANDMARK_VISIBILITY,
   );
 
   return (
     <Svg width={width} height={height} style={{ position: 'absolute', top: 0, left: 0 }}>
+      <Defs>
+        <LinearGradient id="ggBone" x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0%" stopColor={brand.blue} stopOpacity="1" />
+          <Stop offset="100%" stopColor={brand.violet} stopOpacity="1" />
+        </LinearGradient>
+        <LinearGradient id="ggJoint" x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0%" stopColor={brand.blueGlow} stopOpacity="1" />
+          <Stop offset="100%" stopColor={brand.violetGlow} stopOpacity="1" />
+        </LinearGradient>
+      </Defs>
+
       {POSE_CONNECTIONS.map(([from, to]) => {
         const a = landmarks[from];
         const b = landmarks[to];
@@ -44,31 +70,57 @@ export function PoseSkeletonOverlay({
           return null;
         }
 
+        const x1 = toX(a.x);
+        const y1 = toY(a.y);
+        const x2 = toX(b.x);
+        const y2 = toY(b.y);
+
         return (
-          <Line
-            key={`${from}-${to}`}
-            x1={toX(a.x)}
-            y1={toY(a.y)}
-            x2={toX(b.x)}
-            y2={toY(b.y)}
-            stroke="#22d3ee"
-            strokeWidth={3}
-            strokeLinecap="round"
-            opacity={0.85}
-          />
+          <Fragment key={`bone-${from}-${to}`}>
+            <Line
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke={brand.blueGlow}
+              strokeWidth={6}
+              strokeLinecap="round"
+              opacity={0.28}
+            />
+            <Line
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke="url(#ggBone)"
+              strokeWidth={3}
+              strokeLinecap="round"
+              opacity={0.92}
+            />
+          </Fragment>
         );
       })}
 
-      {bodyLandmarks.map((landmark, index) => (
-        <Circle
-          key={`joint-${index}`}
-          cx={toX(landmark.x)}
-          cy={toY(landmark.y)}
-          r={5}
-          fill="#fbbf24"
-          opacity={0.95}
-        />
-      ))}
+      {bodyLandmarks.map(({ index, landmark }) => {
+        const cx = toX(landmark.x);
+        const cy = toY(landmark.y);
+
+        return (
+          <Fragment key={`joint-${index}`}>
+            <Circle cx={cx} cy={cy} r={9} fill={brand.violet} opacity={0.22} />
+            <Circle
+              cx={cx}
+              cy={cy}
+              r={6.5}
+              stroke={brand.blueGlow}
+              strokeWidth={1.5}
+              fill="none"
+              opacity={0.85}
+            />
+            <Circle cx={cx} cy={cy} r={4.5} fill="url(#ggJoint)" opacity={1} />
+          </Fragment>
+        );
+      })}
     </Svg>
   );
 }

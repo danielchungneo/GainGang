@@ -16,13 +16,16 @@ import {
 } from 'react-native-vision-camera';
 import { Worklets } from 'react-native-worklets-core';
 
+import { cameraHud, cameraHudStyles as hud } from '@/components/rep-counter/camera-hud-styles';
 import { PoseSkeletonOverlay } from '@/components/rep-counter/pose-skeleton-overlay';
+import { isDebugEnabled } from '@/lib/debug';
 import { iosPoseLandmarkerPlugin } from '@/lib/rep-counting/ios-pose-plugin';
 import { normalizePoseLandmarks } from '@/lib/rep-counting/normalize-pose-landmarks';
 import { createRepCounter } from '@/lib/rep-counting/rep-counter';
 import type { CameraExerciseType, Landmark, RepCounterSnapshot } from '@/lib/rep-counting/types';
 
 const BRIDGE_INTERVAL_MS = 66;
+const SHOW_ANGLE_DEBUG = isDebugEnabled();
 
 interface RepCounterCameraProps {
   exerciseType: CameraExerciseType;
@@ -35,7 +38,11 @@ export function RepCounterCamera({
   onRepCountChange,
   onSnapshot,
 }: RepCounterCameraProps) {
-  const device = useCameraDevice('front');
+  // Prefer multi-cam front devices so zoom can reach the wider FOV (iPhone
+  // Camera app selfie "zoom out" / ~0.5x). Still returns a single-lens front cam if that's all there is.
+  const device = useCameraDevice('front', {
+    physicalDevices: ['ultra-wide-angle-camera', 'wide-angle-camera'],
+  });
   const { hasPermission, requestPermission } = useCameraPermission();
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const [landmarks, setLandmarks] = useState<Landmark[] | null>(null);
@@ -55,18 +62,18 @@ export function RepCounterCamera({
     backgroundColor: interpolateColor(
       repFlash.value,
       [0, 1],
-      ['rgba(5, 7, 15, 0.72)', 'rgba(34, 197, 94, 0.9)'],
+      [cameraHud.surface, cameraHud.flashBg],
     ),
     borderColor: interpolateColor(
       repFlash.value,
       [0, 1],
-      ['rgba(34, 211, 238, 0.35)', 'rgba(74, 222, 128, 1)'],
+      [cameraHud.border, cameraHud.flashBorder],
     ),
     transform: [{ scale: 1 + repFlash.value * 0.08 }],
   }));
 
   const repValueAnimatedStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(repFlash.value, [0, 1], ['#F8FAFC', '#FFFFFF']),
+    color: interpolateColor(repFlash.value, [0, 1], [cameraHud.text, '#FFFFFF']),
   }));
 
   useEffect(() => {
@@ -81,7 +88,11 @@ export function RepCounterCamera({
     setFrameMessage(
       exerciseType === 'pushup'
         ? 'Keep your upper body in frame'
-        : 'Step back — keep your full body in frame',
+        : exerciseType === 'situp' || exerciseType === 'crunch'
+          ? 'Keep your torso and knees in frame'
+          : exerciseType === 'plank'
+            ? 'Get into plank position'
+            : 'Step back — keep your full body in frame',
     );
   }, [exerciseType]);
 
@@ -115,7 +126,7 @@ export function RepCounterCamera({
         onRepCountChange?.(snapshot.repCount);
       }
     },
-    [onRepCountChange, onSnapshot],
+    [onRepCountChange, onSnapshot, repFlash],
   );
 
   const onPoseDetected = useMemo(
@@ -129,16 +140,20 @@ export function RepCounterCamera({
           setTrackingOk(false);
           setFullyInFrame(false);
           setFrameMessage(
-      exerciseType === 'pushup'
-        ? 'Keep your upper body in frame'
-        : 'Step back — keep your full body in frame',
-    );
+            exerciseType === 'pushup'
+              ? 'Keep your upper body in frame'
+              : exerciseType === 'situp' || exerciseType === 'crunch'
+                ? 'Keep your torso and knees in frame'
+                : exerciseType === 'plank'
+                  ? 'Get into plank position'
+                  : 'Step back — keep your full body in frame',
+          );
           return;
         }
 
         handlePoseResult(result.pose);
       }),
-    [handlePoseResult],
+    [exerciseType, handlePoseResult],
   );
 
   // Platform.OS is unreliable inside worklets — use separate processors and pick on the JS thread.
@@ -202,12 +217,16 @@ export function RepCounterCamera({
     );
   }
 
+  // Widest FOV: on devices that support selfie zoom-out, minZoom < neutralZoom.
+  const widestZoom = device.minZoom;
+
   return (
     <View style={styles.container} onLayout={handleLayout}>
       <Camera
         style={StyleSheet.absoluteFill}
         device={device}
         isActive
+        zoom={widestZoom}
         pixelFormat="rgb"
         frameProcessor={frameProcessor}
       />
@@ -219,28 +238,29 @@ export function RepCounterCamera({
         mirrored
       />
 
-      <View style={styles.hudTop}>
-        <Animated.View style={[styles.repBadge, repBadgeAnimatedStyle]}>
-          <Text style={styles.repLabel}>REPS</Text>
-          <Animated.Text style={[styles.repValue, repValueAnimatedStyle]}>{repCount}</Animated.Text>
-        </Animated.View>
-      </View>
-
-      <View style={styles.hudBottom}>
+      <View style={hud.hudTop}>
         {!fullyInFrame || !trackingOk ? (
-          <View style={styles.warningPill}>
-            <Text style={styles.warningText}>
+          <View style={hud.warningCard}>
+            <Text style={hud.warningText}>
               {!fullyInFrame
                 ? frameMessage
                 : 'Reposition — keep joints in frame'}
             </Text>
           </View>
-        ) : (
-          <View style={styles.statsRow}>
-            <Text style={styles.statText}>Phase: {phase}</Text>
-            <Text style={styles.statText}>Angle: {angle}°</Text>
+        ) : SHOW_ANGLE_DEBUG ? (
+          <View style={hud.secondaryBadge}>
+            <Text style={hud.secondaryLabel}>Angle</Text>
+            <Text style={hud.secondaryValue}>{angle}°</Text>
+            <Text style={hud.secondaryCaption}>{phase}</Text>
           </View>
-        )}
+        ) : null}
+      </View>
+
+      <View style={hud.hudBottom}>
+        <Animated.View style={[hud.metricBadge, repBadgeAnimatedStyle]}>
+          <Text style={hud.metricLabel}>Reps</Text>
+          <Animated.Text style={[hud.metricValue, repValueAnimatedStyle]}>{repCount}</Animated.Text>
+        </Animated.View>
       </View>
     </View>
   );
@@ -260,65 +280,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#05070F',
   },
   message: {
-    color: '#E5E7EB',
+    color: '#E8EDF7',
     textAlign: 'center',
     fontSize: 16,
     lineHeight: 22,
-  },
-  hudTop: {
-    position: 'absolute',
-    top: 16,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  repBadge: {
-    borderRadius: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  repLabel: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-  },
-  repValue: {
-    fontSize: 48,
-    fontWeight: '800',
-    lineHeight: 52,
-  },
-  hudBottom: {
-    position: 'absolute',
-    bottom: 24,
-    left: 16,
-    right: 16,
-    alignItems: 'center',
-  },
-  warningPill: {
-    backgroundColor: 'rgba(239, 68, 68, 0.85)',
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  warningText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 16,
-    backgroundColor: 'rgba(5, 7, 15, 0.72)',
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  statText: {
-    color: '#CBD5E1',
-    fontSize: 13,
-    fontWeight: '600',
   },
 });

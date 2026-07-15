@@ -1,23 +1,22 @@
+import { Ionicons } from "@expo/vector-icons";
 import { View, Text, StyleSheet } from "react-native";
 
 import { fontFamily, status } from "@/lib/gaingang-theme";
 
-export function StreakPill({ days }: { days: number }) {
+export interface StreakPillProps {
+  days: number;
+}
+
+/** Compact streak mark: flame icon + day count. */
+export function StreakPill({ days }: StreakPillProps) {
   return (
     <View
-      style={[
-        styles.wrap,
-        {
-          backgroundColor: "rgba(245,165,36,0.08)",
-          borderColor: "rgba(245,165,36,0.22)",
-        },
-      ]}
+      style={styles.wrap}
+      accessibilityRole="text"
+      accessibilityLabel={`${days} day streak`}
     >
-      <Text style={styles.flame}>🔥</Text>
-      <View>
-        <Text style={[styles.count, { color: status.fire }]}>{days}</Text>
-        <Text style={styles.label}>DAY STREAK</Text>
-      </View>
+      <Ionicons name="flame" size={14} color={status.fire} />
+      <Text style={styles.count}>{days}</Text>
     </View>
   );
 }
@@ -26,19 +25,12 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignSelf: "flex-start",
+    gap: 3,
   },
-  flame: { fontSize: 20 },
-  count: { fontFamily: fontFamily.display, fontSize: 18, lineHeight: 18 },
-  label: {
-    fontFamily: fontFamily.mono,
-    fontSize: 10,
-    letterSpacing: 1,
-    color: "#7D8AA8",
+  count: {
+    fontFamily: fontFamily.display,
+    fontSize: 13,
+    lineHeight: 15,
+    color: status.fire,
   },
 });

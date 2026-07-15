@@ -1,0 +1,14 @@
+{
+  "name": "reward-reveal",
+  "version": "1.0.0",
+  "description": "GainGang animated reward-reveal overlay for React Native (Reanimated 3) — a sealed sigil charges, bursts in a flash, and the reward is revealed.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "peerDependencies": {
+    "react": ">=18",
+    "react-native": ">=0.72",
+    "react-native-reanimated": ">=3.0.0"
+  },
+  "keywords": ["react-native", "reanimated", "animation", "reward", "gaingang"],
+  "license": "MIT"
+}

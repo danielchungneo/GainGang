@@ -10,37 +10,22 @@
 insert into public.exercises (name, category, unit, description, gang_id)
 select v.name, v.category, v.unit, v.description, null
 from (values
-  -- Day 1 — Chest (push)
+  -- Day 1 — Chest (push-up variants with camera rep counting)
   ('Push-ups',            'chest',  'reps',    'Standard push-ups'),
   ('Wide Push-ups',       'chest',  'reps',    'Hands wider than shoulders'),
   ('Diamond Push-ups',    'chest',  'reps',    'Hands together under the chest'),
   ('Decline Push-ups',    'chest',  'reps',    'Feet elevated'),
-  ('Dips',                'chest',  'reps',    'Bar or bench dips'),
   -- Day 2 — Legs
   ('Bodyweight Squats',   'legs',   'reps',    'Standard air squats'),
-  ('Jump Squats',         'legs',   'reps',    'Explosive squats'),
   ('Lunges',              'legs',   'reps',    'Alternating forward lunges'),
-  ('Bulgarian Split Squat','legs',  'reps',    'Rear-foot elevated'),
-  ('Calf Raises',         'legs',   'reps',    'Standing calf raises'),
-  ('Wall Sit',            'legs',   'seconds', 'Isometric wall sit hold'),
-  -- Day 3 — Cardio (distance/time)
+  -- Day 3 — Cardio (manual distance; no camera yet)
   ('Run',                 'cardio', 'miles',   'Distance run'),
   ('Walk',                'cardio', 'miles',   'Distance walked'),
-  ('Bike',                'cardio', 'miles',   'Distance cycled'),
-  ('Jump Rope',           'cardio', 'seconds', 'Continuous skipping'),
-  ('Burpees',             'cardio', 'reps',    'Full burpees'),
-  -- Day 4 — Back (pull)
-  ('Pull-ups',            'back',   'reps',    'Overhand grip pull-ups'),
-  ('Chin-ups',            'back',   'reps',    'Underhand grip'),
-  ('Inverted Rows',       'back',   'reps',    'Bodyweight rows under a bar'),
-  ('Superman Hold',       'back',   'seconds', 'Prone back extension hold'),
+  -- Day 4 — Back (none yet — add as camera logic ships)
   -- Day 5 — Core
   ('Sit-ups',             'core',   'reps',    'Full sit-ups'),
   ('Crunches',            'core',   'reps',    'Abdominal crunches'),
-  ('Plank',               'core',   'seconds', 'Front plank hold'),
-  ('Leg Raises',          'core',   'reps',    'Lying leg raises'),
-  ('Russian Twists',      'core',   'reps',    'Seated twists (count each side)'),
-  ('Mountain Climbers',   'core',   'reps',    'Count each knee drive')
+  ('Plank',               'core',   'seconds', 'Front plank hold')
 ) as v(name, category, unit, description)
 where not exists (
   select 1 from public.exercises e

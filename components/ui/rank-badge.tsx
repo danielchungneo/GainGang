@@ -12,6 +12,8 @@ export interface LevelBadgeProps {
   level: number;
   size?: number;
   showLabel?: boolean;
+  /** Overrides the center numeral (e.g. "XP" for reward rarity badges). */
+  centerLabel?: string;
 }
 
 function levelFontSize(level: number, size: number): number {
@@ -20,15 +22,26 @@ function levelFontSize(level: number, size: number): number {
   return size * 0.24;
 }
 
+function centerLabelFontSize(label: string, size: number): number {
+  if (label.length <= 2) return size * 0.34;
+  if (label.length <= 3) return size * 0.26;
+  return size * 0.2;
+}
+
 export function LevelBadge({
   level,
   size = 88,
   showLabel = false,
+  centerLabel,
 }: LevelBadgeProps) {
   const resolvedLevel = Math.max(1, level);
   const badge = levelBadgeForLevel(resolvedLevel);
   const h = size * 1.09;
-  const gradId = `level-fill-${resolvedLevel}`;
+  const gradId = `level-fill-${resolvedLevel}-${centerLabel ?? "n"}`;
+  const display = centerLabel ?? String(resolvedLevel);
+  const fontSize = centerLabel
+    ? centerLabelFontSize(centerLabel, size)
+    : levelFontSize(resolvedLevel, size);
   const pts = (w: number, ht: number) =>
     `${w * 0.5},0 ${w},${ht * 0.25} ${w},${ht * 0.75} ${w * 0.5},${ht} 0,${ht * 0.75} 0,${ht * 0.25}`;
 
@@ -65,13 +78,8 @@ export function LevelBadge({
             strokeWidth={1}
           />
         </Svg>
-        <Text
-          style={[
-            styles.level,
-            { color: badge.glow, fontSize: levelFontSize(resolvedLevel, size) },
-          ]}
-        >
-          {resolvedLevel}
+        <Text style={[styles.level, { color: badge.glow, fontSize }]}>
+          {display}
         </Text>
       </View>
 

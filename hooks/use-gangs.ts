@@ -123,6 +123,34 @@ export function useCreateGang() {
   });
 }
 
+export interface GangInvitePreview {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  privacy: GangPrivacy;
+  member_count: number;
+  already_member: boolean;
+}
+
+/** Preview a gang from an invite link (works for invite-only gangs). */
+export function useGangInvitePreview(inviteCode: string) {
+  const { session } = useAuth();
+  const code = inviteCode.trim().toUpperCase();
+
+  return useQuery({
+    queryKey: queryKeys.gangInvitePreview(code),
+    enabled: !!session?.user.id && code.length >= 4,
+    queryFn: async (): Promise<GangInvitePreview> => {
+      const { data, error } = await supabase.rpc('preview_gang_invite', {
+        p_invite_code: code,
+      });
+      if (error) throw error;
+      return data as unknown as GangInvitePreview;
+    },
+  });
+}
+
 export function useJoinGang() {
   const queryClient = useQueryClient();
   const { session } = useAuth();

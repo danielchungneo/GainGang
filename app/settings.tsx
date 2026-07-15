@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Switch,
@@ -17,6 +18,8 @@ import {
 import { GlassSurface, ScreenBackground } from "@/components/ui";
 
 import { useAuth } from "@/context/auth-context";
+
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 import { useThemeTokens } from "@/hooks/use-theme-tokens";
 
@@ -31,7 +34,31 @@ export default function SettingsScreen() {
 
   const { session } = useAuth();
 
+  const {
+    permission: pushPermission,
+    isRegistering: isPushRegistering,
+    enablePushNotifications,
+  } = usePushNotifications();
+
   const [signingOut, setSigningOut] = useState(false);
+
+  async function handleTogglePush(enabled: boolean) {
+    if (!enabled) {
+      Alert.alert(
+        "Turn off alerts in system settings",
+        "Open your phone's notification settings for GainGang to mute push alerts. In-app alerts still appear on your profile.",
+      );
+      return;
+    }
+
+    const ok = await enablePushNotifications();
+    if (!ok && pushPermission === "denied") {
+      Alert.alert(
+        "Notifications blocked",
+        "Enable notifications for GainGang in your phone's settings, then try again.",
+      );
+    }
+  }
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -78,6 +105,29 @@ export default function SettingsScreen() {
           </Text>
         </GlassSurface>
 
+        <TouchableOpacity
+          onPress={() => router.push("/edit-profile")}
+          accessibilityRole="button"
+          accessibilityLabel="Edit profile"
+        >
+          <GlassSurface
+            style={{
+              padding: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[type.labelSm, { color: t.body }]}>Profile</Text>
+              <Text style={[type.bodySm, { color: t.heading }]}>
+                Photo, name, username, bio
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={t.body} />
+          </GlassSurface>
+        </TouchableOpacity>
+
         <GlassSurface
           style={{
             padding: 20,
@@ -98,6 +148,41 @@ export default function SettingsScreen() {
             value={mode === "dark"}
             onValueChange={(value) => setMode(value ? "dark" : "light")}
           />
+        </GlassSurface>
+
+        <GlassSurface
+          style={{
+            padding: 20,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={[type.labelSm, { color: t.body }]}>Push notifications</Text>
+            <Text style={[type.bodySm, { color: t.heading }]}>
+              {pushPermission === "unavailable"
+                ? "Not available on this device"
+                : pushPermission === "granted"
+                  ? "On — kudos, comments, pokes, gang wins"
+                  : pushPermission === "denied"
+                    ? "Blocked in system settings"
+                    : "Get notification on your device"}
+            </Text>
+          </View>
+
+          {isPushRegistering ? (
+            <ActivityIndicator color={t.accent} />
+          ) : (
+            <Switch
+              value={pushPermission === "granted"}
+              disabled={pushPermission === "unavailable"}
+              onValueChange={(value) => {
+                void handleTogglePush(value);
+              }}
+            />
+          )}
         </GlassSurface>
 
         <TouchableOpacity

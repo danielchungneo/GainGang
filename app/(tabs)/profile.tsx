@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 
+import { LinearGradient } from "expo-linear-gradient";
+
 import { router } from "expo-router";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   ActivityIndicator,
@@ -12,6 +14,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 
 import { ProfileActivitiesFeed } from "@/components/profile-activities-feed";
 import { ProfileStreakCalendar } from "@/components/profile-streak-calendar";
@@ -26,9 +37,9 @@ import {
 
 import { LevelUpOverlay } from "@/components/level-up-overlay";
 
-import { useAchievements, type AchievementWithProgress } from "@/hooks/use-achievements";
-
 import { useMyActivities } from "@/hooks/use-activities";
+
+import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 
 import { useProfile } from "@/hooks/use-profile";
 
@@ -51,11 +62,10 @@ export default function ProfileScreen() {
 
   const { data: activities } = useMyActivities();
 
-  const { data: achievements } = useAchievements();
+  const unreadAlerts = useUnreadNotificationCount();
 
   const progress = levelProgress(profile?.xp ?? 0);
 
-  const earned = (achievements ?? []).filter((a) => a.earned);
   const totalActivities = activities?.length ?? 0;
 
   function handlePreviewLevelUp() {
@@ -85,14 +95,71 @@ export default function ProfileScreen() {
         <View className="mt-4 flex-row items-center justify-between">
           <Text style={[type.heading, { color: t.heading }]}>Profile</Text>
 
-          <TouchableOpacity
-            onPress={() => router.push("/settings")}
-            accessibilityRole="button"
-            accessibilityLabel="Open settings"
-            hitSlop={8}
-          >
-            <Ionicons name="settings-outline" size={24} color={t.heading} />
-          </TouchableOpacity>
+          <View className="flex-row items-center gap-3">
+            <TouchableOpacity
+              onPress={() => router.push("/alerts")}
+              accessibilityRole="button"
+              accessibilityLabel={
+                unreadAlerts > 0
+                  ? `Open alerts, ${unreadAlerts} unread`
+                  : "Open alerts"
+              }
+              hitSlop={8}
+            >
+              <View>
+                <Ionicons
+                  name={unreadAlerts > 0 ? "notifications" : "notifications-outline"}
+                  size={24}
+                  color={t.heading}
+                />
+                {unreadAlerts > 0 ? (
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -6,
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: 8,
+                      paddingHorizontal: 4,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: "#FF5C89",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "#fff",
+                        fontSize: 10,
+                        fontWeight: "700",
+                        lineHeight: 12,
+                      }}
+                    >
+                      {unreadAlerts > 99 ? "99+" : unreadAlerts}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push("/inventory")}
+              accessibilityRole="button"
+              accessibilityLabel="Open inventory"
+              hitSlop={8}
+            >
+              <Ionicons name="cube-outline" size={24} color={t.heading} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push("/settings")}
+              accessibilityRole="button"
+              accessibilityLabel="Open settings"
+              hitSlop={8}
+            >
+              <Ionicons name="settings-outline" size={24} color={t.heading} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {isLoading || !profile ? (
@@ -101,13 +168,24 @@ export default function ProfileScreen() {
           <>
             <GlassSurface style={{ padding: 20, gap: 14 }}>
               <View className="flex-row items-center gap-4">
-                <Avatar
-                  name={profile.full_name || "You"}
-                  uri={profile.avatar_url}
-                  size={64}
-                />
+                <TouchableOpacity
+                  onPress={() => router.push("/edit-profile")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit profile photo"
+                >
+                  <Avatar
+                    name={profile.full_name || "You"}
+                    uri={profile.avatar_url}
+                    size={64}
+                  />
+                </TouchableOpacity>
 
-                <View className="flex-1">
+                <TouchableOpacity
+                  onPress={() => router.push("/edit-profile")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit profile"
+                  style={{ flex: 1 }}
+                >
                   <Text
                     style={[
                       {
@@ -120,12 +198,24 @@ export default function ProfileScreen() {
                     {profile.full_name || "Unnamed Hunter"}
                   </Text>
 
-                  {profile.username ? (
-                    <Text style={[type.bodySm, { color: t.body }]}>
-                      @{profile.username}
-                    </Text>
-                  ) : null}
-                </View>
+                  <View className="flex-row items-center gap-2">
+                    {profile.username ? (
+                      <Text style={[type.bodySm, { color: t.body }]}>
+                        @{profile.username}
+                      </Text>
+                    ) : (
+                      <Text style={[type.bodySm, { color: t.accent }]}>
+                        Edit profile
+                      </Text>
+                    )}
+                    {(profile.current_streak ?? 0) > 0 ? (
+                      <>
+                        <Text style={[type.bodySm, { color: t.placeholder }]}>·</Text>
+                        <StreakPill days={profile.current_streak} />
+                      </>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
 
                 <LevelBadge level={progress.level} size={52} />
               </View>
@@ -152,11 +242,7 @@ export default function ProfileScreen() {
               ) : null}
             </GlassSurface>
 
-            {(profile.current_streak ?? 0) > 0 ? (
-              <StreakPill days={profile.current_streak} />
-            ) : null}
-
-            {__DEV__ ? (
+            {/* {__DEV__ ? (
               <TouchableOpacity
                 onPress={handlePreviewLevelUp}
                 className="items-center rounded-xl border py-3"
@@ -172,7 +258,7 @@ export default function ProfileScreen() {
                   Preview level up animation
                 </Text>
               </TouchableOpacity>
-            ) : null}
+            ) : null} */}
 
             <View className="flex-row gap-3">
               <StatTile
@@ -194,7 +280,7 @@ export default function ProfileScreen() {
               <StatTile
                 icon="trophy"
                 label="Badges"
-                value={`${earned.length}`}
+                value="—"
                 isActive={activeView === "badges"}
                 onPress={() => setActiveView("badges")}
               />
@@ -211,9 +297,7 @@ export default function ProfileScreen() {
               <ProfileActivitiesFeed activities={activities ?? []} />
             ) : null}
 
-            {activeView === "badges" ? (
-              <ProfileBadgesGrid achievements={achievements ?? []} />
-            ) : null}
+            {activeView === "badges" ? <BadgesComingSoon /> : null}
           </>
         )}
       </ScrollView>
@@ -276,59 +360,167 @@ function StatTile({
   );
 }
 
-function ProfileBadgesGrid({
-  achievements,
-}: {
-  achievements: AchievementWithProgress[];
-}) {
+function BadgesComingSoon() {
   const t = useThemeTokens();
-  const list = achievements ?? [];
+  const float = useSharedValue(0);
+  const glow = useSharedValue(0.35);
+
+  useEffect(() => {
+    float.value = withRepeat(
+      withSequence(
+        withTiming(-6, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+      ),
+      -1,
+      false,
+    );
+    glow.value = withRepeat(
+      withSequence(
+        withTiming(0.7, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.35, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+      ),
+      -1,
+      false,
+    );
+  }, [float, glow]);
+
+  const medalStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: float.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glow.value,
+  }));
 
   return (
-    <View style={{ gap: 12 }}>
-      <Text style={[type.label, { color: t.heading }]}>Achievements</Text>
+    <GlassSurface
+      style={{
+        padding: 28,
+        gap: 18,
+        alignItems: "center",
+        overflow: "hidden",
+      }}
+    >
+      <LinearGradient
+        colors={[`${t.accent}33`, "transparent", `${t.accent}18`]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+        }}
+      />
 
-      <View className="flex-row flex-wrap gap-3">
-        {list.map((a) => (
-          <GlassSurface
-            key={a.id}
+      <View style={{ height: 88, width: 88, alignItems: "center", justifyContent: "center" }}>
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              width: 78,
+              height: 78,
+              borderRadius: 39,
+              backgroundColor: t.accent,
+            },
+            glowStyle,
+          ]}
+        />
+        <Animated.View
+          style={[
+            {
+              width: 72,
+              height: 72,
+              borderRadius: 36,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: t.buttonBg,
+              borderWidth: 1,
+              borderColor: `${t.accent}66`,
+            },
+            medalStyle,
+          ]}
+        >
+          <Ionicons name="trophy" size={34} color="#f59e0b" />
+        </Animated.View>
+      </View>
+
+      <View
+        style={{
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: 999,
+          backgroundColor: `${t.accent}22`,
+          borderWidth: 1,
+          borderColor: `${t.accent}55`,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: fontFamily.bodySemi,
+            fontSize: 11,
+            letterSpacing: 1.4,
+            textTransform: "uppercase",
+            color: t.accent,
+          }}
+        >
+          Coming soon
+        </Text>
+      </View>
+
+      <View style={{ gap: 8, alignItems: "center" }}>
+        <Text
+          style={{
+            fontFamily: fontFamily.displaySemi,
+            fontSize: 22,
+            color: t.heading,
+            textAlign: "center",
+          }}
+        >
+          Badges are forging
+        </Text>
+        <Text
+          style={[
+            type.bodySm,
+            { color: t.body, textAlign: "center", lineHeight: 20, maxWidth: 280 },
+          ]}
+        >
+          Streaks, social flexes, and rare unlocks are on the way. Keep logging — your trophy case
+          is almost ready.
+        </Text>
+      </View>
+
+      <View className="w-full flex-row gap-2" style={{ marginTop: 4 }}>
+        {(["Streaks", "Social", "Rare"] as const).map((label) => (
+          <View
+            key={label}
             style={{
-              padding: 14,
-              width: "47%",
-              gap: 6,
-              opacity: a.earned ? 1 : 0.45,
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 12,
+              alignItems: "center",
+              backgroundColor: `${t.heading}08`,
+              borderWidth: 1,
+              borderColor: `${t.heading}14`,
+              gap: 4,
             }}
           >
             <Ionicons
-              name={a.earned ? "trophy" : "lock-closed"}
-              size={22}
-              color={a.earned ? "#f59e0b" : t.body}
+              name={
+                label === "Streaks"
+                  ? "flame-outline"
+                  : label === "Social"
+                    ? "people-outline"
+                    : "diamond-outline"
+              }
+              size={16}
+              color={t.body}
             />
-
-            <Text
-              style={[
-                {
-                  fontFamily: fontFamily.bodySemi,
-                  fontSize: 14,
-                  color: t.heading,
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {a.is_secret && !a.earned ? "???" : a.title}
-            </Text>
-
-            <Text
-              style={[type.bodySm, { color: t.body }]}
-              numberOfLines={2}
-            >
-              {a.is_secret && !a.earned
-                ? "Hidden achievement"
-                : a.description}
-            </Text>
-          </GlassSurface>
+            <Text style={[type.dataSm, { color: t.body }]}>{label}</Text>
+          </View>
         ))}
       </View>
-    </View>
+    </GlassSurface>
   );
 }

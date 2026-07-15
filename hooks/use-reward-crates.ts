@@ -38,6 +38,12 @@ export function useRewardCrates() {
   });
 }
 
+/** Unopened crates waiting in inventory. */
+export function useUnopenedCrateCount() {
+  const { data: crates } = useRewardCrates();
+  return (crates ?? []).filter((crate) => crate.opened_at == null).length;
+}
+
 /** Today's daily-completion crate, if already claimed. */
 export function useTodaysRewardCrate(rewardDate = todayISO()) {
   const { session } = useAuth();

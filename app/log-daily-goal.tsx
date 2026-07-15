@@ -14,6 +14,7 @@ import { GlassSurface, KeyboardAwareScrollView, ScreenBackground } from '@/compo
 import { AmountInput } from '@/components/ui/amount-input';
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
 import { LevelUpOverlay } from '@/components/level-up-overlay';
+import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { CameraRepCountButton } from '@/components/rep-counter/camera-rep-count-button';
 import { useDailyGoalActivities, useLogActivity, useUpdateActivity } from '@/hooks/use-activities';
 import { useDailyGoal } from '@/hooks/use-weekly-plans';
@@ -26,7 +27,10 @@ import {
   validateAmountInput,
 } from '@/lib/activity-amount';
 import { resolvePostSaveCelebration } from '@/lib/daily-goal-celebration';
-import type { DailyGoalCelebrationPayload } from '@/lib/daily-goal-celebration';
+import type {
+  DailyGoalCelebrationPayload,
+  StreakContinuePayload,
+} from '@/lib/daily-goal-celebration';
 import { formatAmount, formatGoalActivityList, formatGoalDate } from '@/lib/format';
 import {
   buildRepCounterSessionKey,
@@ -66,8 +70,13 @@ export default function LogDailyGoalScreen() {
   const [error, setError] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<DailyGoalCelebrationPayload | null>(null);
   const [celebrationKey, setCelebrationKey] = useState(0);
+  const [streakContinue, setStreakContinue] = useState<StreakContinuePayload | null>(null);
+  const [streakKey, setStreakKey] = useState(0);
   const [levelUp, setLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(null);
   const [levelUpKey, setLevelUpKey] = useState(0);
+  const [pendingCelebration, setPendingCelebration] = useState<DailyGoalCelebrationPayload | null>(
+    null,
+  );
   const [pendingLevelUp, setPendingLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(
     null,
   );
@@ -229,13 +238,27 @@ export default function LogDailyGoalScreen() {
         return parseActivityAmount(formState[ex.id].amount, ex.unit)!;
       });
 
-      const { celebration: nextCelebration, levelUp: levelUpInfo } = resolvePostSaveCelebration({
+      const {
+        celebration: nextCelebration,
+        levelUp: levelUpInfo,
+        streakContinue: nextStreak,
+      } = resolvePostSaveCelebration({
         goal: dailyGoal,
         totalsBefore,
         totalsAfter,
         xpAwarded: totalXp,
         profileXp: profile?.xp ?? 0,
+        currentStreak: profile?.current_streak ?? 0,
+        lastActiveOn: profile?.last_active_on ?? null,
       });
+
+      if (nextStreak) {
+        if (nextCelebration) setPendingCelebration(nextCelebration);
+        if (levelUpInfo) setPendingLevelUp(levelUpInfo);
+        setStreakContinue(nextStreak);
+        setStreakKey((k) => k + 1);
+        return;
+      }
 
       if (nextCelebration) {
         if (levelUpInfo) setPendingLevelUp(levelUpInfo);
@@ -442,7 +465,32 @@ export default function LogDailyGoalScreen() {
         </GlassSurface>
       </KeyboardAwareScrollView>
 
-      {celebration ? (
+      {streakContinue ? (
+        <StreakContinueOverlay
+          key={streakKey}
+          visible
+          fromDays={streakContinue.fromDays}
+          toDays={streakContinue.toDays}
+          onDismiss={() => {
+            setStreakContinue(null);
+            if (pendingCelebration) {
+              setCelebration(pendingCelebration);
+              setPendingCelebration(null);
+              setCelebrationKey((k) => k + 1);
+              return;
+            }
+            if (pendingLevelUp) {
+              setLevelUp(pendingLevelUp);
+              setPendingLevelUp(null);
+              setLevelUpKey((k) => k + 1);
+              return;
+            }
+            router.back();
+          }}
+        />
+      ) : null}
+
+      {celebration && !streakContinue ? (
         <GoalCompleteOverlay
           key={celebrationKey}
           visible
@@ -463,7 +511,7 @@ export default function LogDailyGoalScreen() {
         />
       ) : null}
 
-      {levelUp && !celebration ? (
+      {levelUp && !celebration && !streakContinue ? (
         <LevelUpOverlay
           key={levelUpKey}
           visible

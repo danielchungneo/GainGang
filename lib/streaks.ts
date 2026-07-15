@@ -1,11 +1,17 @@
 import { todayISO } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
-import { addDaysISO } from '@/types';
+import { addDaysISO, mondayOfWeek } from '@/types';
 
 export interface StreakStats {
   currentStreak: number;
   longestStreak: number;
   lastActiveOn: string | null;
+}
+
+/** Monday (YYYY-MM-DD) of the week containing an activity date. */
+function weekStartISO(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  return mondayOfWeek(new Date(year!, month! - 1, day!));
 }
 
 /**
@@ -57,6 +63,35 @@ export function computeStreakStats(
     longestStreak: Math.max(longestStreak, currentStreak),
     lastActiveOn,
   };
+}
+
+/**
+ * Consecutive weeks with at least one workout (Mon–Sun weeks).
+ * Stays alive through the current week if last week had activity.
+ */
+export function computeWeeklyStreak(
+  activityDates: string[],
+  today: string = todayISO(),
+): number {
+  const weekSet = new Set(
+    activityDates.filter((d): d is string => !!d).map(weekStartISO),
+  );
+  if (weekSet.size === 0) return 0;
+
+  const thisWeek = weekStartISO(today);
+  const lastWeek = addDaysISO(thisWeek, -7);
+
+  let cursor: string | null = null;
+  if (weekSet.has(thisWeek)) cursor = thisWeek;
+  else if (weekSet.has(lastWeek)) cursor = lastWeek;
+  else return 0;
+
+  let streak = 0;
+  while (cursor && weekSet.has(cursor)) {
+    streak += 1;
+    cursor = addDaysISO(cursor, -7);
+  }
+  return streak;
 }
 
 /** Recompute personal streak from activity dates and persist on the profile. */

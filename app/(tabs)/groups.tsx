@@ -3,6 +3,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -23,7 +25,11 @@ import { ScreenBackground } from '@/components/ui/screen-background';
 import { useAuth } from '@/context/auth-context';
 import { useGangFeed } from '@/hooks/use-activities';
 import { useMyGangs } from '@/hooks/use-gangs';
-import { useLeaderboard, type LeaderboardPeriod } from '@/hooks/use-leaderboard';
+import {
+  useLeaderboard,
+  type LeaderboardMetric,
+  type LeaderboardPeriod,
+} from '@/hooks/use-leaderboard';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { useActiveWeeklyPlan } from '@/hooks/use-weekly-plans';
 import { formatGoalDate, todayISO } from '@/lib/format';
@@ -414,40 +420,78 @@ function GangActivityTab({
   );
 }
 
+const LEADERBOARD_METRICS: { key: LeaderboardMetric; label: string }[] = [
+  { key: 'reps', label: 'Reps' },
+  { key: 'miles', label: 'Distance' },
+];
+
+const LEADERBOARD_PERIODS: { key: LeaderboardPeriod; label: string }[] = [
+  { key: 'daily', label: 'Today' },
+  { key: 'weekly', label: 'This week' },
+  { key: 'all', label: 'All-time' },
+];
+
 function GangLeaderboardTab({ gangId }: { gangId: string }) {
   const t = useThemeTokens();
   const { theme } = useTheme();
   const { session } = useAuth();
   const [period, setPeriod] = useState<LeaderboardPeriod>('weekly');
-  const { data: board, isLoading } = useLeaderboard(gangId, period);
-  const topTotal = board?.[0]?.total ?? 1;
+  const [metric, setMetric] = useState<LeaderboardMetric>('reps');
+  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
+  const { data: boards, isLoading } = useLeaderboard(gangId, period);
+  const board = boards?.[metric] ?? [];
+  const topTotal = board[0]?.total ?? 0;
+  const periodLabel =
+    LEADERBOARD_PERIODS.find((p) => p.key === period)?.label ?? 'This week';
 
   return (
     <View className="gap-3">
-      <View
-        className="flex-row rounded-xl p-1"
-        style={{ backgroundColor: t.buttonBg, borderWidth: 1, borderColor: t.buttonBorder }}
-      >
-        {(['daily', 'weekly', 'all'] as LeaderboardPeriod[]).map((p) => (
-          <TouchableOpacity
-            key={p}
-            onPress={() => setPeriod(p)}
-            className="flex-1 items-center rounded-lg py-2"
-            style={{ backgroundColor: period === p ? t.accent : 'transparent' }}
+      <View className="flex-row items-center gap-3">
+        <TouchableOpacity
+          onPress={() => setPeriodPickerOpen(true)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={`Time range: ${periodLabel}. Tap to change.`}
+          className="flex-row items-center gap-1"
+          style={{ flexShrink: 0 }}
+        >
+          <Text
+            style={{
+              fontFamily: fontFamily.bodySemi,
+              fontSize: 13,
+              color: t.body,
+            }}
           >
-            <Text
-              style={{ color: period === p ? t.accentOnPrimary : t.body }}
-              className="text-xs font-semibold capitalize"
+            {periodLabel}
+          </Text>
+          <Ionicons name="chevron-down" size={14} color={t.body} />
+        </TouchableOpacity>
+
+        <View
+          className="flex-1 flex-row rounded-xl p-1"
+          style={{ backgroundColor: t.buttonBg, borderWidth: 1, borderColor: t.buttonBorder }}
+        >
+          {LEADERBOARD_METRICS.map(({ key, label }) => (
+            <TouchableOpacity
+              key={key}
+              onPress={() => setMetric(key)}
+              className="flex-1 items-center rounded-lg py-2"
+              style={{ backgroundColor: metric === key ? t.accent : 'transparent' }}
             >
-              {p === 'all' ? 'All-time' : p}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={{ color: metric === key ? t.accentOnPrimary : t.body }}
+                className="text-xs font-semibold"
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       {isLoading ? (
         <ActivityIndicator color={t.accent} style={{ marginTop: 20 }} />
-      ) : board && board.length > 0 ? (
+      ) : board.length > 0 ? (
         <View
           style={{
             borderRadius: 16,
@@ -461,8 +505,9 @@ function GangLeaderboardTab({ gangId }: { gangId: string }) {
               key={row.user_id}
               position={row.position}
               name={row.full_name}
-              initials={initialsFromName(row.full_name)}
-              reps={row.total}
+              avatarUrl={row.avatar_url}
+              amount={row.total}
+              unit={row.unit}
               level={row.level}
               completion={topTotal > 0 ? row.total / topTotal : 0}
               isYou={row.user_id === session?.user.id}
@@ -475,6 +520,61 @@ function GangLeaderboardTab({ gangId }: { gangId: string }) {
           body="Log workouts for your gang to start climbing the ranks."
         />
       )}
+
+      <Modal
+        visible={periodPickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPeriodPickerOpen(false)}
+      >
+        <Pressable
+          className="flex-1 justify-end"
+          style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+          onPress={() => setPeriodPickerOpen(false)}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <View
+              className="rounded-t-3xl px-5 pb-8 pt-5"
+              style={{ backgroundColor: t.buttonBg, borderTopWidth: 1, borderColor: t.buttonBorder }}
+            >
+              <Text style={{ color: t.heading }} className="mb-4 text-lg font-bold">
+                Time range
+              </Text>
+              {LEADERBOARD_PERIODS.map((option) => {
+                const isSelected = option.key === period;
+                return (
+                  <TouchableOpacity
+                    key={option.key}
+                    onPress={() => {
+                      setPeriod(option.key);
+                      setPeriodPickerOpen(false);
+                    }}
+                    className="mb-2 flex-row items-center gap-3 rounded-xl px-4 py-3"
+                    style={{
+                      backgroundColor: isSelected ? t.accent : 'transparent',
+                      borderWidth: 1,
+                      borderColor: isSelected ? t.accent : t.buttonBorder,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        flex: 1,
+                        fontFamily: fontFamily.bodySemi,
+                        color: isSelected ? t.accentOnPrimary : t.heading,
+                      }}
+                    >
+                      {option.label}
+                    </Text>
+                    {isSelected ? (
+                      <Ionicons name="checkmark-circle" size={22} color={t.accentOnPrimary} />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -497,8 +597,3 @@ function EmptyCard({ title, body }: { title: string; body: string }) {
   );
 }
 
-function initialsFromName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-  return name.slice(0, 3).toUpperCase();
-}

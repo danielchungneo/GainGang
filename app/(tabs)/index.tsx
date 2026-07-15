@@ -12,6 +12,7 @@ import { DailyGoalCard } from "@/components/daily-goal-card";
 import { DailyRewardClaimBanner } from "@/components/daily-reward-claim-banner";
 import { GoalCompleteOverlay } from "@/components/goal-complete-overlay";
 import { LevelUpOverlay } from "@/components/level-up-overlay";
+import { StreakContinueOverlay } from "@/components/streak-continue-overlay";
 
 import {
   Button,
@@ -52,11 +53,14 @@ export default function TodayScreen() {
     useMyTodaysDailyGoals();
 
   const {
+    streakContinue,
+    streakKey,
     celebration,
     celebrationKey,
     levelUp,
     levelUpKey,
     handleActivitySaved,
+    dismissStreakContinue,
     dismissCelebration,
     dismissLevelUp,
   } = useDailyGoalSaveCelebrations();
@@ -190,7 +194,17 @@ export default function TodayScreen() {
         )}
       </ScrollView>
 
-      {celebration ? (
+      {streakContinue ? (
+        <StreakContinueOverlay
+          key={streakKey}
+          visible
+          fromDays={streakContinue.fromDays}
+          toDays={streakContinue.toDays}
+          onDismiss={dismissStreakContinue}
+        />
+      ) : null}
+
+      {celebration && !streakContinue ? (
         <GoalCompleteOverlay
           key={celebrationKey}
           visible
@@ -202,7 +216,7 @@ export default function TodayScreen() {
         />
       ) : null}
 
-      {levelUp && !celebration ? (
+      {levelUp && !celebration && !streakContinue ? (
         <LevelUpOverlay
           key={levelUpKey}
           visible

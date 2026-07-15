@@ -5,28 +5,30 @@ import {
   fontFamily,
   status,
 } from "@/lib/gaingang-theme";
-import { GradientView } from "./gradient-view";
+import { formatAmount } from "@/lib/format";
+import type { ExerciseUnit } from "@/types";
+import { Avatar } from "./avatar";
 import { LevelChip } from "./rank-chip";
 
 export interface LeaderboardRowProps {
   position: number;
   name: string;
-  initials: string;
-  reps: number;
+  avatarUrl?: string | null;
+  amount: number;
+  unit: Extract<ExerciseUnit, "reps" | "miles">;
   level: number;
   completion?: number;
-  avatarColors?: readonly [string, string];
   isYou?: boolean;
 }
 
 export function LeaderboardRow({
   position,
   name,
-  initials,
-  reps,
+  avatarUrl,
+  amount,
+  unit,
   level,
   completion,
-  avatarColors,
   isYou,
 }: LeaderboardRowProps) {
   const { theme } = useTheme();
@@ -55,14 +57,7 @@ export function LeaderboardRow({
     >
       <Text style={[styles.pos, { color: posColor }]}>{position}</Text>
 
-      <GradientView
-        colors={avatarColors ?? theme.aura}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.avatar}
-      >
-        <Text style={styles.initials}>{initials}</Text>
-      </GradientView>
+      <Avatar name={name} uri={avatarUrl} size={38} />
 
       <View style={{ flex: 1 }}>
         <Text style={[styles.name, { color: isYou ? c.primaryGlow : c.text }]}>
@@ -70,13 +65,15 @@ export function LeaderboardRow({
         </Text>
         {completion != null && (
           <Text style={[styles.sub, { color: c.textMuted }]}>
-            {Math.round(completion * 100)}% complete
+            {Math.round(completion * 100)}% of leader
           </Text>
         )}
       </View>
 
       <LevelChip level={level} />
-      <Text style={[styles.reps, { color: c.text }]}>{reps}</Text>
+      <Text style={[styles.amount, { color: c.text }]}>
+        {formatAmount(amount, unit)}
+      </Text>
     </View>
   );
 }
@@ -91,20 +88,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   pos: { fontFamily: fontFamily.display, fontSize: 18, width: 24 },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  initials: { fontFamily: fontFamily.display, fontSize: 13, color: "#FFFFFF" },
   name: { fontFamily: fontFamily.bodySemi, fontSize: 15 },
   sub: { fontFamily: fontFamily.mono, fontSize: 11, marginTop: 2 },
-  reps: {
+  amount: {
     fontFamily: fontFamily.monoBold,
-    fontSize: 16,
-    width: 48,
+    fontSize: 14,
+    minWidth: 72,
     textAlign: "right",
   },
 });

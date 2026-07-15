@@ -85,7 +85,6 @@ export function WeeklyPlanWeekHeader({
         }}
       >
         Week of {range}
-        {isAdaptive ? ' · Adaptive' : ''}
       </Text>
       {canEdit && planId ? (
         <TouchableOpacity

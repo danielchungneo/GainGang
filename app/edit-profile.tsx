@@ -33,10 +33,6 @@ import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
 
 const schema = z.object({
   full_name: z.string().min(1, 'Name is required').max(80),
-  username: z
-    .string()
-    .max(30)
-    .regex(/^[a-zA-Z0-9_]*$/, 'Only letters, numbers, and underscores'),
   bio: z.string().max(280),
 });
 
@@ -61,14 +57,13 @@ export default function EditProfileScreen() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { full_name: '', username: '', bio: '' },
+    defaultValues: { full_name: '', bio: '' },
   });
 
   useEffect(() => {
     if (!profile) return;
     reset({
       full_name: profile.full_name ?? '',
-      username: profile.username ?? '',
       bio: profile.bio ?? '',
     });
     setAvatarUri(profile.avatar_url);
@@ -149,7 +144,6 @@ export default function EditProfileScreen() {
     try {
       await updateProfile.mutateAsync({
         full_name: values.full_name.trim(),
-        username: values.username?.trim() || null,
         bio: values.bio?.trim() || null,
       });
       router.back();
@@ -242,35 +236,6 @@ export default function EditProfileScreen() {
                 />
                 {errors.full_name ? (
                   <Text style={styles.error}>{errors.full_name.message}</Text>
-                ) : null}
-              </View>
-
-              <View>
-                <Text style={[type.labelSm, { color: t.body, marginBottom: 8 }]}>Username</Text>
-                <Controller
-                  control={control}
-                  name="username"
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          backgroundColor: t.inputBg,
-                          borderColor: t.inputBorder,
-                          color: t.heading,
-                        },
-                      ]}
-                      placeholder="hunter_one"
-                      placeholderTextColor={t.placeholder}
-                      onChangeText={onChange}
-                      value={value}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
-                  )}
-                />
-                {errors.username ? (
-                  <Text style={styles.error}>{errors.username.message}</Text>
                 ) : null}
               </View>
 

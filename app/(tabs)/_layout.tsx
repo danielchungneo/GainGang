@@ -6,11 +6,18 @@ import { HapticTab } from "@/components/haptic-tab";
 
 import { useAuth } from "@/context/auth-context";
 
-import { useTheme } from "@/lib/gaingang-theme";
+import { useUnreadNotificationCount } from "@/hooks/use-notifications";
+
+import { useUnopenedCrateCount } from "@/hooks/use-reward-crates";
+
+import { status, useTheme } from "@/lib/gaingang-theme";
 
 export default function TabLayout() {
   const { theme } = useTheme();
   const { session, isPending } = useAuth();
+  const unreadAlerts = useUnreadNotificationCount();
+  const unopenedCrates = useUnopenedCrateCount();
+  const profileAttention = unreadAlerts + unopenedCrates;
 
   const c = theme.colors;
 
@@ -78,6 +85,24 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: "Profile",
+
+          tabBarBadge:
+            profileAttention > 0
+              ? profileAttention > 99
+                ? "99+"
+                : profileAttention
+              : undefined,
+
+          tabBarBadgeStyle: {
+            backgroundColor: status.danger,
+            color: "#FFFFFF",
+            fontSize: 10,
+            fontWeight: "700",
+            minWidth: 16,
+            height: 16,
+            lineHeight: 14,
+            borderRadius: 8,
+          },
 
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />

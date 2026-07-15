@@ -12,6 +12,7 @@ import {
 import { Avatar, GlassSurface, ScreenBackground } from '@/components/ui';
 import {
   notificationVisual,
+  useDismissReadNotifications,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
@@ -26,8 +27,11 @@ export default function AlertsScreen() {
   const { data: alerts, isLoading, refetch, isRefetching } = useNotifications();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
+  const dismissRead = useDismissReadNotifications();
 
-  const unreadCount = (alerts ?? []).filter((a) => !a.is_read).length;
+  const visibleAlerts = alerts ?? [];
+  const unreadCount = visibleAlerts.filter((a) => !a.is_read).length;
+  const canDismissRead = visibleAlerts.length > 0 && unreadCount === 0;
 
   async function handlePress(alert: NotificationWithActor) {
     if (!alert.is_read) {
@@ -94,6 +98,18 @@ export default function AlertsScreen() {
                 Mark all read
               </Text>
             </Pressable>
+          ) : canDismissRead ? (
+            <Pressable
+              onPress={() => dismissRead.mutate()}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss all read alerts"
+              hitSlop={8}
+              disabled={dismissRead.isPending}
+            >
+              <Text style={[type.bodySm, { color: t.accent, fontFamily: fontFamily.bodySemi }]}>
+                Dismiss all
+              </Text>
+            </Pressable>
           ) : null}
         </View>
 
@@ -103,7 +119,7 @@ export default function AlertsScreen() {
 
         {isLoading ? (
           <ActivityIndicator color={t.accent} style={{ marginTop: 24 }} />
-        ) : (alerts ?? []).length === 0 ? (
+        ) : visibleAlerts.length === 0 ? (
           <GlassSurface style={{ padding: 20, gap: 8 }}>
             <Text
               style={{
@@ -121,7 +137,7 @@ export default function AlertsScreen() {
           </GlassSurface>
         ) : (
           <View style={{ gap: 10 }}>
-            {(alerts ?? []).map((alert) => {
+            {visibleAlerts.map((alert) => {
               const visual = notificationVisual(alert.type);
               const actorName =
                 alert.actor?.full_name?.trim() ||

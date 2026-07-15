@@ -120,6 +120,8 @@ export interface ActivityExerciseSnapshot extends ActivityExercise {
 /** An activity with its exercise lines (profile, detail views). */
 export interface ActivityWithExercises extends Activity {
   exercises: ActivityExercise[];
+  kudos_count?: number;
+  comment_count?: number;
 }
 
 /** A comment joined with its author profile. */
@@ -135,6 +137,8 @@ export interface LeaderboardEntry {
   avatar_url: string | null;
   xp: number;
   level: number;
+  /** Unit this row was ranked on (`reps` or `miles`). */
+  unit: Extract<ExerciseUnit, 'reps' | 'miles'>;
   total: number;
   position: number;
 }

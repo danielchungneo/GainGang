@@ -542,6 +542,7 @@ export type Database = {
           daily_goal_exercise_id: string | null;
           body: string;
           is_read: boolean;
+          dismissed_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -555,6 +556,8 @@ export type Database = {
           daily_goal_exercise_id?: string | null;
           body: string;
           is_read?: boolean;
+          dismissed_at?: string | null;
+          created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['notifications']['Insert']>;
         Relationships: [];

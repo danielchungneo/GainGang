@@ -15,6 +15,7 @@ import { AmountInput } from '@/components/ui/amount-input';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
 import { LevelUpOverlay } from '@/components/level-up-overlay';
+import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { GoalProgressPreview } from '@/components/goal-progress-preview';
 import { CameraRepCountButton } from '@/components/rep-counter/camera-rep-count-button';
 import { ScreenBackground } from '@/components/ui/screen-background';
@@ -24,6 +25,7 @@ import { useMyGangs } from '@/hooks/use-gangs';
 import { useProfile } from '@/hooks/use-profile';
 import { useQuest } from '@/hooks/use-quests';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { resolveStreakContinue, type StreakContinuePayload } from '@/lib/daily-goal-celebration';
 import { formatAmount } from '@/lib/format';
 import {
   formatAmountInputValue,
@@ -90,8 +92,11 @@ export default function LogActivityScreen() {
   const [hasPrefilled, setHasPrefilled] = useState(false);
   const [celebration, setCelebration] = useState<GoalCelebration | null>(null);
   const [celebrationKey, setCelebrationKey] = useState(0);
+  const [streakContinue, setStreakContinue] = useState<StreakContinuePayload | null>(null);
+  const [streakKey, setStreakKey] = useState(0);
   const [levelUp, setLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(null);
   const [levelUpKey, setLevelUpKey] = useState(0);
+  const [pendingCelebration, setPendingCelebration] = useState<GoalCelebration | null>(null);
   const [pendingLevelUp, setPendingLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(
     null,
   );
@@ -244,16 +249,36 @@ export default function LogActivityScreen() {
       }
 
       const levelUpInfo = getLevelUpInfo(profile?.xp ?? 0, xpAwarded);
+      const nextStreak =
+        isEditing
+          ? null
+          : resolveStreakContinue({
+              currentStreak: profile?.current_streak ?? 0,
+              lastActiveOn: profile?.last_active_on ?? null,
+            });
 
-      if (justCompletedPersonalGoal && quest) {
+      const nextCelebration: GoalCelebration | null =
+        justCompletedPersonalGoal && quest
+          ? {
+              questTitle: quest.title,
+              questKind: 'Daily Goal',
+              description: `${formatAmount(quest.individual_target, quest.unit)} are yours.`,
+              xpEarned: xpAwarded,
+              yourTarget: { from: userTotalBefore, target: quest.individual_target },
+            }
+          : null;
+
+      if (nextStreak) {
+        if (nextCelebration) setPendingCelebration(nextCelebration);
         if (levelUpInfo) setPendingLevelUp(levelUpInfo);
-        setCelebration({
-          questTitle: quest.title,
-          questKind: 'Daily Goal',
-          description: `${formatAmount(quest.individual_target, quest.unit)} are yours.`,
-          xpEarned: xpAwarded,
-          yourTarget: { from: userTotalBefore, target: quest.individual_target },
-        });
+        setStreakContinue(nextStreak);
+        setStreakKey((k) => k + 1);
+        return;
+      }
+
+      if (nextCelebration) {
+        if (levelUpInfo) setPendingLevelUp(levelUpInfo);
+        setCelebration(nextCelebration);
         setCelebrationKey((k) => k + 1);
         return;
       }
@@ -268,6 +293,23 @@ export default function LogActivityScreen() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save activity');
     }
+  }
+
+  function handleDismissStreakContinue() {
+    setStreakContinue(null);
+    if (pendingCelebration) {
+      setCelebration(pendingCelebration);
+      setPendingCelebration(null);
+      setCelebrationKey((k) => k + 1);
+      return;
+    }
+    if (pendingLevelUp) {
+      setLevelUp(pendingLevelUp);
+      setPendingLevelUp(null);
+      setLevelUpKey((k) => k + 1);
+      return;
+    }
+    router.back();
   }
 
   function handleDismissCelebration() {
@@ -501,7 +543,17 @@ export default function LogActivityScreen() {
         </GlassSurface>
       </KeyboardAwareScrollView>
 
-      {celebration ? (
+      {streakContinue ? (
+        <StreakContinueOverlay
+          key={streakKey}
+          visible
+          fromDays={streakContinue.fromDays}
+          toDays={streakContinue.toDays}
+          onDismiss={handleDismissStreakContinue}
+        />
+      ) : null}
+
+      {celebration && !streakContinue ? (
         <GoalCompleteOverlay
           key={celebrationKey}
           visible
@@ -514,7 +566,7 @@ export default function LogActivityScreen() {
         />
       ) : null}
 
-      {levelUp && !celebration ? (
+      {levelUp && !celebration && !streakContinue ? (
         <LevelUpOverlay
           key={levelUpKey}
           visible

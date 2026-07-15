@@ -17,6 +17,14 @@ Living checklist of planned product features. Mark items done as they ship; add 
 - [x] Persist claimed rewards and prevent double-claim
 - [ ] Expand crate loot beyond XP (titles, banners, borders, XP boosts)
 
+### Onboarding screens
+
+- [ ] Design first-run onboarding flow (value props, how GainGang works, camera/rep counting)
+- [ ] Build multi-step onboarding UI (skip / next / finish)
+- [ ] Persist completion so returning users skip onboarding
+- [ ] Gate after sign-up / first launch; deep-link friendly if mid-invite join
+- [ ] Optional: request notification / camera permissions in context during onboarding
+
 ### Stick figure pictures for exercises
 
 - [ ] Create or source stick-figure art for each exercise
@@ -31,9 +39,9 @@ Living checklist of planned product features. Mark items done as they ship; add 
 
 ### Cooler streak animation (first exercise of the day)
 
-- [ ] Design a stronger “streak continues” moment for the first completed exercise of the day
-- [ ] Implement animation (Reanimated) and hook into first-of-day completion
-- [ ] Align with existing level-up / goal-complete overlay patterns
+- [x] Design a stronger “streak continues” moment for the first completed exercise of the day
+- [x] Implement animation (Reanimated) and hook into first-of-day completion
+- [x] Align with existing level-up / goal-complete overlay patterns
 
 ### Better animation for completing reps
 
@@ -138,6 +146,14 @@ SMS / Messages share of a gang invite link. Opens a confirm/reject join screen i
 - [ ] Set `EXPO_PUBLIC_APP_STORE_URL` once published so share copy includes App Store download link
 - [ ] Universal Links / Associated Domains so https invites open the app (or App Store) automatically
 - [ ] Post-install deferred deep link handoff if the user installs from the store first
+
+---
+
+### Leaderboard — split by metric + avatars
+
+- [x] Separate rankings for reps vs distance (miles) so unlike units aren’t compared
+- [x] Show each member’s profile picture on leaderboard rows
+- [ ] Optional: time / holds board for `seconds` exercises (e.g. plank)
 
 ---
 

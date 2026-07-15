@@ -158,10 +158,13 @@ export function useMyActivities() {
         .order('updated_at', { ascending: false })
         .limit(100);
       if (error) throw error;
-      return (data ?? []).map((row) => ({
+
+      const rows: ActivityWithExercises[] = (data ?? []).map((row) => ({
         ...(row as Activity),
         exercises: (row.exercises as ActivityExercise[] | undefined) ?? [],
       }));
+
+      return attachEngagementCounts(rows);
     },
   });
 }
@@ -320,39 +323,78 @@ export function useDeleteActivity() {
 // ---- helpers ----
 type ActivityWithAuthor = ActivityWithExercises & { author: ActivityFeedItem['author'] };
 
+async function loadEngagementCounts(
+  activityIds: string[],
+): Promise<Map<string, { kudos_count: number; comment_count: number }>> {
+  const counts = new Map<string, { kudos_count: number; comment_count: number }>();
+  for (const id of activityIds) {
+    counts.set(id, { kudos_count: 0, comment_count: 0 });
+  }
+  if (activityIds.length === 0) return counts;
+
+  // Chunk `.in()` filters so PostgREST URLs stay under practical length limits.
+  const chunkSize = 40;
+  for (let i = 0; i < activityIds.length; i += chunkSize) {
+    const chunk = activityIds.slice(i, i + chunkSize);
+    const [{ data: kudos, error: kudosError }, { data: comments, error: commentsError }] =
+      await Promise.all([
+        supabase.from('kudos').select('activity_id').in('activity_id', chunk),
+        supabase.from('comments').select('activity_id').in('activity_id', chunk),
+      ]);
+    if (kudosError) throw kudosError;
+    if (commentsError) throw commentsError;
+
+    for (const row of kudos ?? []) {
+      const current = counts.get(row.activity_id);
+      if (current) current.kudos_count += 1;
+    }
+    for (const row of comments ?? []) {
+      const current = counts.get(row.activity_id);
+      if (current) current.comment_count += 1;
+    }
+  }
+
+  return counts;
+}
+
+async function attachEngagementCounts<T extends { id: string }>(
+  rows: T[],
+): Promise<(T & { kudos_count: number; comment_count: number })[]> {
+  const counts = await loadEngagementCounts(rows.map((row) => row.id));
+  return rows.map((row) => {
+    const engagement = counts.get(row.id);
+    return {
+      ...row,
+      kudos_count: engagement?.kudos_count ?? 0,
+      comment_count: engagement?.comment_count ?? 0,
+    };
+  });
+}
+
 async function hydrateFeed(
   rows: ActivityWithAuthor[],
   userId?: string,
 ): Promise<ActivityFeedItem[]> {
   if (rows.length === 0) return [];
   const ids = rows.map((a) => a.id);
-
-  const { data: engagement } = await supabase
-    .from('activity_engagement')
-    .select('activity_id, kudos_count, comment_count')
-    .in('activity_id', ids);
-  const engMap = new Map((engagement ?? []).map((e) => [e.activity_id, e]));
+  const withCounts = await attachEngagementCounts(rows);
 
   let myKudos = new Set<string>();
   if (userId) {
-    const { data: mine } = await supabase
+    const { data: mine, error } = await supabase
       .from('kudos')
       .select('activity_id')
       .eq('user_id', userId)
       .in('activity_id', ids);
+    if (error) throw error;
     myKudos = new Set((mine ?? []).map((k) => k.activity_id));
   }
 
-  return rows.map((a) => {
-    const e = engMap.get(a.id);
-    return {
-      ...a,
-      exercises: a.exercises ?? [],
-      kudos_count: e?.kudos_count ?? 0,
-      comment_count: e?.comment_count ?? 0,
-      has_kudos: myKudos.has(a.id),
-    };
-  });
+  return withCounts.map((a) => ({
+    ...a,
+    exercises: a.exercises ?? [],
+    has_kudos: myKudos.has(a.id),
+  }));
 }
 
 async function resolveDailyGoalMeta(dailyGoalExerciseId: string): Promise<{

@@ -6,6 +6,7 @@ import {
   type GoalCompleteExerciseTarget,
 } from '@/components/goal-complete-overlay';
 import { LevelUpOverlay } from '@/components/level-up-overlay';
+import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { DailyGoalCard as DailyGoalCardView } from '@/components/ui/daily-goal-card';
 import {
   useLogActivity,
@@ -16,6 +17,7 @@ import { formatGoalDate, timeLeftUntilDateEnd } from '@/lib/format';
 import {
   buildDailyGoalTotalsAfter,
   resolvePostSaveCelebration,
+  type StreakContinuePayload,
 } from '@/lib/daily-goal-celebration';
 import {
   buildRepCounterSessionKey,
@@ -102,8 +104,15 @@ export function DailyGoalCard({
     exercises: GoalCompleteExerciseTarget[];
   } | null>(null);
   const [celebrationKey, setCelebrationKey] = useState(0);
+  const [streakContinue, setStreakContinue] = useState<StreakContinuePayload | null>(null);
+  const [streakKey, setStreakKey] = useState(0);
   const [levelUp, setLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(null);
   const [levelUpKey, setLevelUpKey] = useState(0);
+  const [pendingCelebration, setPendingCelebration] = useState<{
+    title: string;
+    xpEarned: number;
+    exercises: GoalCompleteExerciseTarget[];
+  } | null>(null);
   const [pendingLevelUp, setPendingLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(
     null,
   );
@@ -127,13 +136,24 @@ export function DailyGoalCard({
         return;
       }
 
-      const { celebration: nextCelebration, levelUp: nextLevelUp } = resolvePostSaveCelebration({
-        goal: savedGoal,
-        totalsBefore,
-        totalsAfter,
-        xpAwarded,
-        profileXp: profile?.xp ?? 0,
-      });
+      const { celebration: nextCelebration, levelUp: nextLevelUp, streakContinue: nextStreak } =
+        resolvePostSaveCelebration({
+          goal: savedGoal,
+          totalsBefore,
+          totalsAfter,
+          xpAwarded,
+          profileXp: profile?.xp ?? 0,
+          currentStreak: profile?.current_streak ?? 0,
+          lastActiveOn: profile?.last_active_on ?? null,
+        });
+
+      if (nextStreak) {
+        if (nextCelebration) setPendingCelebration(nextCelebration);
+        if (nextLevelUp) setPendingLevelUp(nextLevelUp);
+        setStreakContinue(nextStreak);
+        setStreakKey((k) => k + 1);
+        return;
+      }
 
       if (nextCelebration) {
         if (nextLevelUp) setPendingLevelUp(nextLevelUp);
@@ -147,7 +167,7 @@ export function DailyGoalCard({
         setLevelUpKey((k) => k + 1);
       }
     },
-    [profile?.xp],
+    [profile?.xp, profile?.current_streak, profile?.last_active_on],
   );
 
   const handlePendingReps = useCallback(async () => {
@@ -303,7 +323,30 @@ export function DailyGoalCard({
         }
       />
 
-      {renderLocalOverlays && celebration ? (
+      {renderLocalOverlays && streakContinue ? (
+        <StreakContinueOverlay
+          key={streakKey}
+          visible
+          fromDays={streakContinue.fromDays}
+          toDays={streakContinue.toDays}
+          onDismiss={() => {
+            setStreakContinue(null);
+            if (pendingCelebration) {
+              setCelebration(pendingCelebration);
+              setPendingCelebration(null);
+              setCelebrationKey((k) => k + 1);
+              return;
+            }
+            if (pendingLevelUp) {
+              setLevelUp(pendingLevelUp);
+              setPendingLevelUp(null);
+              setLevelUpKey((k) => k + 1);
+            }
+          }}
+        />
+      ) : null}
+
+      {renderLocalOverlays && celebration && !streakContinue ? (
         <GoalCompleteOverlay
           key={celebrationKey}
           visible
@@ -322,7 +365,7 @@ export function DailyGoalCard({
         />
       ) : null}
 
-      {renderLocalOverlays && levelUp && !celebration ? (
+      {renderLocalOverlays && levelUp && !celebration && !streakContinue ? (
         <LevelUpOverlay
           key={levelUpKey}
           visible

@@ -29,6 +29,7 @@ import { ProfileStreakCalendar } from "@/components/profile-streak-calendar";
 import {
   Avatar,
   GlassSurface,
+  IconBadge,
   LevelBadge,
   ProgressBar,
   ScreenBackground,
@@ -36,12 +37,15 @@ import {
 } from "@/components/ui";
 
 import { LevelUpOverlay } from "@/components/level-up-overlay";
+import { StreakContinueOverlay } from "@/components/streak-continue-overlay";
 
 import { useMyActivities } from "@/hooks/use-activities";
 
 import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 
 import { useProfile } from "@/hooks/use-profile";
+
+import { useUnopenedCrateCount } from "@/hooks/use-reward-crates";
 
 import { useThemeTokens } from "@/hooks/use-theme-tokens";
 
@@ -58,21 +62,34 @@ export default function ProfileScreen() {
 
   const [showLevelUpPreview, setShowLevelUpPreview] = useState(false);
   const [levelUpPreviewKey, setLevelUpPreviewKey] = useState(0);
+  const [showStreakPreview, setShowStreakPreview] = useState(false);
+  const [streakPreviewKey, setStreakPreviewKey] = useState(0);
   const [activeView, setActiveView] = useState<ProfileView>("streak");
 
   const { data: activities } = useMyActivities();
 
   const unreadAlerts = useUnreadNotificationCount();
+  const unopenedCrates = useUnopenedCrateCount();
 
   const progress = levelProgress(profile?.xp ?? 0);
 
   const totalActivities = activities?.length ?? 0;
+  const streakFrom = profile?.current_streak ?? 0;
+  const streakTo = streakFrom + 1;
 
   function handlePreviewLevelUp() {
     setShowLevelUpPreview(false);
     requestAnimationFrame(() => {
       setLevelUpPreviewKey((k) => k + 1);
       setShowLevelUpPreview(true);
+    });
+  }
+
+  function handlePreviewStreak() {
+    setShowStreakPreview(false);
+    requestAnimationFrame(() => {
+      setStreakPreviewKey((k) => k + 1);
+      setShowStreakPreview(true);
     });
   }
 
@@ -112,43 +129,28 @@ export default function ProfileScreen() {
                   size={24}
                   color={t.heading}
                 />
-                {unreadAlerts > 0 ? (
-                  <View
-                    style={{
-                      position: "absolute",
-                      top: -4,
-                      right: -6,
-                      minWidth: 16,
-                      height: 16,
-                      borderRadius: 8,
-                      paddingHorizontal: 4,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: "#FF5C89",
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: "#fff",
-                        fontSize: 10,
-                        fontWeight: "700",
-                        lineHeight: 12,
-                      }}
-                    >
-                      {unreadAlerts > 99 ? "99+" : unreadAlerts}
-                    </Text>
-                  </View>
-                ) : null}
+                <IconBadge count={unreadAlerts} />
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => router.push("/inventory")}
               accessibilityRole="button"
-              accessibilityLabel="Open inventory"
+              accessibilityLabel={
+                unopenedCrates > 0
+                  ? `Open inventory, ${unopenedCrates} unopened crates`
+                  : "Open inventory"
+              }
               hitSlop={8}
             >
-              <Ionicons name="cube-outline" size={24} color={t.heading} />
+              <View>
+                <Ionicons
+                  name={unopenedCrates > 0 ? "cube" : "cube-outline"}
+                  size={24}
+                  color={t.heading}
+                />
+                <IconBadge count={unopenedCrates} />
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -244,6 +246,26 @@ export default function ProfileScreen() {
 
             {/* {__DEV__ ? (
               <TouchableOpacity
+                onPress={handlePreviewStreak}
+                className="items-center rounded-xl border py-3"
+                style={{
+                  borderColor: t.buttonBorder,
+                  backgroundColor: t.buttonBg,
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Preview streak animation"
+              >
+                <Text
+                  style={{ color: t.body }}
+                  className="text-sm font-semibold"
+                >
+                  Preview streak animation
+                </Text>
+              </TouchableOpacity>
+            ) : null} */}
+
+            {/* {__DEV__ ? (
+              <TouchableOpacity
                 onPress={handlePreviewLevelUp}
                 className="items-center rounded-xl border py-3"
                 style={{
@@ -289,7 +311,6 @@ export default function ProfileScreen() {
             {activeView === "streak" ? (
               <ProfileStreakCalendar
                 activities={activities ?? []}
-                currentStreak={profile.current_streak ?? 0}
               />
             ) : null}
 
@@ -301,6 +322,16 @@ export default function ProfileScreen() {
           </>
         )}
       </ScrollView>
+
+      {showStreakPreview ? (
+        <StreakContinueOverlay
+          key={streakPreviewKey}
+          visible
+          fromDays={streakFrom}
+          toDays={streakTo}
+          onDismiss={() => setShowStreakPreview(false)}
+        />
+      ) : null}
 
       {showLevelUpPreview ? (
         <LevelUpOverlay

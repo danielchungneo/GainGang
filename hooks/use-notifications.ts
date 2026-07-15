@@ -90,6 +90,7 @@ export function useNotifications() {
         .from('notifications')
         .select('*')
         .eq('user_id', userId!)
+        .is('dismissed_at', null)
         .order('created_at', { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -173,7 +174,8 @@ export function useMarkAllNotificationsRead() {
         .from('notifications')
         .update({ is_read: true })
         .eq('user_id', userId)
-        .eq('is_read', false);
+        .eq('is_read', false)
+        .is('dismissed_at', null);
       if (error) throw error;
     },
     onMutate: async () => {
@@ -182,6 +184,44 @@ export function useMarkAllNotificationsRead() {
       const previous = queryClient.getQueryData<NotificationWithActor[]>(key);
       queryClient.setQueryData<NotificationWithActor[]>(key, (old) =>
         (old ?? []).map((n) => ({ ...n, is_read: true })),
+      );
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(queryKeys.notifications(userId), ctx.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications(userId) });
+    },
+  });
+}
+
+/** Soft-hide all currently visible read alerts. */
+export function useDismissReadNotifications() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error('Not authenticated');
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('notifications')
+        .update({ dismissed_at: now, is_read: true })
+        .eq('user_id', userId)
+        .eq('is_read', true)
+        .is('dismissed_at', null);
+      if (error) throw error;
+    },
+    onMutate: async () => {
+      const key = queryKeys.notifications(userId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<NotificationWithActor[]>(key);
+      queryClient.setQueryData<NotificationWithActor[]>(key, (old) =>
+        (old ?? []).filter((n) => !n.is_read),
       );
       return { previous };
     },

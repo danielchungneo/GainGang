@@ -10,6 +10,7 @@ import { levelFromXp } from '@/types';
 import { useToggleKudos } from '@/hooks/use-social';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { formatAmount, timeAgo } from '@/lib/format';
+import { pushUserProfile } from '@/lib/navigate-profile';
 import { CATEGORY_LABELS, type ActivityFeedItem } from '@/types';
 
 interface ActivityCardProps {
@@ -28,12 +29,33 @@ export function ActivityCard({ activity, gangId }: ActivityCardProps) {
   return (
     <GlassSurface style={{ padding: 16, gap: 12 }}>
       <View className="flex-row items-center gap-3">
-        <Avatar name={name} uri={activity.author?.avatar_url} size={40} />
+        <TouchableOpacity
+          onPress={() => {
+            if (!activity.author?.id) return;
+            pushUserProfile(activity.author.id);
+          }}
+          disabled={!activity.author?.id}
+          accessibilityRole="button"
+          accessibilityLabel={`View ${name}'s profile`}
+        >
+          <Avatar name={name} uri={activity.author?.avatar_url} size={40} />
+        </TouchableOpacity>
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
-            <Text style={{ color: t.heading }} className="font-bold" numberOfLines={1}>
-              {name}
-            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (!activity.author?.id) return;
+                pushUserProfile(activity.author.id);
+              }}
+              disabled={!activity.author?.id}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${name}'s profile`}
+              style={{ flexShrink: 1 }}
+            >
+              <Text style={{ color: t.heading }} className="font-bold" numberOfLines={1}>
+                {name}
+              </Text>
+            </TouchableOpacity>
             {activity.author?.xp != null ? (
               <LevelBadge level={levelFromXp(activity.author.xp)} size={18} />
             ) : null}

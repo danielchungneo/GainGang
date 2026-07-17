@@ -7,7 +7,7 @@
     "splash": {
       "image": "./assets/gaingang/splash.png",
       "backgroundColor": "#05070F",
-      "resizeMode": "contain"
+      "resizeMode": "cover"
     },
     "ios": {
       "icon": "./assets/gaingang/icon.png",

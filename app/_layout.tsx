@@ -50,6 +50,12 @@ function RootNavigator() {
 
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
 
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+
+        <Stack.Screen name="welcome-crew" options={{ headerShown: false }} />
+
+        <Stack.Screen name="welcome-notifications" options={{ headerShown: false }} />
+
         <Stack.Screen
           name="modal"
           options={{ presentation: "modal", headerShown: false }}
@@ -98,6 +104,8 @@ function RootNavigator() {
         />
 
         <Stack.Screen name="activity/[id]" options={{ headerShown: false }} />
+
+        <Stack.Screen name="profile/[userId]" options={{ headerShown: false }} />
 
         <Stack.Screen name="settings" options={{ headerShown: false }} />
 

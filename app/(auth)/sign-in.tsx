@@ -1,13 +1,16 @@
 import { GainGangLogo } from '@/brand';
 // TODO(google-auth): Re-enable when Google sign-in is configured — see docs/GOOGLE_AUTH_TODO.md
 // import { AuthDivider, GoogleSignInButton, useGoogleAuth } from '@/components/google-sign-in-button';
+import { AppVersionLabel } from '@/components/app-version-label';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { DarkGlass, Glass } from '@/constants/theme';
+import { PRE_AUTH_QUERY_KEY } from '@/hooks/use-onboarding';
+import { resetPreAuthOnboarding } from '@/lib/onboarding';
 import { supabase } from '@/lib/supabase';
-import { isAppSession } from '@/lib/auth-session';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Link, router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -45,12 +48,14 @@ function envString(key: string): string | undefined {
 export default function SignInScreen() {
   const colorScheme = useColorScheme();
   const isLight = colorScheme !== 'dark';
+  const queryClient = useQueryClient();
 
   const [rememberMe, setRememberMe] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [hasSavedCredentials, setHasSavedCredentials] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [quickLoginKey, setQuickLoginKey] = useState<string | null>(null);
+  const [resettingOnboarding, setResettingOnboarding] = useState(false);
 
   const {
     control,
@@ -88,19 +93,10 @@ export default function SignInScreen() {
   }, [setValue]);
 
   async function signInWithCredentials(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message ?? 'Sign-in failed');
 
-    if (!isAppSession(data.session)) {
-      await supabase.auth.signOut();
-      router.replace({
-        pathname: '/(auth)/verify-email',
-        params: { email },
-      });
-      return;
-    }
-
-    router.replace('/(tabs)');
+    router.replace('/');
   }
 
   const quickLogins = [
@@ -122,6 +118,17 @@ export default function SignInScreen() {
   );
 
   const showQuickLogins = __DEV__ && quickLogins.length > 0;
+
+  async function handleResetOnboarding() {
+    setResettingOnboarding(true);
+    try {
+      await resetPreAuthOnboarding();
+      queryClient.setQueryData(PRE_AUTH_QUERY_KEY, false);
+      router.replace('/onboarding');
+    } finally {
+      setResettingOnboarding(false);
+    }
+  }
 
   async function onSubmit({ email, password }: FormData) {
     try {
@@ -263,6 +270,26 @@ export default function SignInScreen() {
         </View>
       ) : null}
 
+      {__DEV__ ? (
+        <TouchableOpacity
+          style={[isLight ? styles.glassButton : styles.darkOutlineButton, { marginTop: 12 }]}
+          className="rounded-xl py-3 items-center justify-center"
+          onPress={() => void handleResetOnboarding()}
+          disabled={resettingOnboarding || isSubmitting}
+        >
+          {resettingOnboarding ? (
+            <ActivityIndicator color={isLight ? '#0369a1' : DarkGlass.neonCyan} />
+          ) : (
+            <Text
+              style={{ color: isLight ? Glass.textSecondary : DarkGlass.textSecondary }}
+              className="text-sm font-semibold"
+            >
+              Dev: reset onboarding
+            </Text>
+          )}
+        </TouchableOpacity>
+      ) : null}
+
       {/* Remember Me */}
       <TouchableOpacity
         className="flex-row items-center mt-3 mb-1 gap-2"
@@ -345,6 +372,10 @@ export default function SignInScreen() {
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20 }}
       >
         <GlassSurface style={{ padding: 24 }}>{form}</GlassSurface>
+        <AppVersionLabel
+          color={isLight ? Glass.textSecondary : DarkGlass.textSecondary}
+          style={{ marginTop: 16, marginBottom: 8 }}
+        />
       </KeyboardAwareScrollView>
     </ScreenBackground>
   );

@@ -1,9 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import {
+  ActionSheetIOS,
   ActivityIndicator,
+  Alert,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -12,18 +16,22 @@ import {
 } from 'react-native';
 import { z } from 'zod';
 
+import { GangBanner } from '@/components/ui/gang-banner';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenBackground } from '@/components/ui/screen-background';
-import { useCreateGang } from '@/hooks/use-gangs';
+import { useCreateGang, useUpdateGang } from '@/hooks/use-gangs';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
-
-const ICONS = ['⚔️', '🔥', '🐺', '🦁', '💪', '🥷', '👑', '⚡', '🐉', '🛡️'];
+import {
+  pickGangBannerImage,
+  uploadGangBannerImage,
+  type GangBannerPickSource,
+  type PickedGangBanner,
+} from '@/lib/gang-banner-upload';
 
 const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(60),
   description: z.string().max(280).optional(),
-  icon: z.string(),
   privacy: z.enum(['public', 'invite_only']),
 });
 type FormData = z.infer<typeof schema>;
@@ -31,6 +39,11 @@ type FormData = z.infer<typeof schema>;
 export default function CreateGangScreen() {
   const t = useThemeTokens();
   const createGang = useCreateGang();
+  const updateGang = useUpdateGang();
+
+  const [bannerPreviewUri, setBannerPreviewUri] = useState<string | null>(null);
+  const [pendingBanner, setPendingBanner] = useState<PickedGangBanner | null>(null);
+  const [bannerError, setBannerError] = useState<string | null>(null);
 
   const {
     control,
@@ -40,20 +53,80 @@ export default function CreateGangScreen() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { icon: '⚔️', privacy: 'public' },
+    defaultValues: { privacy: 'public' },
   });
 
-  const icon = useWatch({ control, name: 'icon' });
   const privacy = useWatch({ control, name: 'privacy' });
+  const name = useWatch({ control, name: 'name' });
+
+  async function handlePickBanner(source: GangBannerPickSource) {
+    try {
+      setBannerError(null);
+      const picked = await pickGangBannerImage(source);
+      if (!picked) return;
+      setPendingBanner(picked);
+      setBannerPreviewUri(picked.uri);
+    } catch (e) {
+      setBannerError(e instanceof Error ? e.message : 'Could not pick banner');
+    }
+  }
+
+  function handleRemoveBanner() {
+    setPendingBanner(null);
+    setBannerPreviewUri(null);
+    setBannerError(null);
+  }
+
+  function openBannerOptions() {
+    const options = [
+      { label: 'Take photo', onPress: () => void handlePickBanner('camera') },
+      { label: 'Choose from library', onPress: () => void handlePickBanner('library') },
+      ...(bannerPreviewUri
+        ? [{ label: 'Remove banner', onPress: handleRemoveBanner, destructive: true }]
+        : []),
+    ];
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [...options.map((o) => o.label), 'Cancel'],
+          cancelButtonIndex: options.length,
+          destructiveButtonIndex: bannerPreviewUri ? options.length - 1 : undefined,
+        },
+        (index) => {
+          if (index < options.length) options[index]?.onPress();
+        },
+      );
+      return;
+    }
+
+    Alert.alert('Club banner', 'Add a photo for your gang', [
+      ...options.map((o) => ({
+        text: o.label,
+        style: o.destructive ? ('destructive' as const) : ('default' as const),
+        onPress: o.onPress,
+      })),
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
 
   async function onSubmit(values: FormData) {
     try {
       const gang = await createGang.mutateAsync({
         name: values.name,
         description: values.description,
-        icon,
-        privacy,
+        privacy: values.privacy,
       });
+
+      if (pendingBanner) {
+        try {
+          const publicUrl = await uploadGangBannerImage(gang.id, pendingBanner);
+          await updateGang.mutateAsync({ gangId: gang.id, banner_url: publicUrl });
+        } catch {
+          // Gang was created; banner can be added later in settings.
+        }
+      }
+
       router.replace({ pathname: '/(tabs)/groups', params: { gangId: gang.id } });
     } catch (e) {
       setError('root', { message: e instanceof Error ? e.message : 'Could not create Gang' });
@@ -75,23 +148,21 @@ export default function CreateGangScreen() {
         <GlassSurface style={{ padding: 20, gap: 14 }}>
           <View>
             <Text style={{ color: t.body }} className="mb-2 text-xs uppercase tracking-wide">
-              Icon
+              Club banner
             </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {ICONS.map((emoji) => (
-                <TouchableOpacity
-                  key={emoji}
-                  onPress={() => setValue('icon', emoji)}
-                  className="h-12 w-12 items-center justify-center rounded-2xl"
-                  style={{
-                    backgroundColor: icon === emoji ? t.accent : t.buttonBg,
-                    borderWidth: 1,
-                    borderColor: icon === emoji ? t.accent : t.buttonBorder,
-                  }}>
-                  <Text style={{ fontSize: 22 }}>{emoji}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <TouchableOpacity
+              onPress={openBannerOptions}
+              accessibilityRole="button"
+              accessibilityLabel="Upload club banner"
+              activeOpacity={0.85}
+            >
+              <GangBanner
+                uri={bannerPreviewUri}
+                name={name?.trim() || undefined}
+                showCameraBadge
+              />
+            </TouchableOpacity>
+            {bannerError ? <Text style={styles.error}>{bannerError}</Text> : null}
           </View>
 
           <View>
@@ -103,7 +174,10 @@ export default function CreateGangScreen() {
               name="name"
               render={({ field: { onChange, value } }) => (
                 <TextInput
-                  style={[styles.input, { backgroundColor: t.inputBg, borderColor: t.inputBorder, color: t.heading }]}
+                  style={[
+                    styles.input,
+                    { backgroundColor: t.inputBg, borderColor: t.inputBorder, color: t.heading },
+                  ]}
                   placeholder="The Iron Wolves"
                   placeholderTextColor={t.placeholder}
                   onChangeText={onChange}
@@ -125,7 +199,13 @@ export default function CreateGangScreen() {
                 <TextInput
                   style={[
                     styles.input,
-                    { backgroundColor: t.inputBg, borderColor: t.inputBorder, color: t.heading, height: 90, textAlignVertical: 'top' },
+                    {
+                      backgroundColor: t.inputBg,
+                      borderColor: t.inputBorder,
+                      color: t.heading,
+                      height: 90,
+                      textAlignVertical: 'top',
+                    },
                   ]}
                   placeholder="What's this Gang about?"
                   placeholderTextColor={t.placeholder}
@@ -151,10 +231,12 @@ export default function CreateGangScreen() {
                     backgroundColor: privacy === p ? t.accent : t.buttonBg,
                     borderWidth: 1,
                     borderColor: privacy === p ? t.accent : t.buttonBorder,
-                  }}>
+                  }}
+                >
                   <Text
                     style={{ color: privacy === p ? t.accentOnPrimary : t.accent }}
-                    className="font-semibold">
+                    className="font-semibold"
+                  >
                     {p === 'public' ? 'Public' : 'Invite only'}
                   </Text>
                 </TouchableOpacity>
@@ -168,7 +250,8 @@ export default function CreateGangScreen() {
             onPress={handleSubmit(onSubmit)}
             disabled={isSubmitting}
             className="mt-2 items-center rounded-xl py-4"
-            style={{ backgroundColor: t.accent }}>
+            style={{ backgroundColor: t.accent }}
+          >
             {isSubmitting ? (
               <ActivityIndicator color={t.accentOnPrimary} />
             ) : (

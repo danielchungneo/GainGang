@@ -34,7 +34,8 @@ export type NotificationType =
   | 'rank_up'
   | 'gang'
   | 'poke'
-  | 'daily_goal';
+  | 'daily_goal'
+  | 'follow';
 
 export type PushPlatform = 'ios' | 'android' | 'web' | 'unknown';
 export type XpAwardKind = 'activity_log' | 'personal_goal' | 'gang_goal' | 'crate_reward';
@@ -59,6 +60,7 @@ export type Database = {
           current_streak: number;
           longest_streak: number;
           last_active_on: string | null;
+          onboarding_completed_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -75,6 +77,7 @@ export type Database = {
           current_streak?: number;
           longest_streak?: number;
           last_active_on?: string | null;
+          onboarding_completed_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
         Relationships: [];
@@ -85,6 +88,7 @@ export type Database = {
           name: string;
           description: string | null;
           icon: string | null;
+          banner_url: string | null;
           privacy: GangPrivacy;
           invite_code: string;
           difficulty: Rank;
@@ -98,6 +102,7 @@ export type Database = {
           name: string;
           description?: string | null;
           icon?: string | null;
+          banner_url?: string | null;
           privacy?: GangPrivacy;
           invite_code?: string;
           difficulty?: Rank;
@@ -530,6 +535,35 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['user_achievements']['Insert']>;
         Relationships: [];
       };
+      follows: {
+        Row: {
+          follower_id: string;
+          following_id: string;
+          created_at: string;
+        };
+        Insert: {
+          follower_id: string;
+          following_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['follows']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'follows_follower_id_fkey';
+            columns: ['follower_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'follows_following_id_fkey';
+            columns: ['following_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       notifications: {
         Row: {
           id: string;
@@ -715,6 +749,14 @@ export type Database = {
         Returns: Json;
       };
       shares_gang: {
+        Args: { p_user_a: string; p_user_b: string };
+        Returns: boolean;
+      };
+      is_following: {
+        Args: { p_follower: string; p_following: string };
+        Returns: boolean;
+      };
+      are_friends: {
         Args: { p_user_a: string; p_user_b: string };
         Returns: boolean;
       };

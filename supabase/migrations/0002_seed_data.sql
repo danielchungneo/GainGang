@@ -10,11 +10,8 @@
 insert into public.exercises (name, category, unit, description, gang_id)
 select v.name, v.category, v.unit, v.description, null
 from (values
-  -- Day 1 — Chest (push-up variants with camera rep counting)
+  -- Day 1 — Chest
   ('Push-ups',            'chest',  'reps',    'Standard push-ups'),
-  ('Wide Push-ups',       'chest',  'reps',    'Hands wider than shoulders'),
-  ('Diamond Push-ups',    'chest',  'reps',    'Hands together under the chest'),
-  ('Decline Push-ups',    'chest',  'reps',    'Feet elevated'),
   -- Day 2 — Legs
   ('Bodyweight Squats',   'legs',   'reps',    'Standard air squats'),
   ('Lunges',              'legs',   'reps',    'Alternating forward lunges'),

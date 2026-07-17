@@ -114,7 +114,13 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.displaySemi,
     fontSize: 14,
     letterSpacing: 0.5,
+    textAlign: "center",
   },
   ghost: { paddingVertical: 12, paddingHorizontal: 8, alignItems: "center" },
-  ghostLabel: { fontFamily: fontFamily.mono, fontSize: 13, letterSpacing: 0.8 },
+  ghostLabel: {
+    fontFamily: fontFamily.mono,
+    fontSize: 13,
+    letterSpacing: 0.8,
+    textAlign: "center",
+  },
 });

@@ -2,9 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Redirect, Tabs } from "expo-router";
 
+import { ActivityIndicator, View } from "react-native";
+
 import { HapticTab } from "@/components/haptic-tab";
 
 import { useAuth } from "@/context/auth-context";
+
+import { useNeedsCrewSetup, useNeedsPostAuthNotifications } from "@/hooks/use-onboarding";
 
 import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 
@@ -15,15 +19,30 @@ import { status, useTheme } from "@/lib/gaingang-theme";
 export default function TabLayout() {
   const { theme } = useTheme();
   const { session, isPending } = useAuth();
+  const { needsCrewSetup, isLoading: crewLoading } = useNeedsCrewSetup();
+  const { needsPostAuthNotifications, isLoading: notifLoading } =
+    useNeedsPostAuthNotifications();
   const unreadAlerts = useUnreadNotificationCount();
   const unopenedCrates = useUnopenedCrateCount();
   const profileAttention = unreadAlerts + unopenedCrates;
 
   const c = theme.colors;
 
-  if (isPending) return null;
+  if (isPending || (session && (crewLoading || notifLoading))) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <ActivityIndicator />
+      </View>
+    );
+  }
 
   if (!session) return <Redirect href="/(auth)/sign-in" />;
+
+  if (needsCrewSetup && needsPostAuthNotifications) {
+    return <Redirect href="/welcome-notifications" />;
+  }
+
+  if (needsCrewSetup) return <Redirect href="/welcome-crew" />;
 
   return (
     <Tabs

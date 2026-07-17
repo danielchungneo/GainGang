@@ -29,6 +29,7 @@ import {
   status,
   useTheme,
 } from '@/lib/gaingang-theme';
+import { pushUserProfile } from '@/lib/navigate-profile';
 import type { DailyGoalExerciseWithProgress, DailyGoalWithProgress } from '@/types';
 
 const GRID_GAP = spacing.sm + 4;
@@ -260,17 +261,26 @@ function ContributorSection({
             key={member.user_id}
             style={[styles.memberRow, { backgroundColor: c.surface2, borderColor: c.border }]}
           >
-            <Avatar name={member.full_name} uri={member.avatar_url} size={40} />
-            <View style={styles.memberMeta}>
-              <Text style={[styles.memberName, { color: c.text }]} numberOfLines={1}>
-                {member.full_name}
-                {member.is_self ? ' (you)' : ''}
-              </Text>
-              <Text style={[styles.memberProgress, { color: c.textMuted }]}>
-                {formatAmount(member.user_total, member.unit)} /{' '}
-                {formatAmount(member.individual_target, member.unit)}
-              </Text>
-            </View>
+            <Pressable
+              onPress={() =>
+                pushUserProfile(member.user_id, { isSelf: member.is_self })
+              }
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${member.full_name}'s profile`}
+            >
+              <Avatar name={member.full_name} uri={member.avatar_url} size={40} />
+              <View style={styles.memberMeta}>
+                <Text style={[styles.memberName, { color: c.text }]} numberOfLines={1}>
+                  {member.full_name}
+                  {member.is_self ? ' (you)' : ''}
+                </Text>
+                <Text style={[styles.memberProgress, { color: c.textMuted }]}>
+                  {formatAmount(member.user_total, member.unit)} /{' '}
+                  {formatAmount(member.individual_target, member.unit)}
+                </Text>
+              </View>
+            </Pressable>
             {showPoke && !member.is_self ? (
               <TouchableOpacity
                 onPress={() => onPoke(member)}

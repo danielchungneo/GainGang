@@ -11,6 +11,7 @@ import type { ActivityWithExercises } from '@/types';
 
 interface ProfileActivitiesFeedProps {
   activities: ActivityWithExercises[];
+  emptyMessage?: string;
 }
 
 function groupByDate(activities: ActivityWithExercises[]): [string, ActivityWithExercises[]][] {
@@ -32,14 +33,17 @@ function accessibilityLabel(activity: ActivityWithExercises): string {
     .join(', ');
 }
 
-export function ProfileActivitiesFeed({ activities }: ProfileActivitiesFeedProps) {
+export function ProfileActivitiesFeed({
+  activities,
+  emptyMessage = 'No activities logged yet. Tap the + on the Today tab to start.',
+}: ProfileActivitiesFeedProps) {
   const t = useThemeTokens();
   const grouped = useMemo(() => groupByDate(activities), [activities]);
 
   if (activities.length === 0) {
     return (
       <Text style={[type.bodySm, { color: t.body }]}>
-        No activities logged yet. Tap the + on the Today tab to start.
+        {emptyMessage}
       </Text>
     );
   }

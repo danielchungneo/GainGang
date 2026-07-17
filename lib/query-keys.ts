@@ -4,10 +4,14 @@
  */
 export const queryKeys = {
   profile: (userId?: string) => ['profile', userId] as const,
+  followStatus: (viewerId?: string, targetId?: string) =>
+    ['follows', 'status', viewerId, targetId] as const,
+  followCounts: (userId?: string) => ['follows', 'counts', userId] as const,
   myGangs: (userId?: string) => ['gangs', 'mine', userId] as const,
   gang: (gangId: string) => ['gangs', gangId] as const,
   gangMembers: (gangId: string) => ['gangs', gangId, 'members'] as const,
-  discoverGangs: (search?: string) => ['gangs', 'discover', search ?? ''] as const,
+  discoverGangs: (search?: string, userId?: string) =>
+    ['gangs', 'discover', search ?? '', userId ?? ''] as const,
   gangInvitePreview: (inviteCode: string) => ['gangs', 'invite', inviteCode] as const,
   exercises: (category?: string, gangId?: string) =>
     ['exercises', category ?? 'all', gangId ?? 'global'] as const,

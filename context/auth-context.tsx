@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { isAppSession } from '@/lib/auth-session';
 import { supabase } from '@/lib/supabase';
 
 type AuthContextValue = {
@@ -10,35 +9,21 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function resolveSession(session: Session | null): Session | null {
-  return isAppSession(session) ? session : null;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isPending, setIsPending] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session: rawSession } }) => {
-      if (rawSession && !isAppSession(rawSession)) {
-        await supabase.auth.signOut();
-        setSession(null);
-      } else {
-        setSession(resolveSession(rawSession));
-      }
+    supabase.auth.getSession().then(({ data: { session: rawSession } }) => {
+      setSession(rawSession);
       setIsPending(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, rawSession) => {
-        if (rawSession && !isAppSession(rawSession)) {
-          await supabase.auth.signOut();
-          setSession(null);
-          return;
-        }
-        setSession(resolveSession(rawSession));
-      },
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, rawSession) => {
+      setSession(rawSession);
+    });
 
     return () => subscription.unsubscribe();
   }, []);

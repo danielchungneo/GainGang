@@ -212,8 +212,8 @@ export const EXERCISE_CONFIGS: Record<CameraExerciseType, ExerciseConfig> = {
   pushup: {
     type: 'pushup',
     getAngle: elbowAngle,
-    upThreshold: 155,
-    downThreshold: 95,
+    upThreshold: 150,
+    downThreshold: 102,
     minFramesInPhase: 3,
     countTransition: 'down-to-up',
     initialPhase: 'up',

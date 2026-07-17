@@ -7,6 +7,14 @@
     "scheme": "gaingang",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0e7ecca3-35f1-4b51-82e0-2628d9a68d92",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "icon": "./assets/gaingang/icon.png",
     "ios": {
       "icon": "./assets/gaingang/icon.png",
@@ -15,7 +23,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "GainGang needs photo library access so you can set a profile picture.",
-        "NSCameraUsageDescription": "GainGang needs camera access so you can take a profile picture."
+        "NSCameraUsageDescription": "GainGang uses the camera to count your exercise reps and for profile photos."
       }
     },
     "android": {
@@ -34,11 +42,12 @@
       ]
     },
     "web": {
-      "output": "server",
+      "output": "static",
       "favicon": "./assets/gaingang/favicon.png"
     },
     "plugins": [
       "expo-router",
+      "expo-updates",
       "expo-secure-store",
       [
         "expo-local-authentication",
@@ -50,8 +59,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/gaingang/splash.png",
-          "imageWidth": 280,
-          "resizeMode": "contain",
+          "resizeMode": "cover",
           "backgroundColor": "#05070F",
           "dark": {
             "backgroundColor": "#05070F"

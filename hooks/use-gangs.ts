@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
+import { removeGangBannerImage } from '@/lib/gang-banner-upload';
 import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
 import type { Gang, GangPrivacy, GangSummary, GangMemberWithProfile } from '@/types';
@@ -64,31 +65,57 @@ export function useGang(gangId: string) {
 }
 
 /** Full roster for a gang, ordered by XP (doubles as the all-time leaderboard base). */
-export function useGangMembers(gangId: string) {
+export function useGangMembers(gangId: string, options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
+
   return useQuery({
     queryKey: queryKeys.gangMembers(gangId),
-    enabled: !!gangId,
+    enabled: !!gangId && enabled,
     queryFn: async (): Promise<GangMemberWithProfile[]> => {
       const { data, error } = await supabase
         .from('gang_members')
         .select('gang_id, user_id, role, joined_at, profile:profiles(id, full_name, username, avatar_url, rank, xp)')
         .eq('gang_id', gangId);
       if (error) throw error;
-      return (data ?? []).map((row) => ({
+      const rows = (data ?? []).map((row) => ({
         ...row,
         profile: row.profile as unknown as GangMemberWithProfile['profile'],
       })) as GangMemberWithProfile[];
+
+      return rows.sort((a, b) => (b.profile.xp ?? 0) - (a.profile.xp ?? 0));
     },
   });
 }
 
-/** Discover public gangs to join. */
+/** Discover public gangs to join (excludes crews the user already belongs to). */
 export function useDiscoverGangs(search?: string) {
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
   return useQuery({
-    queryKey: queryKeys.discoverGangs(search),
+    queryKey: queryKeys.discoverGangs(search, userId),
+    enabled: !!userId,
     queryFn: async (): Promise<Gang[]> => {
-      let query = supabase.from('gangs').select('*').eq('privacy', 'public').order('created_at', { ascending: false }).limit(40);
+      const { data: memberships, error: memberError } = await supabase
+        .from('gang_members')
+        .select('gang_id')
+        .eq('user_id', userId!);
+      if (memberError) throw memberError;
+
+      const memberGangIds = (memberships ?? []).map((row) => row.gang_id);
+
+      let query = supabase
+        .from('gangs')
+        .select('*')
+        .eq('privacy', 'public')
+        .order('created_at', { ascending: false })
+        .limit(40);
+
+      if (memberGangIds.length > 0) {
+        query = query.not('id', 'in', `(${memberGangIds.join(',')})`);
+      }
       if (search && search.trim()) query = query.ilike('name', `%${search.trim()}%`);
+
       const { data, error } = await query;
       if (error) throw error;
       return data ?? [];
@@ -99,7 +126,6 @@ export function useDiscoverGangs(search?: string) {
 export interface CreateGangInput {
   name: string;
   description?: string;
-  icon?: string;
   privacy?: GangPrivacy;
 }
 
@@ -111,7 +137,7 @@ export function useCreateGang() {
       const { data, error } = await supabase.rpc('create_gang', {
         p_name: input.name,
         p_description: input.description ?? null,
-        p_icon: input.icon ?? null,
+        p_icon: null,
         p_privacy: input.privacy ?? 'public',
       });
       if (error) throw error;
@@ -128,6 +154,7 @@ export interface GangInvitePreview {
   name: string;
   description: string | null;
   icon: string | null;
+  banner_url: string | null;
   privacy: GangPrivacy;
   member_count: number;
   already_member: boolean;
@@ -194,17 +221,23 @@ export function useLeaveGang() {
         .eq('user_id', session.user.id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, gangId) => {
+      queryClient.removeQueries({ queryKey: queryKeys.gang(gangId) });
+      queryClient.removeQueries({ queryKey: queryKeys.gangMembers(gangId) });
+      queryClient.removeQueries({ queryKey: queryKeys.activeWeeklyPlan(gangId) });
+      queryClient.removeQueries({ queryKey: queryKeys.feed(gangId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myTodaysDailyGoals(session?.user.id) });
+      queryClient.invalidateQueries({ queryKey: ['gangs', 'discover'] });
     },
   });
 }
 
 export interface UpdateGangInput {
   gangId: string;
-  name: string;
-  description?: string;
-  icon?: string;
+  name?: string;
+  description?: string | null;
+  banner_url?: string | null;
   privacy?: GangPrivacy;
 }
 
@@ -213,15 +246,16 @@ export function useUpdateGang() {
   const { session } = useAuth();
   return useMutation({
     mutationFn: async (input: UpdateGangInput): Promise<Gang> => {
-      const { gangId, name, description, icon, privacy } = input;
+      const { gangId, ...patch } = input;
+      const update: Record<string, unknown> = {};
+      if (patch.name !== undefined) update.name = patch.name;
+      if (patch.description !== undefined) update.description = patch.description;
+      if (patch.banner_url !== undefined) update.banner_url = patch.banner_url;
+      if (patch.privacy !== undefined) update.privacy = patch.privacy;
+
       const { data, error } = await supabase
         .from('gangs')
-        .update({
-          name,
-          description: description ?? null,
-          icon: icon ?? null,
-          privacy: privacy ?? 'public',
-        })
+        .update(update)
         .eq('id', gangId)
         .select()
         .single();
@@ -231,6 +265,32 @@ export function useUpdateGang() {
     onSuccess: (gang) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.gang(gang.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
+      queryClient.invalidateQueries({ queryKey: ['gangs', 'discover'] });
+    },
+  });
+}
+
+export function useDeleteGang() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  return useMutation({
+    mutationFn: async (gangId: string): Promise<void> => {
+      try {
+        await removeGangBannerImage(gangId);
+      } catch {
+        // Still delete the gang if storage cleanup fails.
+      }
+      const { error } = await supabase.from('gangs').delete().eq('id', gangId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, gangId) => {
+      queryClient.removeQueries({ queryKey: queryKeys.gang(gangId) });
+      queryClient.removeQueries({ queryKey: queryKeys.gangMembers(gangId) });
+      queryClient.removeQueries({ queryKey: queryKeys.activeWeeklyPlan(gangId) });
+      queryClient.removeQueries({ queryKey: queryKeys.gangWeeklyPlans(gangId) });
+      queryClient.removeQueries({ queryKey: queryKeys.feed(gangId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myTodaysDailyGoals(session?.user.id) });
       queryClient.invalidateQueries({ queryKey: ['gangs', 'discover'] });
     },
   });

@@ -1,6 +1,6 @@
 # Feature TODO — Running List
 
-**Last updated:** 2026-07-14
+**Last updated:** 2026-07-15
 
 Living checklist of planned product features. Mark items done as they ship; add new ideas at the bottom under **Backlog**.
 
@@ -19,11 +19,38 @@ Living checklist of planned product features. Mark items done as they ship; add 
 
 ### Onboarding screens
 
-- [ ] Design first-run onboarding flow (value props, how GainGang works, camera/rep counting)
-- [ ] Build multi-step onboarding UI (skip / next / finish)
-- [ ] Persist completion so returning users skip onboarding
-- [ ] Gate after sign-up / first launch; deep-link friendly if mid-invite join
-- [ ] Optional: request notification / camera permissions in context during onboarding
+- [x] Design first-run onboarding flow (value props, how GainGang works, camera/rep counting)
+- [x] Build multi-step onboarding UI (skip / next / finish)
+- [x] Persist completion so returning users skip onboarding
+  - Pre-auth tour: AsyncStorage on device
+  - Post-auth join/create crew: `profiles.onboarding_completed_at`
+- [x] Gate after first launch (before sign-in); deep-link friendly if mid-invite join
+- [x] Optional: request notification / camera permissions in context during onboarding
+  - Camera required on push-up/squat demo step; push notifications optional on social step
+- [x] Last pre-auth step is sign up / sign in; new accounts land on notifications then join/create crew
+- [x] Camera demo → Great work / Collect Reward → RewardReveal animation
+- [ ] Polish onboarding copy / motion; stick-figure art for demo empty states
+- [ ] Universal Links handoff into onboarding mid-flow if needed
+- [ ] Persist onboarding demo XP bonus to the account after sign-up
+
+### Follow / friend other users
+
+- [x] Spec follow vs friend model (one-way follow; mutual = friends badge)
+- [x] Persist relationships (follow / unfollow; no request flow for one-way)
+- [x] Surfacing: profile CTA, gang member lists, leaderboard, alerts, comments
+- [x] Activity visibility: followers can read followees’ personal activity logs (RLS)
+- [x] Follow notifications (in-app when someone follows you)
+- [ ] Optional: search / discover users by username
+- [ ] Optional: dedicated following feed outside gang feed
+
+### View other users’ profiles
+
+- [x] Profile route (`/profile/[userId]`) with relationship-aware access
+- [x] Show avatar, name, level, streak, bio, follower counts
+- [x] Activities / streak calendar (visibility via RLS + follow)
+- [ ] Badges section + equipped cosmetics when those systems ship
+- [x] Entry points from leaderboard, alerts, comments, gang members, activity cards
+- [x] Distinguish own profile (edit / settings) from someone else’s (follow / unfollow)
 
 ### Stick figure pictures for exercises
 
@@ -159,6 +186,7 @@ SMS / Messages share of a gang invite link. Opens a confirm/reject join screen i
 
 ## Backlog
 
-_Add new feature ideas below as they come up._
+*Add new feature ideas below as they come up.*
 
--
+- 
+

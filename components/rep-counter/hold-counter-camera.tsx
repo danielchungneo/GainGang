@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutChangeEvent, Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
@@ -17,9 +17,14 @@ import {
 import { Worklets } from 'react-native-worklets-core';
 
 import { cameraHud, cameraHudStyles as hud } from '@/components/rep-counter/camera-hud-styles';
+import { CameraSidewaysStage } from '@/components/rep-counter/camera-sideways-stage';
 import { PoseSkeletonOverlay } from '@/components/rep-counter/pose-skeleton-overlay';
 import { createHoldCounter } from '@/lib/rep-counting/hold-counter';
 import { iosPoseLandmarkerPlugin } from '@/lib/rep-counting/ios-pose-plugin';
+import {
+  remapLandmarksForUiRotation,
+  type CameraUiRotation,
+} from '@/lib/rep-counting/landmark-orientation';
 import { normalizePoseLandmarks } from '@/lib/rep-counting/normalize-pose-landmarks';
 import type { HoldCounterSnapshot, HoldPhase, Landmark } from '@/lib/rep-counting/types';
 
@@ -31,6 +36,8 @@ interface HoldCounterCameraProps {
   initialElapsedSeconds?: number;
   onElapsedChange?: (seconds: number) => void;
   onSnapshot?: (snapshot: HoldCounterSnapshot) => void;
+  /** Header-controlled UI tip rotation for sideways filming. */
+  uiRotation?: CameraUiRotation;
 }
 
 function formatHoldTime(totalSeconds: number): string {
@@ -44,12 +51,12 @@ export function HoldCounterCamera({
   initialElapsedSeconds = 0,
   onElapsedChange,
   onSnapshot,
+  uiRotation = 0,
 }: HoldCounterCameraProps) {
   const device = useCameraDevice('front', {
     physicalDevices: ['ultra-wide-angle-camera', 'wide-angle-camera'],
   });
   const { hasPermission, requestPermission } = useCameraPermission();
-  const [layout, setLayout] = useState({ width: 0, height: 0 });
   const [landmarks, setLandmarks] = useState<Landmark[] | null>(null);
   const [trackingOk, setTrackingOk] = useState(false);
   const [fullyInFrame, setFullyInFrame] = useState(false);
@@ -57,12 +64,15 @@ export function HoldCounterCamera({
   const [phase, setPhase] = useState<HoldPhase>('waiting');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [countdownRemaining, setCountdownRemaining] = useState(0);
+  const [isCameraActive, setIsCameraActive] = useState(true);
 
   const holdCounterRef = useRef(createHoldCounter('plank'));
   const lastElapsedRef = useRef(0);
   const lastCountdownRef = useRef(0);
   const lastPhaseRef = useRef<HoldPhase>('waiting');
   const lastBridgeAtRef = useRef(0);
+  const uiRotationRef = useRef<CameraUiRotation>(uiRotation);
+  uiRotationRef.current = uiRotation;
   const tickFlash = useSharedValue(0);
   const hasTarget = typeof targetSeconds === 'number' && targetSeconds > 0;
 
@@ -79,6 +89,12 @@ export function HoldCounterCamera({
     ),
     transform: [{ scale: 1 + tickFlash.value * 0.06 }],
   }));
+
+  useEffect(() => {
+    setIsCameraActive(false);
+    const timer = setTimeout(() => setIsCameraActive(true), 50);
+    return () => clearTimeout(timer);
+  }, [uiRotation]);
 
   useEffect(() => {
     const counter = createHoldCounter('plank');
@@ -110,7 +126,9 @@ export function HoldCounterCamera({
   const handlePoseResult = useCallback(
     (pose: Landmark[]) => {
       const normalized = normalizePoseLandmarks(pose);
-      const snapshot = holdCounterRef.current.processFrame(normalized);
+      // Overlay stays in camera/display space; counting uses gravity-aligned coords.
+      const forCounting = remapLandmarksForUiRotation(normalized, uiRotationRef.current);
+      const snapshot = holdCounterRef.current.processFrame(forCounting);
       setLandmarks(normalized);
       setTrackingOk(snapshot.trackingOk);
       setFullyInFrame(snapshot.fullyInFrame);
@@ -158,6 +176,7 @@ export function HoldCounterCamera({
         lastBridgeAtRef.current = now;
 
         if (!result.pose || result.pose.length === 0) {
+          setLandmarks(null);
           setTrackingOk(false);
           setFullyInFrame(false);
           setFrameMessage('Get into plank position');
@@ -198,11 +217,6 @@ export function HoldCounterCamera({
 
   const frameProcessor = Platform.OS === 'ios' ? iosFrameProcessor : androidFrameProcessor;
 
-  function handleLayout(event: LayoutChangeEvent) {
-    const { width, height } = event.nativeEvent.layout;
-    setLayout({ width, height });
-  }
-
   if (!hasPermission) {
     return (
       <View style={styles.centered}>
@@ -234,76 +248,105 @@ export function HoldCounterCamera({
   const targetMet = hasTarget && elapsedSeconds >= targetSeconds!;
 
   return (
-    <View style={styles.container} onLayout={handleLayout}>
-      <Camera
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive
-        zoom={widestZoom}
-        pixelFormat="rgb"
-        frameProcessor={frameProcessor}
-      />
+    <CameraSidewaysStage
+      rotation={uiRotation}
+      camera={({ width, height }) => (
+        <>
+          <Camera
+            style={StyleSheet.absoluteFill}
+            device={device}
+            isActive={isCameraActive}
+            zoom={widestZoom}
+            pixelFormat="rgb"
+            frameProcessor={frameProcessor}
+          />
+          <PoseSkeletonOverlay
+            landmarks={landmarks}
+            width={width}
+            height={height}
+            mirrored
+          />
+        </>
+      )}
+      hud={({ rotation }) => {
+        const compact = rotation !== 0;
+        return (
+          <>
+            <View style={[hud.hudTop, compact ? hud.hudTopCompact : null]}>
+              <Animated.View
+                style={[
+                  hud.metricBadge,
+                  compact ? hud.metricBadgeCompact : null,
+                  timeBadgeAnimatedStyle,
+                ]}
+              >
+                <Text style={[hud.metricLabel, compact ? hud.metricLabelCompact : null]}>
+                  Hold
+                </Text>
+                <Text
+                  style={[
+                    hud.metricValue,
+                    compact ? hud.metricValueCompact : null,
+                    targetMet ? { color: cameraHud.success } : null,
+                  ]}
+                >
+                  {formatHoldTime(elapsedSeconds)}
+                </Text>
+                {hasTarget ? (
+                  <Text style={[hud.metricSub, compact ? hud.metricSubCompact : null]}>
+                    / {formatHoldTime(targetSeconds!)}
+                  </Text>
+                ) : null}
+              </Animated.View>
+            </View>
 
-      <PoseSkeletonOverlay
-        landmarks={landmarks}
-        width={layout.width}
-        height={layout.height}
-        mirrored
-      />
-
-      <View style={hud.hudTop}>
-        <Animated.View style={[hud.metricBadge, timeBadgeAnimatedStyle]}>
-          <Text style={hud.metricLabel}>Hold</Text>
-          <Text
-            style={[
-              hud.metricValue,
-              targetMet ? { color: cameraHud.success } : null,
-            ]}
-          >
-            {formatHoldTime(elapsedSeconds)}
-          </Text>
-          {hasTarget ? (
-            <Text style={hud.metricSub}>/ {formatHoldTime(targetSeconds!)}</Text>
-          ) : null}
-        </Animated.View>
-      </View>
-
-      <View style={hud.hudBottom}>
-        {phase === 'countdown' ? (
-          <View style={hud.countdownBadge}>
-            <Text style={hud.countdownValue}>{countdownRemaining}</Text>
-            <Text style={hud.countdownLabel}>Get ready</Text>
-          </View>
-        ) : phase === 'resuming' ? (
-          <View style={hud.statusCard}>
-            <Text style={hud.statusText}>
-              {frameMessage || `Hold steady — restarting in ${countdownRemaining}s`}
-            </Text>
-          </View>
-        ) : showWarning ? (
-          <View style={hud.warningCard}>
-            <Text style={hud.warningText}>
-              {frameMessage || (phase === 'paused' ? 'Resume your plank' : 'Get into plank')}
-            </Text>
-          </View>
-        ) : (
-          <View style={hud.statusCard}>
-            <Text style={hud.statusText}>
-              {targetMet ? 'Target reached — keep holding or finish' : 'Holding — stay steady'}
-            </Text>
-          </View>
-        )}
-      </View>
-    </View>
+            <View style={[hud.hudBottom, compact ? hud.hudBottomCompact : null]}>
+              {phase === 'countdown' ? (
+                <View style={[hud.countdownBadge, compact ? hud.countdownBadgeCompact : null]}>
+                  <Text
+                    style={[hud.countdownValue, compact ? hud.countdownValueCompact : null]}
+                  >
+                    {countdownRemaining}
+                  </Text>
+                  <Text
+                    style={[hud.countdownLabel, compact ? hud.countdownLabelCompact : null]}
+                  >
+                    Get ready
+                  </Text>
+                </View>
+              ) : phase === 'resuming' ? (
+                <View style={[hud.statusCard, compact ? hud.statusCardCompact : null]}>
+                  <Text style={[hud.statusText, compact ? hud.statusTextCompact : null]}>
+                    {frameMessage || `Hold steady — restarting in ${countdownRemaining}s`}
+                  </Text>
+                </View>
+              ) : showWarning ? (
+                <View style={[hud.warningCard, compact ? hud.warningCardCompact : null]}>
+                  <Text
+                    style={[hud.warningText, compact ? hud.warningTextCompact : null]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                  >
+                    {frameMessage || (phase === 'paused' ? 'Resume your plank' : 'Get into plank')}
+                  </Text>
+                </View>
+              ) : (
+                <View style={[hud.statusCard, compact ? hud.statusCardCompact : null]}>
+                  <Text style={[hud.statusText, compact ? hud.statusTextCompact : null]}>
+                    {targetMet ? 'Target reached — keep holding or finish' : 'Holding — stay steady'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </>
+        );
+      }}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-    overflow: 'hidden',
-  },
   centered: {
     flex: 1,
     alignItems: 'center',

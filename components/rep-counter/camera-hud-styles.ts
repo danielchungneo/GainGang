@@ -27,7 +27,8 @@ export const cameraHudStyles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingHorizontal: 20,
+    // Keep badges clear of the sideways-rotate control (top-right).
+    paddingHorizontal: 68,
   },
   metricBadge: {
     minWidth: 148,
@@ -168,5 +169,93 @@ export const cameraHudStyles = StyleSheet.create({
     letterSpacing: 1.6,
     textTransform: 'uppercase',
     marginTop: 4,
+  },
+  orientationBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: radius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: cameraHud.surface,
+    borderWidth: 1,
+    borderColor: cameraHud.border,
+  },
+  orientationBtnActive: {
+    borderColor: cameraHud.borderStrong,
+    backgroundColor: cameraHud.surfaceStrong,
+  },
+  // Compact variants when the UI is tipped sideways (less camera occlusion).
+  hudTopCompact: {
+    top: 12,
+    paddingHorizontal: 28,
+  },
+  hudBottomCompact: {
+    bottom: 16,
+    left: 20,
+    right: 20,
+  },
+  metricBadgeCompact: {
+    minWidth: 108,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: radius.xl,
+  },
+  metricLabelCompact: {
+    fontSize: 10,
+    letterSpacing: 1.6,
+  },
+  metricValueCompact: {
+    fontSize: 36,
+    lineHeight: 40,
+  },
+  metricSubCompact: {
+    fontSize: 12,
+  },
+  warningCardCompact: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: radius.xl,
+    maxWidth: '82%',
+  },
+  warningTextCompact: {
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  statusCardCompact: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: radius.xl,
+    maxWidth: '82%',
+  },
+  statusTextCompact: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  countdownBadgeCompact: {
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: radius.xl,
+  },
+  countdownValueCompact: {
+    fontSize: 56,
+    lineHeight: 60,
+  },
+  countdownLabelCompact: {
+    fontSize: 12,
+  },
+  secondaryBadgeCompact: {
+    minWidth: 140,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  secondaryValueCompact: {
+    fontSize: 34,
+    lineHeight: 38,
+  },
+  secondaryCaptionCompact: {
+    fontSize: 14,
   },
 });

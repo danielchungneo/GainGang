@@ -23,6 +23,7 @@ import { useAuth } from '@/context/auth-context';
 import { useAddComment, useComments } from '@/hooks/use-social';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { timeAgo } from '@/lib/format';
+import { pushUserProfile } from '@/lib/navigate-profile';
 import { supabase } from '@/lib/supabase';
 import type { ActivityFeedItem } from '@/types';
 
@@ -105,12 +106,30 @@ export default function ActivityDetailScreen() {
                 <View className="gap-3">
                   {comments.map((c) => (
                     <GlassSurface key={c.id} style={{ padding: 14, flexDirection: 'row', gap: 12 }}>
-                      <Avatar name={c.author?.full_name ?? 'Member'} uri={c.author?.avatar_url} size={36} />
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (!c.author?.id) return;
+                          pushUserProfile(c.author.id);
+                        }}
+                        disabled={!c.author?.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View ${c.author?.full_name ?? 'Member'}'s profile`}
+                      >
+                        <Avatar name={c.author?.full_name ?? 'Member'} uri={c.author?.avatar_url} size={36} />
+                      </TouchableOpacity>
                       <View className="flex-1">
                         <View className="flex-row items-center gap-2">
-                          <Text style={{ color: t.heading }} className="font-semibold">
-                            {c.author?.full_name ?? 'Member'}
-                          </Text>
+                          <TouchableOpacity
+                            onPress={() => {
+                              if (!c.author?.id) return;
+                              pushUserProfile(c.author.id);
+                            }}
+                            disabled={!c.author?.id}
+                          >
+                            <Text style={{ color: t.heading }} className="font-semibold">
+                              {c.author?.full_name ?? 'Member'}
+                            </Text>
+                          </TouchableOpacity>
                           <Text style={{ color: t.body }} className="text-xs">
                             {timeAgo(c.created_at)}
                           </Text>

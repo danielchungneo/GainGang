@@ -12,11 +12,14 @@ import {
   useLogActivity,
   type ActivitySaveResult,
 } from '@/hooks/use-activities';
+import { useAuth } from '@/context/auth-context';
 import { useProfile } from '@/hooks/use-profile';
+import { fanOutDailyGoalExerciseDelta } from '@/lib/daily-goal-cross-gang';
 import { formatGoalDate, timeLeftUntilDateEnd } from '@/lib/format';
 import {
   buildDailyGoalTotalsAfter,
   resolvePostSaveCelebration,
+  type DailyGoalSaveCelebrationInput,
   type StreakContinuePayload,
 } from '@/lib/daily-goal-celebration';
 import {
@@ -33,12 +36,7 @@ interface DailyGoalCardProps {
   /** Camera-first flow: per-exercise perform buttons and auto-save counted reps. */
   cameraActions?: boolean;
   /** When set, celebrations render on the parent screen instead of inside the card. */
-  onActivitySaved?: (input: {
-    goal: DailyGoalWithProgress;
-    totalsBefore: number[];
-    totalsAfter: number[];
-    xpAwarded: number;
-  }) => void;
+  onActivitySaved?: (input: DailyGoalSaveCelebrationInput) => void;
 }
 
 async function saveCameraReps(
@@ -46,8 +44,9 @@ async function saveCameraReps(
   goal: DailyGoalWithProgress,
   reps: number,
   logActivity: ReturnType<typeof useLogActivity>,
+  userId: string,
 ): Promise<ActivitySaveResult> {
-  return saveExerciseAmount(ex, goal, ex.user_total + reps, logActivity);
+  return saveExerciseAmount(ex, goal, ex.user_total + reps, logActivity, userId);
 }
 
 async function saveExerciseAmount(
@@ -55,13 +54,14 @@ async function saveExerciseAmount(
   goal: DailyGoalWithProgress,
   userTotalAfter: number,
   logActivity: ReturnType<typeof useLogActivity>,
+  userId: string,
 ): Promise<ActivitySaveResult> {
   const userTotalBefore = ex.user_total;
   const added = userTotalAfter - userTotalBefore;
   const gangTotalBefore = ex.gang_total;
   const gangTotalAfter = ex.gang_total + added;
 
-  return logActivity.mutateAsync({
+  const primary = await logActivity.mutateAsync({
     gangId: goal.gang_id,
     dailyGoalId: goal.id,
     dailyGoalExerciseId: ex.id,
@@ -80,6 +80,21 @@ async function saveExerciseAmount(
       userTotalAfter,
     },
   });
+
+  const siblingXp = await fanOutDailyGoalExerciseDelta({
+    userId,
+    sourceDailyGoalId: goal.id,
+    sourceExercise: ex,
+    delta: added,
+    goalDate: goal.goal_date,
+    category: goal.day_category ?? undefined,
+    logActivity,
+  });
+
+  return {
+    ...primary,
+    xpAwarded: primary.xpAwarded + siblingXp,
+  };
 }
 
 /** Daily goal card wired to weekly plan data from the API. */
@@ -89,6 +104,8 @@ export function DailyGoalCard({
   cameraActions = false,
   onActivitySaved,
 }: DailyGoalCardProps) {
+  const { session } = useAuth();
+  const userId = session?.user.id;
   const logActivity = useLogActivity();
   const { data: profile } = useProfile();
   const goalRef = useRef(goal);
@@ -119,33 +136,15 @@ export function DailyGoalCard({
   const processingPendingRepsRef = useRef(false);
 
   const notifyActivitySaved = useCallback(
-    (
-      savedGoal: DailyGoalWithProgress,
-      totalsBefore: number[],
-      totalsAfter: number[],
-      xpAwarded: number,
-    ) => {
+    (input: DailyGoalSaveCelebrationInput) => {
       const parentHandler = onActivitySavedRef.current;
       if (parentHandler) {
-        parentHandler({
-          goal: savedGoal,
-          totalsBefore,
-          totalsAfter,
-          xpAwarded,
-        });
+        parentHandler(input);
         return;
       }
 
       const { celebration: nextCelebration, levelUp: nextLevelUp, streakContinue: nextStreak } =
-        resolvePostSaveCelebration({
-          goal: savedGoal,
-          totalsBefore,
-          totalsAfter,
-          xpAwarded,
-          profileXp: profile?.xp ?? 0,
-          currentStreak: profile?.current_streak ?? 0,
-          lastActiveOn: profile?.last_active_on ?? null,
-        });
+        resolvePostSaveCelebration(input);
 
       if (nextStreak) {
         if (nextCelebration) setPendingCelebration(nextCelebration);
@@ -167,11 +166,12 @@ export function DailyGoalCard({
         setLevelUpKey((k) => k + 1);
       }
     },
-    [profile?.xp, profile?.current_streak, profile?.last_active_on],
+    [],
   );
 
   const handlePendingReps = useCallback(async () => {
     if (processingPendingRepsRef.current) return;
+    if (!userId) return;
     processingPendingRepsRef.current = true;
 
     const currentGoal = goalRef.current;
@@ -179,6 +179,13 @@ export function DailyGoalCard({
     const totalsAfterUpdates: Record<string, number> = {};
     let totalXpAwarded = 0;
     let savedAny = false;
+
+    // Snapshot before saves — post-save profile refetch would skip the streak overlay.
+    const profileSnapshot = {
+      profileXp: profile?.xp ?? 0,
+      currentStreak: profile?.current_streak ?? 0,
+      lastActiveOn: profile?.last_active_on ?? null,
+    };
 
     try {
       for (const ex of currentGoal.exercises) {
@@ -190,7 +197,7 @@ export function DailyGoalCard({
 
         setSavingExerciseId(ex.id);
         try {
-          const result = await saveCameraReps(ex, currentGoal, pending, logActivity);
+          const result = await saveCameraReps(ex, currentGoal, pending, logActivity, userId);
           totalsAfterUpdates[ex.id] = ex.user_total + pending;
           totalXpAwarded += result.xpAwarded;
           savedAny = true;
@@ -200,17 +207,25 @@ export function DailyGoalCard({
       }
 
       if (savedAny) {
-        notifyActivitySaved(
-          currentGoal,
+        notifyActivitySaved({
+          goal: currentGoal,
           totalsBefore,
-          buildDailyGoalTotalsAfter(currentGoal, totalsAfterUpdates),
-          totalXpAwarded,
-        );
+          totalsAfter: buildDailyGoalTotalsAfter(currentGoal, totalsAfterUpdates),
+          xpAwarded: totalXpAwarded,
+          ...profileSnapshot,
+        });
       }
     } finally {
       processingPendingRepsRef.current = false;
     }
-  }, [logActivity, notifyActivitySaved]);
+  }, [
+    logActivity,
+    notifyActivitySaved,
+    profile?.xp,
+    profile?.current_streak,
+    profile?.last_active_on,
+    userId,
+  ]);
 
   const handlePendingRepsRef = useRef(handlePendingReps);
   handlePendingRepsRef.current = handlePendingReps;
@@ -254,19 +269,34 @@ export function DailyGoalCard({
   }
 
   async function handleManualLog(ex: DailyGoalExerciseWithProgress, addedAmount: number) {
+    if (!userId) return;
     const currentGoal = goalRef.current;
     const totalsBefore = currentGoal.exercises.map((e) => e.user_total);
     const userTotalAfter = ex.user_total + addedAmount;
 
+    // Snapshot before save — post-save profile refetch would skip the streak overlay.
+    const profileSnapshot = {
+      profileXp: profile?.xp ?? 0,
+      currentStreak: profile?.current_streak ?? 0,
+      lastActiveOn: profile?.last_active_on ?? null,
+    };
+
     setSavingExerciseId(ex.id);
     try {
-      const result = await saveExerciseAmount(ex, currentGoal, userTotalAfter, logActivity);
-      notifyActivitySaved(
+      const result = await saveExerciseAmount(
+        ex,
         currentGoal,
-        totalsBefore,
-        buildDailyGoalTotalsAfter(currentGoal, { [ex.id]: userTotalAfter }),
-        result.xpAwarded,
+        userTotalAfter,
+        logActivity,
+        userId,
       );
+      notifyActivitySaved({
+        goal: currentGoal,
+        totalsBefore,
+        totalsAfter: buildDailyGoalTotalsAfter(currentGoal, { [ex.id]: userTotalAfter }),
+        xpAwarded: result.xpAwarded,
+        ...profileSnapshot,
+      });
     } finally {
       setSavingExerciseId(null);
     }

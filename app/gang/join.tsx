@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { GangBanner } from '@/components/ui/gang-banner';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenBackground } from '@/components/ui/screen-background';
@@ -78,7 +79,7 @@ export default function JoinGangScreen() {
                 key={gang.id}
                 style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
               >
-                <Text style={{ fontSize: 26 }}>{gang.icon ?? '⚔️'}</Text>
+                <GangBanner uri={gang.banner_url} variant="thumb" />
                 <View className="flex-1">
                   <Text
                     style={{ color: t.heading }}

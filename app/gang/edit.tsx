@@ -1,10 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import {
+  ActionSheetIOS,
   ActivityIndicator,
+  Alert,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -13,18 +16,22 @@ import {
 } from 'react-native';
 import { z } from 'zod';
 
+import { GangBanner } from '@/components/ui/gang-banner';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { useGang, useUpdateGang } from '@/hooks/use-gangs';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
-
-const ICONS = ['⚔️', '🔥', '🐺', '🦁', '💪', '🥷', '👑', '⚡', '🐉', '🛡️'];
+import {
+  pickGangBannerImage,
+  removeGangBannerImage,
+  uploadGangBannerImage,
+  type GangBannerPickSource,
+} from '@/lib/gang-banner-upload';
 
 const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(60),
   description: z.string().max(280).optional(),
-  icon: z.string(),
   privacy: z.enum(['public', 'invite_only']),
 });
 type FormData = z.infer<typeof schema>;
@@ -36,6 +43,10 @@ export default function EditGangScreen() {
   const updateGang = useUpdateGang();
   const isOwner = gang?.role === 'owner';
 
+  const [bannerUri, setBannerUri] = useState<string | null>(null);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [bannerError, setBannerError] = useState<string | null>(null);
+
   const {
     control,
     handleSubmit,
@@ -45,21 +56,92 @@ export default function EditGangScreen() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { icon: '⚔️', privacy: 'public', name: '', description: '' },
+    defaultValues: { privacy: 'public', name: '', description: '' },
   });
 
-  const icon = useWatch({ control, name: 'icon' });
   const privacy = useWatch({ control, name: 'privacy' });
+  const name = useWatch({ control, name: 'name' });
 
   useEffect(() => {
     if (!gang) return;
     reset({
       name: gang.name,
       description: gang.description ?? '',
-      icon: gang.icon ?? '⚔️',
       privacy: gang.privacy,
     });
+    setBannerUri(gang.banner_url);
   }, [gang, reset]);
+
+  async function handlePickBanner(source: GangBannerPickSource) {
+    if (!gangId) return;
+
+    try {
+      setBannerError(null);
+      setIsUploadingBanner(true);
+
+      const picked = await pickGangBannerImage(source);
+      if (!picked) return;
+
+      setBannerUri(picked.uri);
+      const publicUrl = await uploadGangBannerImage(gangId, picked);
+      await updateGang.mutateAsync({ gangId, banner_url: publicUrl });
+      setBannerUri(publicUrl);
+    } catch (e) {
+      setBannerUri(gang?.banner_url ?? null);
+      setBannerError(e instanceof Error ? e.message : 'Could not update banner');
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  }
+
+  async function handleRemoveBanner() {
+    if (!gangId) return;
+
+    try {
+      setBannerError(null);
+      setIsUploadingBanner(true);
+      await removeGangBannerImage(gangId);
+      await updateGang.mutateAsync({ gangId, banner_url: null });
+      setBannerUri(null);
+    } catch (e) {
+      setBannerError(e instanceof Error ? e.message : 'Could not remove banner');
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  }
+
+  function openBannerOptions() {
+    const options = [
+      { label: 'Take photo', onPress: () => void handlePickBanner('camera') },
+      { label: 'Choose from library', onPress: () => void handlePickBanner('library') },
+      ...(bannerUri
+        ? [{ label: 'Remove banner', onPress: () => void handleRemoveBanner(), destructive: true }]
+        : []),
+    ];
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [...options.map((o) => o.label), 'Cancel'],
+          cancelButtonIndex: options.length,
+          destructiveButtonIndex: bannerUri ? options.length - 1 : undefined,
+        },
+        (index) => {
+          if (index < options.length) options[index]?.onPress();
+        },
+      );
+      return;
+    }
+
+    Alert.alert('Club banner', 'Update your gang banner', [
+      ...options.map((o) => ({
+        text: o.label,
+        style: o.destructive ? ('destructive' as const) : ('default' as const),
+        onPress: o.onPress,
+      })),
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
 
   async function onSubmit(values: FormData) {
     if (!gangId) return;
@@ -67,9 +149,8 @@ export default function EditGangScreen() {
       await updateGang.mutateAsync({
         gangId,
         name: values.name,
-        description: values.description,
-        icon,
-        privacy,
+        description: values.description ?? null,
+        privacy: values.privacy,
       });
       router.back();
     } catch (e) {
@@ -108,23 +189,23 @@ export default function EditGangScreen() {
           <GlassSurface style={{ padding: 20, gap: 14 }}>
             <View>
               <Text style={{ color: t.body }} className="mb-2 text-xs uppercase tracking-wide">
-                Icon
+                Club banner
               </Text>
-              <View className="flex-row flex-wrap gap-2">
-                {ICONS.map((emoji) => (
-                  <TouchableOpacity
-                    key={emoji}
-                    onPress={() => setValue('icon', emoji)}
-                    className="h-12 w-12 items-center justify-center rounded-2xl"
-                    style={{
-                      backgroundColor: icon === emoji ? t.accent : t.buttonBg,
-                      borderWidth: 1,
-                      borderColor: icon === emoji ? t.accent : t.buttonBorder,
-                    }}>
-                    <Text style={{ fontSize: 22 }}>{emoji}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <TouchableOpacity
+                onPress={openBannerOptions}
+                disabled={isUploadingBanner}
+                accessibilityRole="button"
+                accessibilityLabel="Change club banner"
+                activeOpacity={0.85}
+              >
+                <GangBanner
+                  uri={bannerUri}
+                  name={name?.trim() || gang.name}
+                  showCameraBadge
+                  isUploading={isUploadingBanner}
+                />
+              </TouchableOpacity>
+              {bannerError ? <Text style={styles.error}>{bannerError}</Text> : null}
             </View>
 
             <View>
@@ -136,7 +217,10 @@ export default function EditGangScreen() {
                 name="name"
                 render={({ field: { onChange, value } }) => (
                   <TextInput
-                    style={[styles.input, { backgroundColor: t.inputBg, borderColor: t.inputBorder, color: t.heading }]}
+                    style={[
+                      styles.input,
+                      { backgroundColor: t.inputBg, borderColor: t.inputBorder, color: t.heading },
+                    ]}
                     placeholder="The Iron Wolves"
                     placeholderTextColor={t.placeholder}
                     onChangeText={onChange}
@@ -158,7 +242,13 @@ export default function EditGangScreen() {
                   <TextInput
                     style={[
                       styles.input,
-                      { backgroundColor: t.inputBg, borderColor: t.inputBorder, color: t.heading, height: 90, textAlignVertical: 'top' },
+                      {
+                        backgroundColor: t.inputBg,
+                        borderColor: t.inputBorder,
+                        color: t.heading,
+                        height: 90,
+                        textAlignVertical: 'top',
+                      },
                     ]}
                     placeholder="What's this Gang about?"
                     placeholderTextColor={t.placeholder}
@@ -184,10 +274,12 @@ export default function EditGangScreen() {
                       backgroundColor: privacy === p ? t.accent : t.buttonBg,
                       borderWidth: 1,
                       borderColor: privacy === p ? t.accent : t.buttonBorder,
-                    }}>
+                    }}
+                  >
                     <Text
                       style={{ color: privacy === p ? t.accentOnPrimary : t.accent }}
-                      className="font-semibold">
+                      className="font-semibold"
+                    >
                       {p === 'public' ? 'Public' : 'Invite only'}
                     </Text>
                   </TouchableOpacity>
@@ -199,9 +291,10 @@ export default function EditGangScreen() {
 
             <TouchableOpacity
               onPress={handleSubmit(onSubmit)}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadingBanner}
               className="mt-2 items-center rounded-xl py-4"
-              style={{ backgroundColor: t.accent }}>
+              style={{ backgroundColor: t.accent }}
+            >
               {isSubmitting ? (
                 <ActivityIndicator color={t.accentOnPrimary} />
               ) : (

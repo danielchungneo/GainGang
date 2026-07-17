@@ -10,19 +10,136 @@ import {
   Text,
   View,
 } from 'react-native';
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
+import { cameraHud } from '@/components/rep-counter/camera-hud-styles';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import {
   CAMERA_SETUP_VIDEO,
   EXERCISE_TUTORIAL_VIDEOS,
 } from '@/lib/rep-counting/exercise-registry';
 import type { CameraExerciseType, ExerciseSetupInfo } from '@/lib/rep-counting/types';
+import { brand, radius } from '@/lib/gaingang-theme/tokens';
+
+const PAGE_COUNT = 3;
 
 interface ExerciseSetupGuideProps {
   exerciseType: CameraExerciseType;
   guide: ExerciseSetupInfo;
   dontShowAgain?: boolean;
   onDontShowAgainChange?: (value: boolean) => void;
+}
+
+/** Phone tipping sideways — plus the live-camera control to tap afterward. */
+function OrientationTipVisual({
+  accent,
+  isActive,
+}: {
+  accent: string;
+  isActive: boolean;
+}) {
+  const progress = useSharedValue(0);
+  const buttonPulse = useSharedValue(0);
+
+  useEffect(() => {
+    if (!isActive) {
+      progress.value = 0;
+      buttonPulse.value = 0;
+      return;
+    }
+
+    const pulseUpMs = 220;
+    const pulseDownMs = 280;
+    const pulseTotalMs = (pulseUpMs + pulseDownMs) * 2; // ~1s double-pulse
+    const afterPulsePauseMs = 350; // brief beat, then tip
+    const rotateMs = 1100;
+    const holdHorizontalMs = 1800;
+    const holdVerticalMs = 1400;
+    // Quiet start, then pulse in the couple seconds right before the tip.
+    const idleBeforePulseMs = 400;
+    const timeUntilRotateMs = idleBeforePulseMs + pulseTotalMs + afterPulsePauseMs;
+    const afterPulseRestMs =
+      afterPulsePauseMs + rotateMs + holdHorizontalMs + rotateMs + holdVerticalMs;
+
+    buttonPulse.value = withRepeat(
+      withSequence(
+        withDelay(idleBeforePulseMs, withTiming(1, { duration: pulseUpMs, easing: Easing.out(Easing.quad) })),
+        withTiming(0, { duration: pulseDownMs, easing: Easing.in(Easing.quad) }),
+        withTiming(1, { duration: pulseUpMs, easing: Easing.out(Easing.quad) }),
+        withTiming(0, { duration: pulseDownMs, easing: Easing.in(Easing.quad) }),
+        withDelay(afterPulseRestMs, withTiming(0, { duration: 1 })),
+      ),
+      -1,
+      false,
+    );
+
+    progress.value = withRepeat(
+      withSequence(
+        withDelay(
+          timeUntilRotateMs,
+          withTiming(1, { duration: rotateMs, easing: Easing.inOut(Easing.cubic) }),
+        ),
+        withDelay(
+          holdHorizontalMs,
+          withTiming(0, { duration: rotateMs, easing: Easing.inOut(Easing.cubic) }),
+        ),
+        withDelay(holdVerticalMs, withTiming(0, { duration: 1 })),
+      ),
+      -1,
+      false,
+    );
+  }, [buttonPulse, isActive, progress]);
+
+  const phoneStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 90])}deg` }],
+  }));
+
+  const buttonStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + buttonPulse.value * 0.16 }],
+  }));
+
+  const buttonGlowStyle = useAnimatedStyle(() => ({
+    opacity: buttonPulse.value * 0.5,
+    transform: [{ scale: 1 + buttonPulse.value * 0.55 }],
+  }));
+
+  return (
+    <View style={orientStyles.stage} accessibilityLabel="Phone rotating sideways demo">
+      <View style={orientStyles.phoneSlot}>
+        <Animated.View style={[orientStyles.phone, phoneStyle]}>
+          <View style={orientStyles.phoneBezel}>
+            <View style={orientStyles.dynamicIsland} />
+            <View style={orientStyles.phoneScreenContent}>
+              <View style={orientStyles.homeIndicator} />
+            </View>
+          </View>
+          <View style={[orientStyles.sideButton, orientStyles.silentSwitch]} />
+          <View style={[orientStyles.sideButton, orientStyles.volumeUp]} />
+          <View style={[orientStyles.sideButton, orientStyles.volumeDown]} />
+          <View style={[orientStyles.sideButton, orientStyles.powerButton]} />
+        </Animated.View>
+      </View>
+
+      <View style={orientStyles.buttonCallout}>
+        <View style={orientStyles.buttonAnchor}>
+          <Animated.View style={[orientStyles.buttonGlow, buttonGlowStyle]} />
+          <Animated.View style={[orientStyles.orientBtn, buttonStyle]}>
+            <Ionicons name="phone-landscape-outline" size={26} color={brand.blueGlow} />
+          </Animated.View>
+        </View>
+        <Text style={[orientStyles.buttonCalloutLabel, { color: accent }]}>Tap to rotate</Text>
+      </View>
+    </View>
+  );
 }
 
 export function ExerciseSetupGuide({
@@ -52,14 +169,19 @@ export function ExerciseSetupGuide({
       cameraSetupPlayer.play();
       return;
     }
+    if (pageIndex === 1) {
+      cameraSetupPlayer.pause();
+      exercisePlayer.play();
+      return;
+    }
     cameraSetupPlayer.pause();
-    exercisePlayer.play();
+    exercisePlayer.pause();
   }, [pageIndex, cameraSetupPlayer, exercisePlayer]);
 
   function handleMomentumScrollEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
     if (pagerSize.width <= 0) return;
     const nextIndex = Math.round(event.nativeEvent.contentOffset.x / pagerSize.width);
-    setPageIndex(Math.min(1, Math.max(0, nextIndex)));
+    setPageIndex(Math.min(PAGE_COUNT - 1, Math.max(0, nextIndex)));
   }
 
   return (
@@ -145,12 +267,38 @@ export function ExerciseSetupGuide({
                 ))}
               </View>
             </View>
+
+            <View style={[styles.page, { width: pagerSize.width, height: pagerSize.height }]}>
+              <OrientationTipVisual accent={t.accent} isActive={pageIndex === 2} />
+              <View style={styles.pageFooter}>
+                <View style={styles.header}>
+                  <Ionicons name="phone-landscape-outline" size={22} color={t.accent} />
+                  <Text style={[styles.title, { color: t.heading }]}>Need more width?</Text>
+                </View>
+                <Text style={[styles.hint, { color: t.body }]}>
+                  Tip your phone on its side for planks, sit-ups, and other sideways moves — then
+                  rotate the on-screen controls so they stay readable.
+                </Text>
+                <View style={styles.tipRow}>
+                  <Text style={{ color: t.accent }}>•</Text>
+                  <Text style={[styles.tipText, { color: t.body }]}>
+                    Tap the landscape button in the camera header (next to Finish).
+                  </Text>
+                </View>
+                <View style={styles.tipRow}>
+                  <Text style={{ color: t.accent }}>•</Text>
+                  <Text style={[styles.tipText, { color: t.body }]}>
+                    The camera preview stays the same; only the UI and counting adjust.
+                  </Text>
+                </View>
+              </View>
+            </View>
           </ScrollView>
         ) : null}
       </View>
 
       <View style={styles.dotsRow} accessibilityRole="tablist">
-        {[0, 1].map((index) => (
+        {Array.from({ length: PAGE_COUNT }, (_, index) => (
           <View
             key={index}
             style={[
@@ -273,5 +421,128 @@ const styles = StyleSheet.create({
   dontShowLabel: {
     fontSize: 14,
     fontWeight: '500',
+  },
+});
+
+const orientStyles = StyleSheet.create({
+  stage: {
+    flex: 1,
+    width: '100%',
+    borderRadius: 12,
+    backgroundColor: '#05070F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    overflow: 'hidden',
+  },
+  phoneSlot: {
+    width: 150,
+    height: 170,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  phone: {
+    width: 78,
+    height: 158,
+    borderRadius: 18,
+    backgroundColor: '#1C1C1E',
+    padding: 3.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  phoneBezel: {
+    flex: 1,
+    borderRadius: 15,
+    backgroundColor: '#000',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  dynamicIsland: {
+    alignSelf: 'center',
+    marginTop: 8,
+    width: 34,
+    height: 10,
+    borderRadius: 6,
+    backgroundColor: '#0A0A0A',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  phoneScreenContent: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 6,
+  },
+  homeIndicator: {
+    alignSelf: 'center',
+    width: 28,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(232, 237, 247, 0.55)',
+  },
+  sideButton: {
+    position: 'absolute',
+    backgroundColor: '#2C2C2E',
+    borderRadius: 1,
+  },
+  silentSwitch: {
+    left: -2,
+    top: 28,
+    width: 2,
+    height: 10,
+  },
+  volumeUp: {
+    left: -2,
+    top: 46,
+    width: 2,
+    height: 16,
+  },
+  volumeDown: {
+    left: -2,
+    top: 66,
+    width: 2,
+    height: 16,
+  },
+  powerButton: {
+    right: -2,
+    top: 52,
+    width: 2,
+    height: 28,
+  },
+  buttonCallout: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  buttonAnchor: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonGlow: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    borderRadius: radius.xl,
+    backgroundColor: brand.blueGlow,
+  },
+  orientBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: cameraHud.surfaceStrong,
+    borderWidth: 1,
+    borderColor: cameraHud.borderStrong,
+  },
+  buttonCalloutLabel: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

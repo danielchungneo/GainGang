@@ -23,7 +23,7 @@ export default function AuthCallbackScreen() {
         }
 
         await completeOAuthFromUrl(url);
-        if (!cancelled) router.replace('/(tabs)');
+        if (!cancelled) router.replace('/');
       } catch (err) {
         if (cancelled) return;
         const message =

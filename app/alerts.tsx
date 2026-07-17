@@ -21,6 +21,7 @@ import {
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { timeAgo } from '@/lib/format';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
+import { pushUserProfile } from '@/lib/navigate-profile';
 
 export default function AlertsScreen() {
   const t = useThemeTokens();
@@ -36,6 +37,11 @@ export default function AlertsScreen() {
   async function handlePress(alert: NotificationWithActor) {
     if (!alert.is_read) {
       markRead.mutate(alert.id);
+    }
+
+    if (alert.type === 'follow' && alert.actor_id) {
+      pushUserProfile(alert.actor_id);
+      return;
     }
 
     // Daily goal complete → Groups tab, Progress view for that gang.
@@ -114,7 +120,7 @@ export default function AlertsScreen() {
         </View>
 
         <Text style={[type.bodySm, { color: t.body }]}>
-          Kudos, comments, pokes, and gang wins show up here.
+          Kudos, comments, follows, pokes, and gang wins show up here.
         </Text>
 
         {isLoading ? (
@@ -164,7 +170,16 @@ export default function AlertsScreen() {
                   >
                     <View>
                       {alert.actor ? (
-                        <Avatar name={actorName} uri={alert.actor.avatar_url} size={44} />
+                        <Pressable
+                          onPress={() => {
+                            if (!alert.is_read) markRead.mutate(alert.id);
+                            pushUserProfile(alert.actor!.id);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`View ${actorName}'s profile`}
+                        >
+                          <Avatar name={actorName} uri={alert.actor.avatar_url} size={44} />
+                        </Pressable>
                       ) : (
                         <View
                           style={{

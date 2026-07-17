@@ -4,9 +4,15 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 
 import { GlassSurface } from '@/components/ui/glass-surface';
+import { GangBanner } from '@/components/ui/gang-banner';
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { useAuth } from '@/context/auth-context';
 import { useGangInvitePreview, useJoinGang } from '@/hooks/use-gangs';
+import {
+  useCompleteCrewSetup,
+  useNeedsCrewSetup,
+  useNeedsPreAuthOnboarding,
+} from '@/hooks/use-onboarding';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { savePendingGangInvite } from '@/lib/gang-invite';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
@@ -14,26 +20,49 @@ import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
 export default function GangInviteScreen() {
   const t = useThemeTokens();
   const { session, isPending: authPending } = useAuth();
+  const { needsPreAuthOnboarding, isLoading: preAuthLoading } = useNeedsPreAuthOnboarding();
+  const { needsCrewSetup, isLoading: crewLoading } = useNeedsCrewSetup();
+  const completeCrewSetup = useCompleteCrewSetup();
   const { code: codeParam } = useLocalSearchParams<{ code: string }>();
-  const inviteCode = (Array.isArray(codeParam) ? codeParam[0] : codeParam)?.trim().toUpperCase() ?? '';
+  const inviteCode =
+    (Array.isArray(codeParam) ? codeParam[0] : codeParam)?.trim().toUpperCase() ?? '';
 
   const [error, setError] = useState<string | null>(null);
-  const { data: preview, isLoading, isError, error: previewError } = useGangInvitePreview(inviteCode);
+  const { data: preview, isLoading, isError, error: previewError } =
+    useGangInvitePreview(inviteCode);
   const joinGang = useJoinGang();
 
   useEffect(() => {
-    if (authPending) return;
-    if (session || !inviteCode) return;
+    if (authPending || preAuthLoading || crewLoading) return;
+    if (!inviteCode) return;
 
-    void savePendingGangInvite(inviteCode).then(() => {
-      router.replace('/(auth)/sign-in');
-    });
-  }, [authPending, session, inviteCode]);
+    // Unauthenticated: save invite, then onboarding tour or sign-in.
+    if (!session) {
+      void savePendingGangInvite(inviteCode).then(() => {
+        if (needsPreAuthOnboarding) router.replace('/onboarding');
+        else router.replace('/(auth)/sign-in');
+      });
+    }
+  }, [
+    authPending,
+    preAuthLoading,
+    crewLoading,
+    session,
+    inviteCode,
+    needsPreAuthOnboarding,
+  ]);
 
   async function handleJoin() {
     setError(null);
     try {
       const gang = await joinGang.mutateAsync(inviteCode);
+      if (needsCrewSetup) {
+        try {
+          await completeCrewSetup.mutateAsync({});
+        } catch {
+          // Joined successfully; crew flag can be fixed on next gate pass.
+        }
+      }
       router.replace({ pathname: '/(tabs)/groups', params: { gangId: gang.id } });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not join Gang');
@@ -41,11 +70,15 @@ export default function GangInviteScreen() {
   }
 
   function handleDecline() {
+    if (needsCrewSetup) {
+      router.replace('/welcome-crew');
+      return;
+    }
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)/groups');
   }
 
-  if (authPending || !session) {
+  if (authPending || preAuthLoading || crewLoading || !session) {
     return (
       <ScreenBackground>
         <View className="flex-1 items-center justify-center">
@@ -116,12 +149,12 @@ export default function GangInviteScreen() {
         ) : preview.already_member ? (
           <GlassSurface style={{ padding: 20, gap: 14 }}>
             <GangPreviewCard
-              icon={preview.icon}
+              bannerUrl={preview.banner_url}
               name={preview.name}
               description={preview.description}
               memberCount={preview.member_count}
             />
-            <Text style={[type.bodySm, { color: t.body }]}>You're already in this gang.</Text>
+            <Text style={[type.bodySm, { color: t.body }]}>You&apos;re already in this gang.</Text>
             <TouchableOpacity
               onPress={() =>
                 router.replace({ pathname: '/(tabs)/groups', params: { gangId: preview.id } })
@@ -137,19 +170,17 @@ export default function GangInviteScreen() {
         ) : (
           <GlassSurface style={{ padding: 20, gap: 16 }}>
             <Text style={[type.bodySm, { color: t.body }]}>
-              You've been invited to join this crew. Confirm to hop in, or pass for now.
+              You&apos;ve been invited to join this crew. Confirm to hop in, or pass for now.
             </Text>
 
             <GangPreviewCard
-              icon={preview.icon}
+              bannerUrl={preview.banner_url}
               name={preview.name}
               description={preview.description}
               memberCount={preview.member_count}
             />
 
-            {error ? (
-              <Text style={{ color: '#ef4444', fontSize: 13 }}>{error}</Text>
-            ) : null}
+            {error ? <Text style={{ color: '#ef4444', fontSize: 13 }}>{error}</Text> : null}
 
             <TouchableOpacity
               onPress={handleJoin}
@@ -186,12 +217,12 @@ export default function GangInviteScreen() {
 }
 
 function GangPreviewCard({
-  icon,
+  bannerUrl,
   name,
   description,
   memberCount,
 }: {
-  icon: string | null;
+  bannerUrl: string | null;
   name: string;
   description: string | null;
   memberCount: number;
@@ -200,21 +231,14 @@ function GangPreviewCard({
 
   return (
     <View className="gap-3">
-      <View className="flex-row items-center gap-3">
-        <View
-          className="h-16 w-16 items-center justify-center rounded-2xl"
-          style={{ backgroundColor: t.accent }}
-        >
-          <Text style={{ fontSize: 30 }}>{icon ?? '⚔️'}</Text>
-        </View>
-        <View className="flex-1 gap-1">
-          <Text style={{ color: t.heading, fontFamily: fontFamily.bodySemi, fontSize: 20 }}>
-            {name}
-          </Text>
-          <Text style={[type.bodySm, { color: t.body }]}>
-            {memberCount} {memberCount === 1 ? 'member' : 'members'}
-          </Text>
-        </View>
+      <GangBanner uri={bannerUrl} name={name} />
+      <View className="gap-1">
+        <Text style={{ color: t.heading, fontFamily: fontFamily.bodySemi, fontSize: 20 }}>
+          {name}
+        </Text>
+        <Text style={[type.bodySm, { color: t.body }]}>
+          {memberCount} {memberCount === 1 ? 'member' : 'members'}
+        </Text>
       </View>
       {description ? (
         <Text style={[type.bodySm, { color: t.body, lineHeight: 20 }]}>{description}</Text>

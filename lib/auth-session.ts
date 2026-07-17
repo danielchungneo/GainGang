@@ -6,8 +6,7 @@ export function isEmailConfirmed(user: User | null | undefined): boolean {
   return Boolean(user.email_confirmed_at ?? user.confirmed_at);
 }
 
-/** A session that is allowed into the main app (signed in + email confirmed). */
+/** A session that is allowed into the main app (any signed-in user). */
 export function isAppSession(session: Session | null | undefined): boolean {
-  if (!session?.user) return false;
-  return isEmailConfirmed(session.user);
+  return Boolean(session?.user);
 }

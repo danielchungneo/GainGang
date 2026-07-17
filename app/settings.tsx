@@ -15,6 +15,8 @@ import {
   View,
 } from "react-native";
 
+import { AppVersionLabel } from "@/components/app-version-label";
+
 import { GlassSurface, ScreenBackground } from "@/components/ui";
 
 import { useAuth } from "@/context/auth-context";
@@ -207,6 +209,14 @@ export default function SettingsScreen() {
             </Text>
           )}
         </TouchableOpacity>
+
+        <GlassSurface style={{ padding: 20, gap: 4 }}>
+          <Text style={[type.labelSm, { color: t.body }]}>App version</Text>
+          <AppVersionLabel
+            color={t.heading}
+            style={{ textAlign: "left", opacity: 1 }}
+          />
+        </GlassSurface>
       </ScrollView>
     </ScreenBackground>
   );

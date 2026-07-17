@@ -109,6 +109,49 @@ export function useGangTodaysDailyGoal(gangId: string) {
 }
 
 /** Today's daily goals across all gangs the user belongs to. */
+export async function fetchMyTodaysDailyGoals(
+  userId: string,
+): Promise<DailyGoalWithProgress[]> {
+  const { data: memberships, error: mErr } = await supabase
+    .from('gang_members')
+    .select('gang_id')
+    .eq('user_id', userId);
+  if (mErr) throw mErr;
+  const gangIds = (memberships ?? []).map((m) => m.gang_id);
+  if (gangIds.length === 0) return [];
+
+  const { data: plans, error: pErr } = await supabase
+    .from('weekly_plans')
+    .select('*')
+    .in('gang_id', gangIds)
+    .eq('status', 'active');
+  if (pErr) throw pErr;
+  if (!plans || plans.length === 0) return [];
+
+  const today = todayISO();
+  const planIds = plans.map((p) => p.id);
+
+  const { data: goals, error: gErr } = await supabase
+    .from('daily_goals')
+    .select(
+      `*,
+      weekly_plan:weekly_plans!inner(gang_id, status, gang:gangs(name)),
+      exercises:daily_goal_exercises(
+        id, exercise_id, unit, individual_target, sort_order,
+        exercise:exercises(name)
+      )`,
+    )
+    .in('weekly_plan_id', planIds)
+    .eq('goal_date', today)
+    .order('day_of_week', { ascending: true });
+  if (gErr) throw gErr;
+
+  const rows = (goals ?? []) as unknown as DailyGoalRow[];
+  const withExercises = rows.filter((g) => g.exercises.length > 0);
+  return hydrateDailyGoals(withExercises, userId);
+}
+
+/** Today's daily goals across all gangs the user belongs to. */
 export function useMyTodaysDailyGoals() {
   const { session } = useAuth();
   const userId = session?.user.id;
@@ -117,43 +160,7 @@ export function useMyTodaysDailyGoals() {
     queryKey: queryKeys.myTodaysDailyGoals(userId),
     enabled: !!userId,
     queryFn: async (): Promise<DailyGoalWithProgress[]> => {
-      const { data: memberships, error: mErr } = await supabase
-        .from('gang_members')
-        .select('gang_id')
-        .eq('user_id', userId!);
-      if (mErr) throw mErr;
-      const gangIds = (memberships ?? []).map((m) => m.gang_id);
-      if (gangIds.length === 0) return [];
-
-      const { data: plans, error: pErr } = await supabase
-        .from('weekly_plans')
-        .select('*')
-        .in('gang_id', gangIds)
-        .eq('status', 'active');
-      if (pErr) throw pErr;
-      if (!plans || plans.length === 0) return [];
-
-      const today = todayISO();
-      const planIds = plans.map((p) => p.id);
-
-      const { data: goals, error: gErr } = await supabase
-        .from('daily_goals')
-        .select(
-          `*,
-          weekly_plan:weekly_plans!inner(gang_id, status, gang:gangs(name)),
-          exercises:daily_goal_exercises(
-            id, exercise_id, unit, individual_target, sort_order,
-            exercise:exercises(name)
-          )`,
-        )
-        .in('weekly_plan_id', planIds)
-        .eq('goal_date', today)
-        .order('day_of_week', { ascending: true });
-      if (gErr) throw gErr;
-
-      const rows = (goals ?? []) as unknown as DailyGoalRow[];
-      const withExercises = rows.filter((g) => g.exercises.length > 0);
-      return hydrateDailyGoals(withExercises, userId);
+      return fetchMyTodaysDailyGoals(userId!);
     },
   });
 }

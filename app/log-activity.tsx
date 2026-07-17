@@ -187,6 +187,13 @@ export default function LogActivityScreen() {
     if (!selectedExercise) return setError('Pick an exercise');
 
     try {
+      // Snapshot before saves — post-save profile refetch would skip the streak overlay.
+      const profileSnapshot = {
+        profileXp: profile?.xp ?? 0,
+        currentStreak: profile?.current_streak ?? 0,
+        lastActiveOn: profile?.last_active_on ?? null,
+      };
+
       const previousAmt = isEditing && questActivity ? questActivity.amount : 0;
       const userTotalBefore = quest ? quest.user_total - previousAmt : 0;
       const userTotalAfter = userTotalBefore + amt;
@@ -248,13 +255,13 @@ export default function LogActivityScreen() {
         xpAwarded = result.xpAwarded;
       }
 
-      const levelUpInfo = getLevelUpInfo(profile?.xp ?? 0, xpAwarded);
+      const levelUpInfo = getLevelUpInfo(profileSnapshot.profileXp, xpAwarded);
       const nextStreak =
         isEditing
           ? null
           : resolveStreakContinue({
-              currentStreak: profile?.current_streak ?? 0,
-              lastActiveOn: profile?.last_active_on ?? null,
+              currentStreak: profileSnapshot.currentStreak,
+              lastActiveOn: profileSnapshot.lastActiveOn,
             });
 
       const nextCelebration: GoalCelebration | null =

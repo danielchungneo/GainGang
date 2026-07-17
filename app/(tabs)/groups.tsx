@@ -16,6 +16,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ActivityCard } from '@/components/activity-card';
 import { GangOptionsDrawer } from '@/components/gang-add-menu';
 import { GangGoalProgress } from '@/components/gang-goal-progress';
+import { GangMembersSheet } from '@/components/gang-members-sheet';
 import { GangSelector } from '@/components/gang-selector';
 import { WeeklyPlanAdminActions, WeeklyPlanWeekHeader } from '@/components/weekly-plan-admin-actions';
 import { GlassSurface } from '@/components/ui/glass-surface';
@@ -35,6 +36,7 @@ import { useActiveWeeklyPlan } from '@/hooks/use-weekly-plans';
 import { formatGoalDate, todayISO } from '@/lib/format';
 import { shareGangInvite } from '@/lib/gang-invite';
 import { fontFamily, spacing, type, useTheme } from '@/lib/gaingang-theme';
+import { pushUserProfile } from '@/lib/navigate-profile';
 
 type GangViewTab = 'progress' | 'activity' | 'leaderboard';
 
@@ -53,6 +55,7 @@ export default function GroupsScreen() {
   }>();
   const [selectedGangId, setSelectedGangId] = useState<string | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [viewTab, setViewTab] = useState<GangViewTab>('progress');
   const [isSharingInvite, setIsSharingInvite] = useState(false);
 
@@ -130,66 +133,65 @@ export default function GroupsScreen() {
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} />
         }
       >
-        <View className="mt-4 flex-row items-center gap-3">
-          <View style={{ flex: 1, minWidth: 0 }}>
-            {hasGangs && selectedGang ? (
-              <GangSelector
-                gangs={gangs}
-                selectedId={gangId}
-                onSelect={setSelectedGangId}
-              />
-            ) : (
-              <Text style={[type.heading, { color: t.heading }]}>Gangs</Text>
-            )}
-          </View>
-          {hasGangs ? (
-            <View className="flex-row items-center gap-2" style={{ flexShrink: 0 }}>
-              {canInvite ? (
-                <TouchableOpacity
-                  onPress={handleShareInvite}
-                  disabled={isSharingInvite}
-                  className="h-10 flex-row items-center gap-1.5 rounded-full px-4"
-                  style={{
-                    backgroundColor: t.accent,
-                    opacity: isSharingInvite ? 0.75 : 1,
-                    shadowColor: t.accent,
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.35,
-                    shadowRadius: 8,
-                    elevation: 4,
-                  }}
-                  accessibilityLabel="Invite friends to this gang"
-                >
-                  {isSharingInvite ? (
-                    <ActivityIndicator size="small" color={t.accentOnPrimary} />
-                  ) : (
-                    <Ionicons name="person-add" size={17} color={t.accentOnPrimary} />
-                  )}
-                  <Text
+        <View className="mt-4">
+          {hasGangs && selectedGang ? (
+            <GangSelector
+              gangs={gangs}
+              selectedId={gangId}
+              onSelect={setSelectedGangId}
+              onPressMembers={() => setMembersOpen(true)}
+              actions={
+                <>
+                  {canInvite ? (
+                    <TouchableOpacity
+                      onPress={handleShareInvite}
+                      disabled={isSharingInvite}
+                      className="h-9 flex-row items-center gap-1.5 rounded-full px-3.5"
+                      style={{
+                        backgroundColor: t.accent,
+                        opacity: isSharingInvite ? 0.75 : 1,
+                        shadowColor: t.accent,
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.35,
+                        shadowRadius: 8,
+                        elevation: 4,
+                      }}
+                      accessibilityLabel="Invite friends to this gang"
+                    >
+                      {isSharingInvite ? (
+                        <ActivityIndicator size="small" color={t.accentOnPrimary} />
+                      ) : (
+                        <Ionicons name="person-add" size={16} color={t.accentOnPrimary} />
+                      )}
+                      <Text
+                        style={{
+                          color: t.accentOnPrimary,
+                          fontFamily: fontFamily.bodySemi,
+                          fontSize: 13,
+                        }}
+                      >
+                        Invite
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity
+                    onPress={() => setAddMenuOpen(true)}
+                    className="h-9 w-9 items-center justify-center rounded-full"
                     style={{
-                      color: t.accentOnPrimary,
-                      fontFamily: fontFamily.bodySemi,
-                      fontSize: 14,
+                      backgroundColor: t.buttonBg,
+                      borderWidth: 1,
+                      borderColor: t.buttonBorder,
                     }}
+                    accessibilityLabel="Open gang options"
                   >
-                    Invite
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity
-                onPress={() => setAddMenuOpen(true)}
-                className="h-10 w-10 items-center justify-center rounded-full"
-                style={{
-                  backgroundColor: t.buttonBg,
-                  borderWidth: 1,
-                  borderColor: t.buttonBorder,
-                }}
-                accessibilityLabel="Open gang options"
-              >
-                <Ionicons name="ellipsis-horizontal" size={20} color={t.accent} />
-              </TouchableOpacity>
-            </View>
-          ) : null}
+                    <Ionicons name="ellipsis-horizontal" size={18} color={t.accent} />
+                  </TouchableOpacity>
+                </>
+              }
+            />
+          ) : (
+            <Text style={[type.heading, { color: t.heading }]}>Gangs</Text>
+          )}
         </View>
 
         {gangsLoading ? (
@@ -262,8 +264,19 @@ export default function GroupsScreen() {
           visible={addMenuOpen}
           onClose={() => setAddMenuOpen(false)}
           gangId={gangId}
+          gangName={selectedGang?.name}
           showSettings={isGangOwner}
+          canLeave={!isGangOwner && !!selectedGang}
           weeklyPlanId={weeklyPlan?.id ?? null}
+        />
+      ) : null}
+
+      {hasGangs && selectedGang ? (
+        <GangMembersSheet
+          gangId={gangId}
+          gangName={selectedGang.name}
+          visible={membersOpen}
+          onClose={() => setMembersOpen(false)}
         />
       ) : null}
     </ScreenBackground>
@@ -511,6 +524,11 @@ function GangLeaderboardTab({ gangId }: { gangId: string }) {
               level={row.level}
               completion={topTotal > 0 ? row.total / topTotal : 0}
               isYou={row.user_id === session?.user.id}
+              onPress={() =>
+                pushUserProfile(row.user_id, {
+                  isSelf: row.user_id === session?.user.id,
+                })
+              }
             />
           ))}
         </View>

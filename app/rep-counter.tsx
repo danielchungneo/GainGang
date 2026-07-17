@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,6 +12,10 @@ import {
   getCameraTrackingMode,
   SETUP_GUIDES,
 } from '@/lib/rep-counting/exercise-registry';
+import {
+  nextCameraUiRotation,
+  type CameraUiRotation,
+} from '@/lib/rep-counting/landmark-orientation';
 import {
   buildRepCounterSessionKey,
   parseRepCounterQueue,
@@ -55,9 +60,13 @@ export default function RepCounterScreen() {
     exerciseQueue?: string;
     unit?: string;
     targetSeconds?: string;
+    targetReps?: string;
+    mode?: string;
   }>();
   const t = useThemeTokens();
   const nativeSupported = isRepCounterNativeSupported();
+  const isOnboarding = (Array.isArray(params.mode) ? params.mode[0] : params.mode) === 'onboarding';
+  const autoFinishRef = useRef(false);
 
   const exerciseType = useMemo(
     () => getCameraExerciseType(params.exerciseName ?? ''),
@@ -74,6 +83,7 @@ export default function RepCounterScreen() {
   const [dontShowSetupAgain, setDontShowSetupAgain] = useState(false);
   const [isSetupPreferenceReady, setIsSetupPreferenceReady] = useState(false);
   const [isHintModalVisible, setIsHintModalVisible] = useState(false);
+  const [uiRotation, setUiRotation] = useState<CameraUiRotation>(0);
 
   const targetSeconds = useMemo(() => {
     const raw = Array.isArray(params.targetSeconds)
@@ -82,6 +92,12 @@ export default function RepCounterScreen() {
     const parsed = raw ? Number(raw) : NaN;
     return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : undefined;
   }, [params.targetSeconds]);
+
+  const targetReps = useMemo(() => {
+    const raw = Array.isArray(params.targetReps) ? params.targetReps[0] : params.targetReps;
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : undefined;
+  }, [params.targetReps]);
 
   const sessionKey =
     params.sessionKey ??
@@ -102,8 +118,19 @@ export default function RepCounterScreen() {
       setTrackedAmount(0);
       setDontShowSetupAgain(false);
       setIsSetupPreferenceReady(false);
+      setUiRotation(0);
+      autoFinishRef.current = false;
 
       if (!exerciseType) {
+        if (!cancelled) {
+          setStep('setup');
+          setIsSetupPreferenceReady(true);
+        }
+        return;
+      }
+
+      // Onboarding always shows camera tips first (no skip preference).
+      if (isOnboarding) {
         if (!cancelled) {
           setStep('setup');
           setIsSetupPreferenceReady(true);
@@ -121,10 +148,20 @@ export default function RepCounterScreen() {
     return () => {
       cancelled = true;
     };
-  }, [params.exerciseId, sessionKey, exerciseType]);
+  }, [params.exerciseId, sessionKey, exerciseType, isOnboarding]);
+
+  useEffect(() => {
+    if (!isOnboarding || !targetReps || isHold) return;
+    if (trackedAmount < targetReps || autoFinishRef.current) return;
+
+    autoFinishRef.current = true;
+    setPendingRepCount(sessionKey, trackedAmount);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    router.back();
+  }, [isOnboarding, targetReps, isHold, trackedAmount, sessionKey]);
 
   async function handleStartCounting() {
-    if (dontShowSetupAgain && exerciseType) {
+    if (!isOnboarding && dontShowSetupAgain && exerciseType) {
       await setCameraSetupSkipped(exerciseType, true);
     }
     setStep('active');
@@ -194,7 +231,9 @@ export default function RepCounterScreen() {
             Run: npm run build:dev:ios
           </Text>
           <TouchableOpacity onPress={() => router.back()} style={[styles.primaryBtn, { backgroundColor: t.accent }]}>
-            <Text style={{ color: t.accentOnPrimary, fontWeight: '700' }}>Log manually instead</Text>
+            <Text style={{ color: t.accentOnPrimary, fontWeight: '700' }}>
+              {isOnboarding ? 'Go back' : 'Log manually instead'}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -211,26 +250,37 @@ export default function RepCounterScreen() {
     );
   }
 
-  const activeSubtitle = isHold
-    ? step === 'active'
-      ? 'Live hold'
-      : step === 'review'
-        ? 'Review hold'
-        : 'Setup'
-    : step === 'active'
-      ? 'Live counting'
-      : step === 'review'
-        ? 'Review reps'
-        : 'Setup';
+  const activeSubtitle =
+    isOnboarding && targetReps
+      ? `${Math.min(trackedAmount, targetReps)} / ${targetReps}`
+      : isHold
+        ? step === 'active'
+          ? 'Live hold'
+          : step === 'review'
+            ? 'Review hold'
+            : 'Setup'
+        : step === 'active'
+          ? 'Live counting'
+          : step === 'review'
+            ? 'Review reps'
+            : 'Setup';
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: '#000' }]} edges={['bottom']}>
       <Header
-        title={guide.title}
+        title={
+          isOnboarding
+            ? exerciseType === 'squat'
+              ? 'Squat demo'
+              : exerciseType === 'pushup'
+                ? 'Push-up demo'
+                : `${guide.title} demo`
+            : guide.title
+        }
         onClose={() => router.back()}
         subtitle={activeSubtitle}
         rightAction={
-          step === 'active' ? (
+          step === 'active' && !isOnboarding ? (
             <View style={styles.activeHeaderActions}>
               <TouchableOpacity
                 onPress={() => setIsHintModalVisible(true)}
@@ -241,12 +291,69 @@ export default function RepCounterScreen() {
                 <Ionicons name="help-circle-outline" size={26} color="#F8FAFC" />
               </TouchableOpacity>
               <TouchableOpacity
+                onPress={() => {
+                  setUiRotation((current) => nextCameraUiRotation(current));
+                  void Haptics.selectionAsync();
+                }}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  uiRotation === 0
+                    ? 'Rotate UI sideways for floor exercises'
+                    : 'Rotate UI upright'
+                }
+                accessibilityState={{ selected: uiRotation !== 0 }}
+              >
+                <Ionicons
+                  name={
+                    uiRotation === 0 ? 'phone-landscape-outline' : 'phone-portrait-outline'
+                  }
+                  size={24}
+                  color={uiRotation === 0 ? '#F8FAFC' : '#22d3ee'}
+                  style={uiRotation !== 0 ? { transform: [{ rotate: '180deg' }] } : undefined}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
                 onPress={() => setStep('review')}
                 hitSlop={12}
                 accessibilityRole="button"
                 accessibilityLabel={isHold ? 'Finish hold' : 'Finish set'}
               >
                 <Text style={{ color: '#22d3ee', fontWeight: '700', fontSize: 16 }}>Finish</Text>
+              </TouchableOpacity>
+            </View>
+          ) : step === 'active' && isOnboarding ? (
+            <View style={styles.activeHeaderActions}>
+              <TouchableOpacity
+                onPress={() => setIsHintModalVisible(true)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Show camera setup hints"
+              >
+                <Ionicons name="help-circle-outline" size={26} color="#F8FAFC" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setUiRotation((current) => nextCameraUiRotation(current));
+                  void Haptics.selectionAsync();
+                }}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  uiRotation === 0
+                    ? 'Rotate UI sideways for floor exercises'
+                    : 'Rotate UI upright'
+                }
+                accessibilityState={{ selected: uiRotation !== 0 }}
+              >
+                <Ionicons
+                  name={
+                    uiRotation === 0 ? 'phone-landscape-outline' : 'phone-portrait-outline'
+                  }
+                  size={24}
+                  color={uiRotation === 0 ? '#F8FAFC' : '#22d3ee'}
+                  style={uiRotation !== 0 ? { transform: [{ rotate: '180deg' }] } : undefined}
+                />
               </TouchableOpacity>
             </View>
           ) : undefined
@@ -258,13 +365,22 @@ export default function RepCounterScreen() {
           <ExerciseSetupGuide
             exerciseType={exerciseType}
             guide={guide}
-            dontShowAgain={dontShowSetupAgain}
-            onDontShowAgainChange={setDontShowSetupAgain}
+            {...(isOnboarding
+              ? {}
+              : {
+                  dontShowAgain: dontShowSetupAgain,
+                  onDontShowAgainChange: setDontShowSetupAgain,
+                })}
           />
           {isHold && targetSeconds ? (
             <Text style={{ color: '#94A3B8', textAlign: 'center', fontSize: 14 }}>
               Goal: hold for {formatHoldReview(targetSeconds)}
               {targetSeconds >= 60 ? '' : ' seconds'}
+            </Text>
+          ) : null}
+          {isOnboarding && targetReps ? (
+            <Text style={{ color: '#94A3B8', textAlign: 'center', fontSize: 14 }}>
+              Goal: {targetReps} {guide.title.toLowerCase()}
             </Text>
           ) : null}
           <TouchableOpacity
@@ -295,11 +411,15 @@ export default function RepCounterScreen() {
                 targetSeconds={targetSeconds}
                 initialElapsedSeconds={trackedAmount}
                 onElapsedChange={setTrackedAmount}
+                uiRotation={uiRotation}
               />
             ) : (
               <RepCounterCamera
                 exerciseType={exerciseType as CameraExerciseType}
                 onRepCountChange={setTrackedAmount}
+                targetReps={isOnboarding ? targetReps : undefined}
+                requirePermission
+                uiRotation={uiRotation}
               />
             )}
           </Suspense>

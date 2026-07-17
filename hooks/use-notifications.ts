@@ -258,6 +258,8 @@ export function notificationVisual(type: NotificationType): {
       return { icon: 'trending-up', label: 'Rank up' };
     case 'quest':
       return { icon: 'flag', label: 'Quest' };
+    case 'follow':
+      return { icon: 'person-add', label: 'Follow' };
     case 'gang':
     default:
       return { icon: 'people', label: 'Gang' };

@@ -49,9 +49,22 @@ export type Activity = Tables<'activities'>;
 export type ActivityExercise = Tables<'activity_exercises'>;
 export type Comment = Tables<'comments'>;
 export type Achievement = Tables<'achievements'>;
+export type Follow = Tables<'follows'>;
 export type AppNotification = Tables<'notifications'>;
 export type PushToken = Tables<'push_tokens'>;
 export type UserRewardCrate = Tables<'user_reward_crates'>;
+
+/** Relationship between the signed-in viewer and another profile. */
+export interface FollowStatus {
+  isFollowing: boolean;
+  isFollowedBy: boolean;
+  isFriend: boolean;
+}
+
+export interface FollowCounts {
+  followers: number;
+  following: number;
+}
 
 /** A gang the current user belongs to, with their role + member count. */
 export interface GangSummary extends Gang {

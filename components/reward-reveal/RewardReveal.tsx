@@ -711,8 +711,6 @@ export function RewardReveal({
 
       {/* ── The reward, revealed from the flash ── */}
       <Animated.View style={[styles.panel, { width: panelW, top: anchorY - 210 }, panelStyle]}>
-        <View style={[styles.topEdge, { backgroundColor: A1, shadowColor: A1 }]} />
-
         <View style={[styles.header, { borderBottomColor: `rgba(${rgb},0.16)`, backgroundColor: `rgba(${rgb},0.08)` }]}>
           <Text style={[styles.headerLeft, { color: A2 }]}>◈ SYSTEM</Text>
           <View style={styles.headerRight}>
@@ -876,7 +874,6 @@ const styles = StyleSheet.create({
     // Prevent a one-frame Reanimated flash before the clock drives opacity.
     opacity: 0,
   },
-  topEdge: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, zIndex: 2, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 12 },
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 11, borderBottomWidth: 1 },
   headerLeft: { fontFamily: MONO, fontSize: 10, letterSpacing: 2.5 },

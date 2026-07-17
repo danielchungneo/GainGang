@@ -144,9 +144,8 @@ export function useQuestActivity(questId?: string) {
 }
 
 /** The signed-in user's own activity history. */
-export function useMyActivities() {
-  const { session } = useAuth();
-  const userId = session?.user.id;
+/** Activities logged by a user (own profile or someone you can view via RLS). */
+export function useUserActivities(userId?: string) {
   return useQuery({
     queryKey: queryKeys.myActivities(userId),
     enabled: !!userId,
@@ -169,6 +168,12 @@ export function useMyActivities() {
   });
 }
 
+/** @deprecated Prefer useUserActivities(session.user.id) — kept for existing call sites. */
+export function useMyActivities() {
+  const { session } = useAuth();
+  return useUserActivities(session?.user.id);
+}
+
 export interface LogActivityInput {
   gangId?: string;
   questId?: string;
@@ -184,6 +189,10 @@ export interface LogActivityInput {
   photoUrl?: string;
   activityDate?: string;
   questXpContext?: QuestXpContext;
+  /** When false, skip flat activity-log XP (used for cross-gang fan-out). Default true. */
+  awardActivityLogXp?: boolean;
+  /** When true, skip personal streak refresh (caller already refreshed). Default false. */
+  skipStreakRefresh?: boolean;
 }
 
 export interface UpdateActivityInput {
@@ -286,14 +295,16 @@ export function useLogActivity() {
 
       const xpAwarded = await processActivityXp({
         userId,
-        isNewActivity: isNewExercise,
+        isNewActivity: isNewExercise && input.awardActivityLogXp !== false,
         questXpContext: input.questXpContext,
         refs: {
           dailyGoalExerciseId: input.dailyGoalExerciseId,
           questId: input.questId,
         },
       });
-      await refreshPersonalStreak(userId);
+      if (!input.skipStreakRefresh) {
+        await refreshPersonalStreak(userId);
+      }
       return { activity, exercise, xpAwarded };
     },
     onSuccess: ({ activity }) => {

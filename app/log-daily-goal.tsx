@@ -19,6 +19,7 @@ import { CameraRepCountButton } from '@/components/rep-counter/camera-rep-count-
 import { useDailyGoalActivities, useLogActivity, useUpdateActivity } from '@/hooks/use-activities';
 import { useDailyGoal } from '@/hooks/use-weekly-plans';
 import { useProfile } from '@/hooks/use-profile';
+import { useAuth } from '@/context/auth-context';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import {
   formatAmountInputValue,
@@ -26,6 +27,7 @@ import {
   sanitizeAmountInput,
   validateAmountInput,
 } from '@/lib/activity-amount';
+import { fanOutDailyGoalExerciseDelta } from '@/lib/daily-goal-cross-gang';
 import { resolvePostSaveCelebration } from '@/lib/daily-goal-celebration';
 import type {
   DailyGoalCelebrationPayload,
@@ -57,6 +59,8 @@ export default function LogDailyGoalScreen() {
     gangId: string;
   }>();
   const t = useThemeTokens();
+  const { session } = useAuth();
+  const userId = session?.user.id;
   const logActivity = useLogActivity();
   const updateActivity = useUpdateActivity();
   const { data: profile } = useProfile();
@@ -149,7 +153,7 @@ export default function LogDailyGoalScreen() {
   }
 
   async function handleSubmit() {
-    if (!dailyGoal) return;
+    if (!dailyGoal || !userId) return;
     setError(null);
 
     const toSave = dailyGoal.exercises.filter((ex) => {
@@ -176,6 +180,13 @@ export default function LogDailyGoalScreen() {
 
       const totalsBefore = dailyGoal.exercises.map((ex) => ex.user_total);
 
+      // Snapshot before saves — post-save profile refetch would skip the streak overlay.
+      const profileSnapshot = {
+        profileXp: profile?.xp ?? 0,
+        currentStreak: profile?.current_streak ?? 0,
+        lastActiveOn: profile?.last_active_on ?? null,
+      };
+
       for (const ex of toSave) {
         const amt = parseActivityAmount(formState[ex.id].amount, ex.unit)!;
         const existing = resolveExistingForExercise(ex, activityByExercise);
@@ -184,6 +195,7 @@ export default function LogDailyGoalScreen() {
         const userTotalAfter = userTotalBefore + amt;
         const gangTotalBefore = ex.gang_total - previousAmt;
         const gangTotalAfter = gangTotalBefore + amt;
+        const delta = amt - previousAmt;
 
         const questXpContext = {
           gangId: dailyGoal.gang_id,
@@ -229,6 +241,16 @@ export default function LogDailyGoalScreen() {
           xpAwarded = result.xpAwarded;
         }
 
+        xpAwarded += await fanOutDailyGoalExerciseDelta({
+          userId,
+          sourceDailyGoalId: dailyGoal.id,
+          sourceExercise: ex,
+          delta,
+          goalDate: dailyGoal.goal_date,
+          category: dailyGoal.day_category ?? undefined,
+          logActivity,
+        });
+
         totalXp += xpAwarded;
       }
 
@@ -247,9 +269,7 @@ export default function LogDailyGoalScreen() {
         totalsBefore,
         totalsAfter,
         xpAwarded: totalXp,
-        profileXp: profile?.xp ?? 0,
-        currentStreak: profile?.current_streak ?? 0,
-        lastActiveOn: profile?.last_active_on ?? null,
+        ...profileSnapshot,
       });
 
       if (nextStreak) {

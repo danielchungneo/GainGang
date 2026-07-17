@@ -1,25 +1,24 @@
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-  useColorScheme,
-} from 'react-native';
-import { Link, router } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { isAppSession, isEmailConfirmed } from '@/lib/auth-session';
-import { supabase } from '@/lib/supabase';
 import { GainGangLogo } from '@/brand';
-// TODO(google-auth): Re-enable when Google sign-in is configured — see docs/GOOGLE_AUTH_TODO.md
-// import { AuthDivider, GoogleSignInButton, useGoogleAuth } from '@/components/google-sign-in-button';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenBackground } from '@/components/ui/screen-background';
-import { DarkGlass, Glass } from '@/constants/theme';
+import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
+import { supabase } from '@/lib/supabase';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Link, router, useLocalSearchParams } from 'expo-router';
+import { Controller, useForm } from 'react-hook-form';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { z } from 'zod';
+// TODO(google-auth): Re-enable when Google sign-in is configured — see docs/GOOGLE_AUTH_TODO.md
+// import { AuthDivider, GoogleSignInButton, useGoogleAuth } from '@/components/google-sign-in-button';
 
 const schema = z
   .object({
@@ -28,7 +27,7 @@ const schema = z
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
   })
-  .refine(d => d.password === d.confirmPassword, {
+  .refine((d) => d.password === d.confirmPassword, {
     path: ['confirmPassword'],
     message: 'Passwords do not match',
   });
@@ -36,8 +35,10 @@ const schema = z
 type FormData = z.infer<typeof schema>;
 
 export default function SignUpScreen() {
-  const colorScheme = useColorScheme();
-  const isLight = colorScheme !== 'dark';
+  const t = useThemeTokens();
+  const { claimReward: claimRewardParam } = useLocalSearchParams<{ claimReward?: string }>();
+  const claimReward =
+    (Array.isArray(claimRewardParam) ? claimRewardParam[0] : claimRewardParam) === '1';
 
   const {
     control,
@@ -61,33 +62,61 @@ export default function SignUpScreen() {
       return;
     }
 
-    const needsEmailConfirmation =
-      !isAppSession(data.session) && !isEmailConfirmed(data.user);
-
-    if (needsEmailConfirmation) {
-      if (data.session) await supabase.auth.signOut();
-      router.replace({
-        pathname: '/(auth)/verify-email',
-        params: { email },
+    // With Confirm Email disabled in Supabase, signUp returns a session immediately.
+    if (!data.session) {
+      setError('root', {
+        message: 'Account created, but no session was returned. Try signing in.',
       });
       return;
     }
 
-    router.replace('/(tabs)');
+    router.replace('/');
   }
+
+  const inputStyle = [
+    styles.input,
+    {
+      backgroundColor: t.inputBg,
+      borderColor: t.inputBorder,
+      color: t.heading,
+    },
+  ];
 
   const form = (
     <>
       <GainGangLogo
         size="sm"
-        theme={isLight ? 'light' : 'dark'}
-        style={{ marginBottom: 24 }}
+        theme={t.isLight ? 'light' : 'dark'}
+        style={{ marginBottom: spacing.lg }}
       />
-      <Text
-        style={{ color: isLight ? Glass.textPrimary : DarkGlass.textPrimary }}
-        className="text-3xl font-bold mb-8">
-        Create account
+      <Text style={[type.heading, { color: t.heading, marginBottom: spacing.sm }]}>
+        {claimReward ? 'Claim your reward' : 'Create account'}
       </Text>
+      {claimReward ? (
+        <>
+          <Text style={[type.body, { color: t.body, marginBottom: spacing.sm }]}>
+            Create your account to lock in the starter boost you just earned — then jump into your
+            first Gang workout.
+          </Text>
+          <Text
+            style={[
+              type.bodySm,
+              {
+                color: t.heading,
+                fontFamily: fontFamily.bodySemi,
+                fontStyle: 'italic',
+                marginBottom: spacing.lg,
+              },
+            ]}
+          >
+            &ldquo;The only bad workout is the one that didn&apos;t happen.&rdquo;
+          </Text>
+        </>
+      ) : (
+        <Text style={[type.body, { color: t.body, marginBottom: spacing.xl }]}>
+          Join GainGang and start training with your crew.
+        </Text>
+      )}
 
       {/* TODO(google-auth): Re-enable — see docs/GOOGLE_AUTH_TODO.md
       <GoogleSignInButton
@@ -103,26 +132,26 @@ export default function SignUpScreen() {
         name="name"
         render={({ field: { onChange, value } }) => (
           <TextInput
-            style={isLight ? styles.glassInput : styles.darkInput}
+            style={inputStyle}
             placeholder="Full name"
-            placeholderTextColor={isLight ? Glass.textPlaceholder : DarkGlass.textPlaceholder}
+            placeholderTextColor={t.placeholder}
             onChangeText={onChange}
             value={value}
           />
         )}
       />
-      {errors.name && (
-        <Text style={isLight ? styles.errorLight : styles.errorDark}>{errors.name.message}</Text>
-      )}
+      {errors.name ? (
+        <Text style={[type.bodySm, styles.error]}>{errors.name.message}</Text>
+      ) : null}
 
       <Controller
         control={control}
         name="email"
         render={({ field: { onChange, value } }) => (
           <TextInput
-            style={[isLight ? styles.glassInput : styles.darkInput, { marginTop: 8 }]}
+            style={[inputStyle, { marginTop: spacing.sm }]}
             placeholder="Email"
-            placeholderTextColor={isLight ? Glass.textPlaceholder : DarkGlass.textPlaceholder}
+            placeholderTextColor={t.placeholder}
             keyboardType="email-address"
             autoCapitalize="none"
             onChangeText={onChange}
@@ -130,71 +159,79 @@ export default function SignUpScreen() {
           />
         )}
       />
-      {errors.email && (
-        <Text style={isLight ? styles.errorLight : styles.errorDark}>{errors.email.message}</Text>
-      )}
+      {errors.email ? (
+        <Text style={[type.bodySm, styles.error]}>{errors.email.message}</Text>
+      ) : null}
 
       <Controller
         control={control}
         name="password"
         render={({ field: { onChange, value } }) => (
           <TextInput
-            style={[isLight ? styles.glassInput : styles.darkInput, { marginTop: 8 }]}
+            style={[inputStyle, { marginTop: spacing.sm }]}
             placeholder="Password"
-            placeholderTextColor={isLight ? Glass.textPlaceholder : DarkGlass.textPlaceholder}
+            placeholderTextColor={t.placeholder}
             secureTextEntry
             onChangeText={onChange}
             value={value}
           />
         )}
       />
-      {errors.password && (
-        <Text style={isLight ? styles.errorLight : styles.errorDark}>{errors.password.message}</Text>
-      )}
+      {errors.password ? (
+        <Text style={[type.bodySm, styles.error]}>{errors.password.message}</Text>
+      ) : null}
 
       <Controller
         control={control}
         name="confirmPassword"
         render={({ field: { onChange, value } }) => (
           <TextInput
-            style={[isLight ? styles.glassInput : styles.darkInput, { marginTop: 8 }]}
+            style={[inputStyle, { marginTop: spacing.sm }]}
             placeholder="Confirm password"
-            placeholderTextColor={isLight ? Glass.textPlaceholder : DarkGlass.textPlaceholder}
+            placeholderTextColor={t.placeholder}
             secureTextEntry
             onChangeText={onChange}
             value={value}
           />
         )}
       />
-      {errors.confirmPassword && (
-        <Text style={isLight ? styles.errorLight : styles.errorDark}>
-          {errors.confirmPassword.message}
-        </Text>
-      )}
+      {errors.confirmPassword ? (
+        <Text style={[type.bodySm, styles.error]}>{errors.confirmPassword.message}</Text>
+      ) : null}
 
-      {errors.root && (
-        <Text style={isLight ? styles.errorLight : styles.errorDark}>{errors.root.message}</Text>
-      )}
+      {errors.root ? (
+        <Text style={[type.bodySm, styles.error]}>{errors.root.message}</Text>
+      ) : null}
 
       <TouchableOpacity
-        style={isLight ? styles.primaryButtonLight : styles.primaryButtonDark}
+        style={[
+          styles.primaryButton,
+          {
+            backgroundColor: t.accent,
+            shadowColor: t.accent,
+          },
+        ]}
         onPress={handleSubmit(onSubmit)}
-        disabled={isSubmitting}>
+        disabled={isSubmitting}
+      >
         {isSubmitting ? (
-          <ActivityIndicator color={isLight ? '#fff' : DarkGlass.primaryText} />
+          <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={isLight ? styles.primaryButtonTextLight : styles.primaryButtonTextDark}>
-            Create Account
+          <Text style={styles.primaryButtonText}>
+            {claimReward ? 'Create Account & Claim' : 'Create Account'}
           </Text>
         )}
       </TouchableOpacity>
 
-      <View className="flex-row justify-center mt-6">
-        <Text style={{ color: isLight ? Glass.textSecondary : DarkGlass.textSecondary }}>
-          Already have an account?{' '}
-        </Text>
+      <View style={styles.footerRow}>
+        <Text style={[type.bodySm, { color: t.body }]}>Already have an account? </Text>
         <Link href="/(auth)/sign-in">
-          <Text style={{ color: isLight ? '#0284c7' : DarkGlass.neonCyan }} className="font-semibold">
+          <Text
+            style={[
+              type.bodySm,
+              { color: t.accent, fontFamily: fontFamily.bodySemi },
+            ]}
+          >
             Sign In
           </Text>
         </Link>
@@ -205,75 +242,51 @@ export default function SignUpScreen() {
   return (
     <ScreenBackground>
       <KeyboardAwareScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          paddingHorizontal: spacing.lg,
+        }}
       >
-        <GlassSurface style={{ padding: 24 }}>{form}</GlassSurface>
+        <GlassSurface style={{ padding: spacing.lg }}>{form}</GlassSurface>
       </KeyboardAwareScrollView>
     </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  glassInput: {
-    backgroundColor: Glass.inputBg,
+  input: {
     borderWidth: 1,
-    borderColor: Glass.inputBorder,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 4,
-    color: Glass.textPrimary,
     fontSize: 16,
+    fontFamily: fontFamily.body,
   },
-  darkInput: {
-    backgroundColor: DarkGlass.inputBg,
-    borderWidth: 1,
-    borderColor: DarkGlass.inputBorder,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 4,
-    color: DarkGlass.textPrimary,
-    fontSize: 16,
-  },
-  primaryButtonLight: {
-    backgroundColor: '#0284c7',
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginTop: 16,
+  primaryButton: {
+    borderRadius: 11,
+    paddingVertical: 14,
+    marginTop: spacing.md,
     alignItems: 'center',
-  },
-  primaryButtonDark: {
-    backgroundColor: DarkGlass.primaryBg,
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginTop: 16,
-    alignItems: 'center',
-    shadowColor: DarkGlass.neonCyan,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
-    shadowRadius: 12,
+    shadowRadius: 16,
     elevation: 6,
   },
-  primaryButtonTextLight: {
+  primaryButtonText: {
     color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 16,
+    fontFamily: fontFamily.displaySemi,
+    fontSize: 14,
+    letterSpacing: 0.5,
   },
-  primaryButtonTextDark: {
-    color: DarkGlass.primaryText,
-    fontWeight: '700',
-    fontSize: 16,
-    letterSpacing: 0.3,
-  },
-  errorLight: {
+  error: {
     color: '#ef4444',
-    fontSize: 14,
     marginBottom: 4,
   },
-  errorDark: {
-    color: '#f87171',
-    fontSize: 14,
-    marginBottom: 4,
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: spacing.lg,
   },
 });

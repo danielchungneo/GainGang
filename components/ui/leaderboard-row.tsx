@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 
 import {
   useTheme,
@@ -19,6 +19,7 @@ export interface LeaderboardRowProps {
   level: number;
   completion?: number;
   isYou?: boolean;
+  onPress?: () => void;
 }
 
 export function LeaderboardRow({
@@ -30,31 +31,15 @@ export function LeaderboardRow({
   level,
   completion,
   isYou,
+  onPress,
 }: LeaderboardRowProps) {
   const { theme } = useTheme();
   const c = theme.colors;
   const top = position === 1;
   const posColor = top ? status.warning : isYou ? c.primaryGlow : c.textDim;
 
-  return (
-    <View
-      style={[
-        styles.row,
-        { borderBottomColor: c.border },
-        top && {
-          backgroundColor:
-            theme.mode === "dark"
-              ? "rgba(245,165,36,0.06)"
-              : "rgba(245,165,36,0.08)",
-        },
-        isYou && {
-          backgroundColor:
-            theme.mode === "dark"
-              ? "rgba(77,140,255,0.06)"
-              : "rgba(47,109,255,0.05)",
-        },
-      ]}
-    >
+  const content = (
+    <>
       <Text style={[styles.pos, { color: posColor }]}>{position}</Text>
 
       <Avatar name={name} uri={avatarUrl} size={38} />
@@ -74,8 +59,40 @@ export function LeaderboardRow({
       <Text style={[styles.amount, { color: c.text }]}>
         {formatAmount(amount, unit)}
       </Text>
-    </View>
+    </>
   );
+
+  const rowStyle = [
+    styles.row,
+    { borderBottomColor: c.border },
+    top && {
+      backgroundColor:
+        theme.mode === "dark"
+          ? "rgba(245,165,36,0.06)"
+          : "rgba(245,165,36,0.08)",
+    },
+    isYou && {
+      backgroundColor:
+        theme.mode === "dark"
+          ? "rgba(77,140,255,0.06)"
+          : "rgba(47,109,255,0.05)",
+    },
+  ];
+
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={rowStyle}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${name}'s profile`}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={rowStyle}>{content}</View>;
 }
 
 const styles = StyleSheet.create({

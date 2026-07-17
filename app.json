@@ -23,10 +23,12 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "GainGang needs photo library access so you can set a profile picture.",
-        "NSCameraUsageDescription": "GainGang uses the camera to count your exercise reps and for profile photos."
+        "NSCameraUsageDescription": "GainGang uses the camera to count your exercise reps and for profile photos.",
+        "NSLocationWhenInUseUsageDescription": "GainGang does not use your location. A third-party library in the app references location APIs, so Apple requires this description."
       }
     },
     "android": {
+      "package": "com.danielchungneo.gaingang",
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
@@ -59,7 +61,8 @@
         "expo-splash-screen",
         {
           "image": "./assets/gaingang/splash.png",
-          "resizeMode": "cover",
+          "imageWidth": 220,
+          "resizeMode": "contain",
           "backgroundColor": "#05070F",
           "dark": {
             "backgroundColor": "#05070F"

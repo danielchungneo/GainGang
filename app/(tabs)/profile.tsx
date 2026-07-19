@@ -13,6 +13,7 @@ import { UserProfileView } from '@/components/user-profile-view';
 import { useAuth } from '@/context/auth-context';
 import { useUnreadNotificationCount } from '@/hooks/use-notifications';
 import { useProfile } from '@/hooks/use-profile';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useUnopenedCrateCount } from '@/hooks/use-reward-crates';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { spacing, type } from '@/lib/gaingang-theme';
@@ -22,7 +23,8 @@ export default function ProfileScreen() {
   const { session } = useAuth();
   const userId = session?.user.id;
 
-  const { refetch, isRefetching } = useProfile();
+  const { refetch } = useProfile();
+  const { isRefreshing, onRefresh } = usePullToRefresh(refetch);
   const unreadAlerts = useUnreadNotificationCount();
   const unopenedCrates = useUnopenedCrateCount();
 
@@ -36,8 +38,8 @@ export default function ProfileScreen() {
         }}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
             tintColor={t.accent}
           />
         }

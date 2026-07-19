@@ -13,6 +13,7 @@ import { ScreenBackground } from '@/components/ui';
 import { UserProfileView } from '@/components/user-profile-view';
 import { useAuth } from '@/context/auth-context';
 import { useProfile } from '@/hooks/use-profile';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { spacing, type } from '@/lib/gaingang-theme';
 
@@ -21,7 +22,8 @@ export default function OtherUserProfileScreen() {
   const t = useThemeTokens();
   const { session } = useAuth();
   const isOwnProfile = !!userId && userId === session?.user.id;
-  const { refetch, isRefetching } = useProfile(isOwnProfile ? undefined : userId);
+  const { refetch } = useProfile(isOwnProfile ? undefined : userId);
+  const { isRefreshing, onRefresh } = usePullToRefresh(refetch);
 
   useEffect(() => {
     if (isOwnProfile) router.replace('/(tabs)/profile');
@@ -52,8 +54,8 @@ export default function OtherUserProfileScreen() {
         }}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
             tintColor={t.accent}
           />
         }

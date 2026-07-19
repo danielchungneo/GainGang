@@ -16,6 +16,7 @@ import { GlassSurface } from '@/components/ui/glass-surface';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { useDiscoverGangs, useJoinPublicGang } from '@/hooks/use-gangs';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 
 export default function JoinGangScreen() {
@@ -24,7 +25,8 @@ export default function JoinGangScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const joinPublic = useJoinPublicGang();
-  const { data: discover, isLoading, refetch, isRefetching } = useDiscoverGangs(search);
+  const { data: discover, isLoading, refetch } = useDiscoverGangs(search);
+  const { isRefreshing, onRefresh } = usePullToRefresh(refetch);
 
   async function handleJoinPublic(gangId: string) {
     setError(null);
@@ -41,7 +43,7 @@ export default function JoinGangScreen() {
       <KeyboardAwareScrollView
         contentContainerStyle={{ padding: 20, gap: 16 }}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={t.accent} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={t.accent} />
         }
       >
         <View className="mt-2 flex-row items-center gap-3">

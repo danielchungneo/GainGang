@@ -18,6 +18,7 @@ import {
   useNotifications,
   type NotificationWithActor,
 } from '@/hooks/use-notifications';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { timeAgo } from '@/lib/format';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
@@ -25,7 +26,8 @@ import { pushUserProfile } from '@/lib/navigate-profile';
 
 export default function AlertsScreen() {
   const t = useThemeTokens();
-  const { data: alerts, isLoading, refetch, isRefetching } = useNotifications();
+  const { data: alerts, isLoading, refetch } = useNotifications();
+  const { isRefreshing, onRefresh } = usePullToRefresh(refetch);
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const dismissRead = useDismissReadNotifications();
@@ -76,8 +78,8 @@ export default function AlertsScreen() {
         }}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
             tintColor={t.accent}
           />
         }

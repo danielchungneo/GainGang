@@ -30,6 +30,8 @@ import { useMyGangs } from "@/hooks/use-gangs";
 
 import { useProfile } from "@/hooks/use-profile";
 
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+
 import { useMyTodaysDailyGoals } from "@/hooks/use-weekly-plans";
 
 import { useThemeTokens } from "@/hooks/use-theme-tokens";
@@ -49,8 +51,9 @@ export default function TodayScreen() {
 
   const { data: gangs } = useMyGangs();
 
-  const { data: dailyGoals, isLoading, refetch, isRefetching } =
-    useMyTodaysDailyGoals();
+  const { data: dailyGoals, isLoading, refetch } = useMyTodaysDailyGoals();
+
+  const { isRefreshing, onRefresh } = usePullToRefresh(refetch);
 
   const {
     streakContinue,
@@ -83,8 +86,8 @@ export default function TodayScreen() {
         }}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
             tintColor={t.accent}
           />
         }

@@ -31,6 +31,7 @@ import {
   type LeaderboardMetric,
   type LeaderboardPeriod,
 } from '@/hooks/use-leaderboard';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { useActiveWeeklyPlan } from '@/hooks/use-weekly-plans';
 import { formatGoalDate, todayISO } from '@/lib/format';
@@ -59,8 +60,7 @@ export default function GroupsScreen() {
   const [viewTab, setViewTab] = useState<GangViewTab>('progress');
   const [isSharingInvite, setIsSharingInvite] = useState(false);
 
-  const { data: gangs, isLoading: gangsLoading, refetch: refetchGangs, isRefetching: gangsRefetching } =
-    useMyGangs();
+  const { data: gangs, isLoading: gangsLoading, refetch: refetchGangs } = useMyGangs();
 
   const gangId = selectedGangId ?? gangs?.[0]?.id ?? '';
   const selectedGang = gangs?.find((g) => g.id === gangId);
@@ -71,14 +71,12 @@ export default function GroupsScreen() {
     data: weeklyPlan,
     isLoading: planLoading,
     refetch: refetchPlan,
-    isRefetching: planRefetching,
   } = useActiveWeeklyPlan(gangId);
 
   const {
     data: feed,
     isLoading: feedLoading,
     refetch: refetchFeed,
-    isRefetching: feedRefetching,
   } = useGangFeed(gangId);
 
   useEffect(() => {
@@ -103,14 +101,19 @@ export default function GroupsScreen() {
     }
   }, [tabParam]);
 
-  const onRefresh = useCallback(() => {
-    refetchGangs();
+  const refetchAll = useCallback(async () => {
+    const tasks: Promise<unknown>[] = [refetchGangs()];
     if (gangId) {
-      refetchPlan();
-      refetchFeed();
-      queryClient.invalidateQueries({ queryKey: ['leaderboard', gangId] });
+      tasks.push(
+        refetchPlan(),
+        refetchFeed(),
+        queryClient.invalidateQueries({ queryKey: ['leaderboard', gangId] }),
+      );
     }
+    await Promise.all(tasks);
   }, [refetchGangs, refetchPlan, refetchFeed, gangId, queryClient]);
+
+  const { isRefreshing, onRefresh } = usePullToRefresh(refetchAll);
 
   async function handleShareInvite() {
     if (!selectedGang || isSharingInvite) return;
@@ -122,7 +125,6 @@ export default function GroupsScreen() {
     }
   }
 
-  const isRefetching = gangsRefetching || planRefetching || feedRefetching;
   const hasGangs = !!gangs && gangs.length > 0;
 
   return (
@@ -130,7 +132,7 @@ export default function GroupsScreen() {
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 40 }}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={t.accent} />
         }
       >
         <View className="mt-4">

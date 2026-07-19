@@ -6,6 +6,7 @@ import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } fr
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExerciseSetupGuide } from '@/components/rep-counter/exercise-setup-guide';
+import { WorkoutRepCounterSession } from '@/components/rep-counter/workout-rep-counter-session';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import {
   getCameraExerciseType,
@@ -62,10 +63,24 @@ export default function RepCounterScreen() {
     targetSeconds?: string;
     targetReps?: string;
     mode?: string;
+    dailyGoalId?: string;
+    cycles?: string;
+    excludeCompletedExercises?: string;
   }>();
   const t = useThemeTokens();
   const nativeSupported = isRepCounterNativeSupported();
-  const isOnboarding = (Array.isArray(params.mode) ? params.mode[0] : params.mode) === 'onboarding';
+  const modeParam = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+  const isOnboarding = modeParam === 'onboarding';
+  const isWorkout = modeParam === 'workout';
+  const workoutDailyGoalId = Array.isArray(params.dailyGoalId)
+    ? params.dailyGoalId[0]
+    : params.dailyGoalId;
+  const workoutCyclesRaw = Array.isArray(params.cycles) ? params.cycles[0] : params.cycles;
+  const workoutCycles = workoutCyclesRaw ? Number(workoutCyclesRaw) : NaN;
+  const excludeCompletedExercisesRaw = Array.isArray(params.excludeCompletedExercises)
+    ? params.excludeCompletedExercises[0]
+    : params.excludeCompletedExercises;
+  const excludeCompletedExercises = excludeCompletedExercisesRaw === '1';
   const autoFinishRef = useRef(false);
 
   const exerciseType = useMemo(
@@ -191,10 +206,21 @@ export default function RepCounterScreen() {
         unit: next.unit ?? '',
         targetSeconds:
           next.targetSeconds != null ? String(next.targetSeconds) : '',
+        targetReps: next.targetReps != null ? String(next.targetReps) : '',
         exerciseQueue:
           remaining.length > 0 ? serializeRepCounterQueue(remaining) : '',
       },
     });
+  }
+
+  if (isWorkout && workoutDailyGoalId && Number.isFinite(workoutCycles) && workoutCycles > 0) {
+    return (
+      <WorkoutRepCounterSession
+        dailyGoalId={workoutDailyGoalId}
+        cycles={Math.round(workoutCycles)}
+        excludeCompletedExercises={excludeCompletedExercises}
+      />
+    );
   }
 
   if (!exerciseType || !guide || !trackingMode) {

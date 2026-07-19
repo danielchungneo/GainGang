@@ -7,6 +7,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleProp,
   StyleSheet,
   Text,
@@ -26,6 +27,10 @@ import {
   status,
   useTheme,
 } from '@/lib/gaingang-theme';
+import {
+  splitTargetAcrossCycles,
+  type WorkoutModeOptions,
+} from '@/lib/rep-counting/workout-mode';
 import type { ExerciseUnit } from '@/types';
 import { Button } from './button';
 import { GradientView } from './gradient-view';
@@ -58,6 +63,14 @@ export interface DailyGoalCardProps {
   showProgressToggle?: boolean;
   /** When false, only gang progress bars are shown. Defaults to true. */
   showIndividual?: boolean;
+  /** Cycle choices for workout mode (e.g. [1,2,3]). Empty/undefined hides the launcher. */
+  workoutCycleOptions?: number[];
+  /** Cycle choices after exercises already completed today are excluded. */
+  workoutExcludeCompletedCycleOptions?: number[];
+  /** Number of camera-unsupported exercises skipped by workout mode. */
+  workoutSkippedCount?: number;
+  /** Start a multi-exercise workout with the chosen cycle count. */
+  onStartWorkout?: (cycles: number, options: WorkoutModeOptions) => void;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -72,6 +85,10 @@ export function DailyGoalCard({
   onPressCta,
   showProgressToggle = false,
   showIndividual = true,
+  workoutCycleOptions,
+  workoutExcludeCompletedCycleOptions,
+  workoutSkippedCount = 0,
+  onStartWorkout,
   style,
 }: DailyGoalCardProps) {
   const { theme } = useTheme();
@@ -86,8 +103,16 @@ export function DailyGoalCard({
   const [manualLogKey, setManualLogKey] = useState<string | null>(null);
   const [manualAmount, setManualAmount] = useState('');
   const [manualError, setManualError] = useState<string | null>(null);
+  const [isWorkoutPickerOpen, setIsWorkoutPickerOpen] = useState(false);
+  const [selectedCycles, setSelectedCycles] = useState<number | null>(null);
+  const [excludeCompletedExercises, setExcludeCompletedExercises] = useState(false);
 
   const manualExercise = exercises.find((ex) => ex.key === manualLogKey) ?? null;
+  const canStartWorkout =
+    !!onStartWorkout &&
+    !!workoutCycleOptions &&
+    workoutCycleOptions.length > 0 &&
+    !isEnded;
   const statusColor = allComplete ? status.success : isEnded ? ranks.E.glow : status.success;
   const statusLabel = allComplete
     ? 'Complete'
@@ -107,6 +132,39 @@ export function DailyGoalCard({
     setManualLogKey(null);
     setManualAmount('');
     setManualError(null);
+  }
+
+  function openWorkoutPicker() {
+    if (!workoutCycleOptions?.length) return;
+    setExcludeCompletedExercises(false);
+    setSelectedCycles(workoutCycleOptions[0] ?? null);
+    setIsWorkoutPickerOpen(true);
+  }
+
+  function closeWorkoutPicker() {
+    setIsWorkoutPickerOpen(false);
+    setSelectedCycles(null);
+    setExcludeCompletedExercises(false);
+  }
+
+  function confirmWorkoutStart() {
+    if (!onStartWorkout || selectedCycles == null) return;
+    onStartWorkout(selectedCycles, { excludeCompletedExercises });
+    closeWorkoutPicker();
+  }
+
+  function toggleExcludeCompletedExercises() {
+    const nextValue = !excludeCompletedExercises;
+    const nextCycleOptions = nextValue
+      ? workoutExcludeCompletedCycleOptions ?? []
+      : workoutCycleOptions ?? [];
+
+    setExcludeCompletedExercises(nextValue);
+    setSelectedCycles((current) =>
+      current !== null && nextCycleOptions.includes(current)
+        ? current
+        : nextCycleOptions[0] ?? null,
+    );
   }
 
   async function handleManualSubmit() {
@@ -433,6 +491,14 @@ export function DailyGoalCard({
           );
         })}
 
+        {canStartWorkout ? (
+          <Button
+            label="WORKOUT MODE"
+            onPress={openWorkoutPicker}
+            style={styles.workoutCta}
+          />
+        ) : null}
+
         {onPressCta ? <Button label={ctaLabel} onPress={onPressCta} /> : null}
       </View>
 
@@ -451,6 +517,23 @@ export function DailyGoalCard({
         }}
         onClose={closeManualLog}
         onSubmit={() => void handleManualSubmit()}
+      />
+
+      <WorkoutCyclePickerModal
+        visible={isWorkoutPickerOpen}
+        cycleOptions={
+          excludeCompletedExercises
+            ? workoutExcludeCompletedCycleOptions ?? []
+            : workoutCycleOptions ?? []
+        }
+        selectedCycles={selectedCycles}
+        exercises={exercises}
+        skippedCount={workoutSkippedCount}
+        excludeCompletedExercises={excludeCompletedExercises}
+        onSelectCycles={setSelectedCycles}
+        onToggleExcludeCompletedExercises={toggleExcludeCompletedExercises}
+        onClose={closeWorkoutPicker}
+        onConfirm={confirmWorkoutStart}
       />
     </View>
   );
@@ -526,6 +609,290 @@ interface ManualLogModalProps {
   onChangeAmount: (value: string) => void;
   onClose: () => void;
   onSubmit: () => void;
+}
+
+interface WorkoutCyclePickerModalProps {
+  visible: boolean;
+  cycleOptions: number[];
+  selectedCycles: number | null;
+  exercises: DailyGoalExerciseDisplay[];
+  skippedCount: number;
+  excludeCompletedExercises: boolean;
+  onSelectCycles: (cycles: number) => void;
+  onToggleExcludeCompletedExercises: () => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+function WorkoutCyclePickerModal({
+  visible,
+  cycleOptions,
+  selectedCycles,
+  exercises,
+  skippedCount,
+  excludeCompletedExercises,
+  onSelectCycles,
+  onToggleExcludeCompletedExercises,
+  onClose,
+  onConfirm,
+}: WorkoutCyclePickerModalProps) {
+  const { theme } = useTheme();
+  const c = theme.colors;
+  const workoutExercises = exercises.filter(
+    (exercise) =>
+      exercise.cameraSupported &&
+      exercise.individual.target > 0 &&
+      (!excludeCompletedExercises ||
+        exercise.individual.current < exercise.individual.target),
+  );
+  const selectedBreakdown =
+    selectedCycles === null
+      ? []
+      : workoutExercises.map((exercise) => ({
+          ...exercise,
+          amounts: splitTargetAcrossCycles(exercise.individual.target, selectedCycles),
+        }));
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalSheetPressable} onPress={(e) => e.stopPropagation()}>
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor: c.surface,
+                borderColor: c.borderGlow,
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: c.text }]}>Workout mode</Text>
+              <Pressable
+                onPress={onClose}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Close workout mode picker"
+              >
+                <Ionicons name="close" size={22} color={c.textMuted} />
+              </Pressable>
+            </View>
+
+            <Text style={[styles.modalHint, { color: c.textDim }]}>
+              A cycle is one round through every camera exercise. GainGang splits each target
+              across your rounds, saves each set automatically, flashes what&apos;s next, and
+              starts counting—no trips back to your phone.
+            </Text>
+
+            {skippedCount > 0 ? (
+              <Text style={[styles.modalHint, { color: c.textMuted }]}>
+                {skippedCount} exercise{skippedCount === 1 ? '' : 's'} without camera tracking will
+                be skipped. Log {skippedCount === 1 ? 'it' : 'them'} manually.
+              </Text>
+            ) : null}
+
+            <Pressable
+              onPress={onToggleExcludeCompletedExercises}
+              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: excludeCompletedExercises }}
+              accessibilityLabel="Exclude completed exercises from reps"
+            >
+              <View
+                style={[
+                  styles.workoutCheckboxRow,
+                  {
+                    borderColor: c.borderGlow,
+                    backgroundColor:
+                      theme.mode === 'dark'
+                        ? 'rgba(77,140,255,0.08)'
+                        : 'rgba(47,109,255,0.06)',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={excludeCompletedExercises ? 'checkbox' : 'square-outline'}
+                  size={24}
+                  color={excludeCompletedExercises ? c.primaryGlow : c.textMuted}
+                />
+                <Text style={[styles.workoutCheckboxLabel, { color: c.text }]}>
+                  Exclude completed exercises from reps
+                </Text>
+              </View>
+            </Pressable>
+
+            {excludeCompletedExercises ? (
+              <Text style={[styles.workoutCheckboxHint, { color: c.textDim }]}>
+                Completed exercises are skipped now and in later cycles.
+              </Text>
+            ) : null}
+
+            <Text style={[styles.cycleLabel, { color: c.textMuted }]}>CYCLES</Text>
+            <View style={styles.cycleRow}>
+              {cycleOptions.map((cycles) => {
+                const active = selectedCycles === cycles;
+                return (
+                  <Pressable
+                    key={cycles}
+                    onPress={() => onSelectCycles(cycles)}
+                    style={({ pressed }) => [
+                      styles.cycleChipOuter,
+                      { opacity: pressed ? 0.88 : 1 },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={`${cycles} cycle${cycles === 1 ? '' : 's'}`}
+                  >
+                    {active ? (
+                      <LinearGradient
+                        colors={theme.aura}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.cycleChip}
+                      >
+                        <Text style={styles.cycleChipLabelActive}>{cycles}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View
+                        style={[
+                          styles.cycleChip,
+                          styles.cycleChipInactive,
+                          { borderColor: c.borderGlow },
+                        ]}
+                      >
+                        <Text style={[styles.cycleChipLabelInactive, { color: c.text }]}>
+                          {cycles}
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {cycleOptions.length === 0 ? (
+              <Text style={[styles.modalHint, { color: status.success }]}>
+                Every camera-supported exercise is already complete.
+              </Text>
+            ) : null}
+
+            {selectedCycles !== null ? (
+              <View
+                style={[
+                  styles.workoutPreview,
+                  {
+                    backgroundColor:
+                      theme.mode === 'dark'
+                        ? 'rgba(77,140,255,0.08)'
+                        : 'rgba(47,109,255,0.06)',
+                    borderColor: c.borderGlow,
+                  },
+                ]}
+              >
+                <Text style={[styles.workoutPreviewTitle, { color: c.text }]}>
+                  {selectedCycles === 1
+                    ? 'One full round'
+                    : `${selectedCycles} rounds · ${
+                        excludeCompletedExercises ? 'up to ' : ''
+                      }${selectedBreakdown.length * selectedCycles} sets`}
+                </Text>
+                <Text style={[styles.workoutPreviewHint, { color: c.textDim }]}>
+                  {excludeCompletedExercises
+                    ? 'Exercises will disappear from later rounds as soon as you complete their daily target.'
+                    : selectedCycles === 1
+                    ? 'Complete each exercise once at its full target.'
+                    : `Example: a 20-rep target becomes ${splitTargetAcrossCycles(20, selectedCycles).join(' + ')} reps across the rounds.`}
+                </Text>
+
+                <ScrollView
+                  style={styles.workoutPreviewScroll}
+                  contentContainerStyle={styles.workoutPreviewList}
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={selectedBreakdown.length > 3}
+                >
+                  {selectedBreakdown.map((exercise) => (
+                    <View key={exercise.key} style={styles.workoutPreviewRow}>
+                      <Text
+                        style={[styles.workoutPreviewName, { color: c.text }]}
+                        numberOfLines={1}
+                      >
+                        {exercise.name}
+                      </Text>
+                      <Text style={[styles.workoutPreviewAmounts, { color: c.primaryGlow }]}>
+                        {exercise.amounts
+                          .map((amount) => formatAmount(amount, exercise.unit))
+                          .join(' · ')}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+
+            <View style={styles.modalActions}>
+              <View style={styles.modalActionHalf}>
+                <Pressable
+                  onPress={onClose}
+                  style={({ pressed }) => [
+                    styles.modalSavePressable,
+                    { opacity: pressed ? 0.7 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel workout mode"
+                >
+                  <View
+                    style={[
+                      styles.modalActionBtn,
+                      styles.modalCancelBtn,
+                      { borderColor: c.primaryGlow },
+                    ]}
+                  >
+                    <Text style={[styles.modalActionLabel, { color: c.primaryGlow }]}>
+                      Cancel
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+
+              <View style={styles.modalActionHalf}>
+                <Pressable
+                  onPress={onConfirm}
+                  disabled={selectedCycles == null}
+                  style={({ pressed }) => [
+                    styles.modalSavePressable,
+                    { opacity: pressed || selectedCycles == null ? 0.85 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Start workout"
+                >
+                  <LinearGradient
+                    colors={theme.aura}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[
+                      styles.modalActionBtn,
+                      styles.modalSaveBtn,
+                      {
+                        shadowColor: c.primary,
+                        shadowOpacity: 0.6,
+                        shadowRadius: 16,
+                        shadowOffset: { width: 0, height: 0 },
+                        elevation: 6,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.modalActionLabel, { color: '#FFFFFF' }]}>
+                      Start
+                    </Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
 }
 
 function ManualLogModal({
@@ -828,6 +1195,99 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.body,
     fontSize: 12,
     marginBottom: spacing.sm,
+  },
+  workoutCta: {
+    marginTop: spacing.sm,
+  },
+  cycleLabel: {
+    fontFamily: fontFamily.mono,
+    fontSize: 11,
+    letterSpacing: 1.2,
+  },
+  workoutCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.sm + 2,
+  },
+  workoutCheckboxLabel: {
+    flexShrink: 1,
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 14,
+  },
+  workoutCheckboxHint: {
+    fontFamily: fontFamily.body,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  cycleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  cycleChipOuter: {
+    borderRadius: radius.pill,
+  },
+  cycleChip: {
+    minWidth: 48,
+    minHeight: 44,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  cycleChipInactive: {
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  cycleChipLabelActive: {
+    fontFamily: fontFamily.displaySemi,
+    fontSize: 18,
+    color: '#FFFFFF',
+  },
+  cycleChipLabelInactive: {
+    fontFamily: fontFamily.displaySemi,
+    fontSize: 18,
+  },
+  workoutPreview: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.sm + 2,
+    gap: 6,
+  },
+  workoutPreviewTitle: {
+    fontFamily: fontFamily.displaySemi,
+    fontSize: 16,
+  },
+  workoutPreviewHint: {
+    fontFamily: fontFamily.body,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  workoutPreviewScroll: {
+    maxHeight: 150,
+    marginTop: 2,
+  },
+  workoutPreviewList: {
+    gap: 8,
+  },
+  workoutPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  workoutPreviewName: {
+    flex: 1,
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 13,
+  },
+  workoutPreviewAmounts: {
+    fontFamily: fontFamily.mono,
+    fontSize: 11,
+    textAlign: 'right',
   },
   modalRoot: {
     flex: 1,

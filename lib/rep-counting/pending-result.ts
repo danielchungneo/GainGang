@@ -21,6 +21,7 @@ export interface RepCounterQueueItem {
   exerciseName: string;
   unit?: string;
   targetSeconds?: number;
+  targetReps?: number;
 }
 
 export function serializeRepCounterQueue(queue: RepCounterQueueItem[]): string {

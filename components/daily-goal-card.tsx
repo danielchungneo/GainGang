@@ -8,13 +8,9 @@ import {
 import { LevelUpOverlay } from '@/components/level-up-overlay';
 import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { DailyGoalCard as DailyGoalCardView } from '@/components/ui/daily-goal-card';
-import {
-  useLogActivity,
-  type ActivitySaveResult,
-} from '@/hooks/use-activities';
+import { useLogActivity } from '@/hooks/use-activities';
 import { useAuth } from '@/context/auth-context';
 import { useProfile } from '@/hooks/use-profile';
-import { fanOutDailyGoalExerciseDelta } from '@/lib/daily-goal-cross-gang';
 import { formatGoalDate, timeLeftUntilDateEnd } from '@/lib/format';
 import {
   buildDailyGoalTotalsAfter,
@@ -23,11 +19,20 @@ import {
   type StreakContinuePayload,
 } from '@/lib/daily-goal-celebration';
 import {
+  saveDailyGoalExerciseAmount,
+  saveDailyGoalExerciseDelta,
+} from '@/lib/daily-goal-save';
+import {
   buildRepCounterSessionKey,
   consumePendingRepCount,
   serializeRepCounterQueue,
 } from '@/lib/rep-counting/pending-result';
 import { supportsCameraTracking } from '@/lib/rep-counting/exercise-registry';
+import {
+  getAvailableWorkoutCycles,
+  getWorkoutEligibleExercises,
+  type WorkoutModeOptions,
+} from '@/lib/rep-counting/workout-mode';
 import type { DailyGoalExerciseWithProgress, DailyGoalWithProgress } from '@/types';
 
 interface DailyGoalCardProps {
@@ -37,64 +42,6 @@ interface DailyGoalCardProps {
   cameraActions?: boolean;
   /** When set, celebrations render on the parent screen instead of inside the card. */
   onActivitySaved?: (input: DailyGoalSaveCelebrationInput) => void;
-}
-
-async function saveCameraReps(
-  ex: DailyGoalExerciseWithProgress,
-  goal: DailyGoalWithProgress,
-  reps: number,
-  logActivity: ReturnType<typeof useLogActivity>,
-  userId: string,
-): Promise<ActivitySaveResult> {
-  return saveExerciseAmount(ex, goal, ex.user_total + reps, logActivity, userId);
-}
-
-async function saveExerciseAmount(
-  ex: DailyGoalExerciseWithProgress,
-  goal: DailyGoalWithProgress,
-  userTotalAfter: number,
-  logActivity: ReturnType<typeof useLogActivity>,
-  userId: string,
-): Promise<ActivitySaveResult> {
-  const userTotalBefore = ex.user_total;
-  const added = userTotalAfter - userTotalBefore;
-  const gangTotalBefore = ex.gang_total;
-  const gangTotalAfter = ex.gang_total + added;
-
-  const primary = await logActivity.mutateAsync({
-    gangId: goal.gang_id,
-    dailyGoalId: goal.id,
-    dailyGoalExerciseId: ex.id,
-    exerciseId: ex.exercise_id,
-    exerciseName: ex.exercise_name,
-    category: goal.day_category ?? undefined,
-    unit: ex.unit,
-    amount: userTotalAfter,
-    questXpContext: {
-      gangId: goal.gang_id,
-      gangTarget: ex.gang_target,
-      individualTarget: ex.individual_target,
-      gangTotalBefore,
-      gangTotalAfter,
-      userTotalBefore,
-      userTotalAfter,
-    },
-  });
-
-  const siblingXp = await fanOutDailyGoalExerciseDelta({
-    userId,
-    sourceDailyGoalId: goal.id,
-    sourceExercise: ex,
-    delta: added,
-    goalDate: goal.goal_date,
-    category: goal.day_category ?? undefined,
-    logActivity,
-  });
-
-  return {
-    ...primary,
-    xpAwarded: primary.xpAwarded + siblingXp,
-  };
 }
 
 /** Daily goal card wired to weekly plan data from the API. */
@@ -197,7 +144,13 @@ export function DailyGoalCard({
 
         setSavingExerciseId(ex.id);
         try {
-          const result = await saveCameraReps(ex, currentGoal, pending, logActivity, userId);
+          const result = await saveDailyGoalExerciseDelta({
+            exercise: ex,
+            goal: currentGoal,
+            delta: pending,
+            logActivity,
+            userId,
+          });
           totalsAfterUpdates[ex.id] = ex.user_total + pending;
           totalXpAwarded += result.xpAwarded;
           savedAny = true;
@@ -283,13 +236,13 @@ export function DailyGoalCard({
 
     setSavingExerciseId(ex.id);
     try {
-      const result = await saveExerciseAmount(
-        ex,
-        currentGoal,
+      const result = await saveDailyGoalExerciseAmount({
+        exercise: ex,
+        goal: currentGoal,
         userTotalAfter,
         logActivity,
         userId,
-      );
+      });
       notifyActivitySaved({
         goal: currentGoal,
         totalsBefore,
@@ -302,8 +255,31 @@ export function DailyGoalCard({
     }
   }
 
+  function openWorkoutMode(cycles: number, options: WorkoutModeOptions) {
+    router.push({
+      pathname: '/rep-counter',
+      params: {
+        mode: 'workout',
+        dailyGoalId: goal.id,
+        cycles: String(cycles),
+        excludeCompletedExercises: options.excludeCompletedExercises ? '1' : '0',
+        contextId: goal.id,
+      },
+    });
+  }
+
   const useCameraFlow = cameraActions && loggable;
   const renderLocalOverlays = !onActivitySaved;
+  const workoutEligible = getWorkoutEligibleExercises(goal.exercises);
+  const workoutCycleOptions = useCameraFlow
+    ? getAvailableWorkoutCycles(goal.exercises)
+    : [];
+  const workoutExcludeCompletedCycleOptions = useCameraFlow
+    ? getAvailableWorkoutCycles(goal.exercises, { excludeCompletedExercises: true })
+    : [];
+  const workoutSkippedCount = useCameraFlow
+    ? goal.exercises.length - workoutEligible.length
+    : 0;
 
   return (
     <>
@@ -335,6 +311,14 @@ export function DailyGoalCard({
             isManualLogging: savingExerciseId === e.id,
           };
         })}
+        workoutCycleOptions={workoutCycleOptions}
+        workoutExcludeCompletedCycleOptions={workoutExcludeCompletedCycleOptions}
+        workoutSkippedCount={workoutSkippedCount}
+        onStartWorkout={
+          useCameraFlow && workoutCycleOptions.length > 0
+            ? openWorkoutMode
+            : undefined
+        }
         ctaLabel={
           !useCameraFlow && loggable
             ? goal.exercises.some((e) => e.user_total > 0)

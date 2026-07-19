@@ -16,8 +16,9 @@ import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { activityDateLabel, formatAmount, monthYearLabel, todayISO } from '@/lib/format';
 import { fontFamily, status, type } from '@/lib/gaingang-theme';
 import { useTheme } from '@/lib/gaingang-theme';
+import { normalizeExerciseName } from '@/lib/rep-counting/exercise-registry';
 import { computeWeeklyStreak } from '@/lib/streaks';
-import type { ActivityExercise, ActivityWithExercises } from '@/types';
+import type { ActivityWithExercises, ExerciseUnit } from '@/types';
 
 const DAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 const STREAK_COL_WIDTH = 42;
@@ -28,6 +29,13 @@ interface CalendarDay {
   iso: string;
   day: number;
   inMonth: boolean;
+}
+
+interface DayExerciseRow {
+  id: string;
+  exercise_name: string;
+  amount: number;
+  unit: ExerciseUnit;
 }
 
 interface ProfileStreakCalendarProps {
@@ -76,10 +84,31 @@ function groupActivitiesByDate(
   return groups;
 }
 
-function exercisesForDay(
+function consolidatedExercisesForDay(
   activities: ActivityWithExercises[],
-): ActivityExercise[] {
-  return activities.flatMap((activity) => activity.exercises ?? []);
+): DayExerciseRow[] {
+  const exercisesByMovement = new Map<string, DayExerciseRow>();
+
+  for (const activity of activities) {
+    for (const exercise of activity.exercises ?? []) {
+      const movement = exercise.exercise_id ?? normalizeExerciseName(exercise.exercise_name);
+      const key = `${movement}:${exercise.unit}`;
+      const existing = exercisesByMovement.get(key);
+      if (existing) {
+        existing.amount = Math.max(existing.amount, exercise.amount);
+        continue;
+      }
+
+      exercisesByMovement.set(key, {
+        id: exercise.id,
+        exercise_name: exercise.exercise_name,
+        amount: exercise.amount,
+        unit: exercise.unit,
+      });
+    }
+  }
+
+  return Array.from(exercisesByMovement.values());
 }
 
 export function ProfileStreakCalendar({
@@ -138,7 +167,7 @@ export function ProfileStreakCalendar({
   const detailActivities = detailDate
     ? (activitiesByDate.get(detailDate) ?? [])
     : [];
-  const detailExercises = exercisesForDay(detailActivities);
+  const detailExercises = consolidatedExercisesForDay(detailActivities);
 
   function shiftMonth(delta: number) {
     const d = new Date(viewYear, viewMonth + delta, 1);
@@ -213,7 +242,6 @@ export function ProfileStreakCalendar({
               >
                 {row.map((day) => {
                   const hasActivity = activeDates.has(day.iso);
-                  const count = activitiesByDate.get(day.iso)?.length ?? 0;
                   const isSelected = selectedDate === day.iso;
                   const isToday = day.iso === today;
 
@@ -260,20 +288,6 @@ export function ProfileStreakCalendar({
                             {day.day}
                           </Text>
                         )}
-
-                        {count > 1 ? (
-                          <View
-                            style={{
-                              position: 'absolute',
-                              top: 2,
-                              right: 2,
-                              width: 6,
-                              height: 6,
-                              borderRadius: 3,
-                              backgroundColor: status.fire,
-                            }}
-                          />
-                        ) : null}
                       </View>
                     </TouchableOpacity>
                   );

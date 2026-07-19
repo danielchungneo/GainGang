@@ -1,6 +1,6 @@
 # Feature TODO — Running List
 
-**Last updated:** 2026-07-15
+**Last updated:** 2026-07-18
 
 Living checklist of planned product features. Mark items done as they ship; add new ideas at the bottom under **Backlog**.
 
@@ -188,5 +188,22 @@ SMS / Messages share of a gang invite link. Opens a confirm/reject join screen i
 
 *Add new feature ideas below as they come up.*
 
-- 
+### Workout mode on daily card
+
+- [x] Add a "workout mode" option on the daily card where the user selects how many cycles to split their workout into
+- [x] Divide each exercise's total reps evenly across the chosen cycles (e.g. 20 push-ups ÷ 2 cycles = 10 reps per cycle; 30 push-ups ÷ 2 cycles = 15 reps per cycle)
+- [x] Camera-based rep counter counts up to the per-cycle rep limit instead of running unlimited
+- [x] Auto-save reps and advance to the next exercise screen once the per-cycle rep limit is hit
+
+### Bug: refresh indicator at top of main screen
+
+- [ ] Reproduce and diagnose the refresh indicator issue at the top of the app's main screen
+- [ ] Fix indicator so it only shows / spins during an actual refresh
+- [ ] Verify across iOS and Android
+
+### Hand gesture controls for camera rep counter
+
+- [ ] Detect specific hand gestures (e.g. thumbs up, OK sign, thumbs down) while the camera rep counter is active
+- [ ] Map each gesture to an action: accept reps and advance to next exercise, confirm current reps, or exit the exercise
+- [ ] Goal: hands-free experience so users never have to leave position to tap the phone during a workout
 

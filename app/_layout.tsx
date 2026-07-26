@@ -10,11 +10,11 @@ import { LogBox } from "react-native";
 
 import "react-native-reanimated";
 
+import { OtaUpdateModal } from "@/components/ota-update-modal";
+
 import { AuthProvider } from "@/context/auth-context";
 
 import { QueryProvider } from "@/context/query-client";
-
-import { useColorScheme } from "@/hooks/use-color-scheme";
 
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 
@@ -31,12 +31,12 @@ export const unstable_settings = {
 };
 
 function RootNavigator() {
-  const colorScheme = useColorScheme();
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   usePushNotifications();
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={mode === "dark" ? DarkTheme : DefaultTheme}>
+      <OtaUpdateModal />
       <Stack
         screenOptions={{
           contentStyle: { backgroundColor: theme.colors.bg },
@@ -134,7 +134,7 @@ export default function RootLayout() {
   return (
     <QueryProvider>
       <AuthProvider>
-        <GainGangProvider followSystem>
+        <GainGangProvider>
           <RootNavigator />
         </GainGangProvider>
       </AuthProvider>

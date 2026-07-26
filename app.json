@@ -5,14 +5,14 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "gaingang",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
       "url": "https://u.expo.dev/0e7ecca3-35f1-4b51-82e0-2628d9a68d92",
-      "checkAutomatically": "ON_LOAD",
+      "checkAutomatically": "NEVER",
       "fallbackToCacheTimeout": 0
     },
     "icon": "./assets/gaingang/icon.png",

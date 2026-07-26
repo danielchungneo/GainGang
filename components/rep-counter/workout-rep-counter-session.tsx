@@ -611,9 +611,6 @@ export function WorkoutRepCounterSession({
             onDontShowAgainChange={setDontShowSetupAgain}
           />
           <Text style={{ color: '#94A3B8', textAlign: 'center', fontSize: 14 }}>
-            {progressLabel}
-          </Text>
-          <Text style={{ color: '#94A3B8', textAlign: 'center', fontSize: 14 }}>
             {isHold
               ? `Hold for ${formatHoldReview(segment.targetAmount)}${segment.targetAmount >= 60 ? '' : ' seconds'}`
               : `Count ${segment.targetAmount} ${guide.title.toLowerCase()}`}
@@ -627,16 +624,6 @@ export function WorkoutRepCounterSession({
             <Ionicons name="play" size={18} color={t.accentOnPrimary} />
             <Text style={{ color: t.accentOnPrimary, fontWeight: '700', fontSize: 16 }}>
               {isHold ? 'Start hold' : 'Start counting'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleSkipSegment}
-            style={styles.skipTextBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Skip this exercise"
-          >
-            <Text style={{ color: '#94A3B8', fontWeight: '600', fontSize: 15 }}>
-              Skip this exercise
             </Text>
           </TouchableOpacity>
         </View>
@@ -985,11 +972,6 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 13,
     marginTop: 6,
-  },
-  skipTextBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
   },
   reviewBody: {
     flex: 1,

@@ -233,6 +233,38 @@ export function useLeaveGang() {
   });
 }
 
+export interface KickGangMemberInput {
+  gangId: string;
+  userId: string;
+}
+
+export function useKickGangMember() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  return useMutation({
+    mutationFn: async ({ gangId, userId }: KickGangMemberInput): Promise<void> => {
+      if (!session?.user.id) throw new Error('Not authenticated');
+      if (userId === session.user.id) throw new Error('You cannot kick yourself');
+
+      const { data, error } = await supabase
+        .from('gang_members')
+        .delete()
+        .eq('gang_id', gangId)
+        .eq('user_id', userId)
+        .neq('role', 'owner')
+        .select('user_id');
+
+      if (error) throw error;
+      if (!data?.length) throw new Error('Could not remove that member');
+    },
+    onSuccess: (_data, { gangId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.gangMembers(gangId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.gang(gangId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
+    },
+  });
+}
+
 export interface UpdateGangInput {
   gangId: string;
   name?: string;

@@ -79,6 +79,8 @@ export default function GroupsScreen() {
     refetch: refetchFeed,
   } = useGangFeed(gangId);
 
+  // Sync selection from deep-link / create / join params. Do not depend on
+  // selectedGangId — otherwise a sticky gangIdParam fights the dropdown.
   useEffect(() => {
     if (!gangs?.length) {
       setSelectedGangId(null);
@@ -90,16 +92,26 @@ export default function GroupsScreen() {
       return;
     }
 
-    if (!selectedGangId || !gangs.some((g) => g.id === selectedGangId)) {
-      setSelectedGangId(gangs[0].id);
-    }
-  }, [gangs, selectedGangId, gangIdParam]);
+    setSelectedGangId((current) => {
+      if (!current || !gangs.some((g) => g.id === current)) return gangs[0].id;
+      return current;
+    });
+  }, [gangs, gangIdParam]);
 
   useEffect(() => {
     if (tabParam === 'progress' || tabParam === 'activity' || tabParam === 'leaderboard') {
       setViewTab(tabParam);
     }
   }, [tabParam]);
+
+  function handleSelectGang(nextGangId: string) {
+    setSelectedGangId(nextGangId);
+    // Keep the URL in sync so a leftover create/join gangId param cannot
+    // snap selection back on the next gangs refetch.
+    if (gangIdParam !== nextGangId) {
+      router.setParams({ gangId: nextGangId });
+    }
+  }
 
   const refetchAll = useCallback(async () => {
     const tasks: Promise<unknown>[] = [refetchGangs()];
@@ -140,7 +152,7 @@ export default function GroupsScreen() {
             <GangSelector
               gangs={gangs}
               selectedId={gangId}
-              onSelect={setSelectedGangId}
+              onSelect={handleSelectGang}
               onPressMembers={() => setMembersOpen(true)}
               actions={
                 <>
@@ -279,6 +291,7 @@ export default function GroupsScreen() {
           gangName={selectedGang.name}
           visible={membersOpen}
           onClose={() => setMembersOpen(false)}
+          canKick={isGangOwner}
         />
       ) : null}
     </ScreenBackground>

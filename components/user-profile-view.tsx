@@ -109,12 +109,10 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
             <View className="flex-row items-center gap-2 flex-wrap">
               {profile.username ? (
                 <Text style={[type.bodySm, { color: t.body }]}>@{profile.username}</Text>
-              ) : isOwnProfile ? (
-                <Text style={[type.bodySm, { color: t.accent }]}>Edit profile</Text>
               ) : null}
               {(profile.current_streak ?? 0) > 0 ? (
                 <>
-                  {profile.username || isOwnProfile ? (
+                  {profile.username ? (
                     <Text style={[type.bodySm, { color: t.placeholder }]}>·</Text>
                   ) : null}
                   <StreakPill days={profile.current_streak} />
@@ -160,7 +158,32 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
           ) : null}
         </View>
 
-        {!isOwnProfile ? (
+        {isOwnProfile ? (
+          <TouchableOpacity
+            onPress={() => router.push('/edit-profile')}
+            accessibilityRole="button"
+            accessibilityLabel="Edit profile"
+            style={{
+              marginTop: 2,
+              paddingVertical: 12,
+              borderRadius: 12,
+              alignItems: 'center',
+              backgroundColor: t.buttonBg,
+              borderWidth: 1,
+              borderColor: t.buttonBorder,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fontFamily.bodySemi,
+                fontSize: 15,
+                color: t.heading,
+              }}
+            >
+              Edit profile
+            </Text>
+          </TouchableOpacity>
+        ) : (
           <TouchableOpacity
             onPress={() => toggleFollow.mutate({ isFollowing })}
             disabled={toggleFollow.isPending}
@@ -187,7 +210,7 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
               {isFollowing ? 'Following' : followStatus?.isFollowedBy ? 'Follow back' : 'Follow'}
             </Text>
           </TouchableOpacity>
-        ) : null}
+        )}
       </GlassSurface>
 
       <View className="flex-row gap-3">

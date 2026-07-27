@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 
 import { useState } from "react";
 
@@ -186,6 +186,29 @@ export default function SettingsScreen() {
             />
           )}
         </GlassSurface>
+
+        <TouchableOpacity
+          onPress={() => router.push("/settings-screen-time" as Href)}
+          accessibilityRole="button"
+          accessibilityLabel="Focus lock settings"
+        >
+          <GlassSurface
+            style={{
+              padding: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[type.labelSm, { color: t.body }]}>Focus lock</Text>
+              <Text style={[type.bodySm, { color: t.heading }]}>
+                Block apps until today’s exercises are done
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={t.body} />
+          </GlassSurface>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={

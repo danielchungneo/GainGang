@@ -1,32 +1,32 @@
-import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
 import { Share } from 'react-native';
 
 const PENDING_INVITE_KEY = 'pending_gang_invite_code';
 
-/** App Store listing — set EXPO_PUBLIC_APP_STORE_URL once published. */
-function appStoreUrl(): string | undefined {
+const DEFAULT_APP_STORE_URL =
+  'https://apps.apple.com/us/app/gain-gang/id6792023328';
+
+function appStoreUrl(): string {
   const value = process.env.EXPO_PUBLIC_APP_STORE_URL?.trim();
-  return value && value.length > 0 ? value : undefined;
+  return value && value.length > 0 ? value : DEFAULT_APP_STORE_URL;
 }
 
-/** Deep link path that opens the invite confirm screen. */
+/** Deep link that opens the invite confirm screen inside the app. */
 export function buildGangInviteUrl(inviteCode: string): string {
-  return Linking.createURL(`invite/${encodeURIComponent(inviteCode.trim().toUpperCase())}`);
+  const code = inviteCode.trim().toUpperCase();
+  return `gaingang://invite/${encodeURIComponent(code)}`;
 }
 
 export function buildGangInviteMessage(gangName: string, inviteCode: string): string {
   const inviteUrl = buildGangInviteUrl(inviteCode);
   const storeUrl = appStoreUrl();
-  const lines = [
+  return [
     `You're invited to join ${gangName} on GainGang!`,
     '',
-    `Open this link to join: ${inviteUrl}`,
-  ];
-  if (storeUrl) {
-    lines.push('', `Don't have the app yet? Download GainGang: ${storeUrl}`);
-  }
-  return lines.join('\n');
+    `Don't have the app yet? ${storeUrl}`,
+    '',
+    `Once you have the app, open this link to join the gang: ${inviteUrl}`,
+  ].join('\n');
 }
 
 export async function shareGangInvite(gangName: string, inviteCode: string): Promise<void> {

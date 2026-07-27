@@ -170,7 +170,8 @@ SMS / Messages share of a gang invite link. Opens a confirm/reject join screen i
 - [x] Deep link open: route to confirm / reject join screen with gang preview
 - [x] Persist pending invite across sign-in so new users land back on confirm after auth
 - [x] Remove typed invite-code UX (public discover remains; invite-only is link-only)
-- [ ] Set `EXPO_PUBLIC_APP_STORE_URL` once published so share copy includes App Store download link
+- [x] Set `EXPO_PUBLIC_APP_STORE_URL` once published (landing-page App Store fallback)
+- [x] Share HTTPS invite endpoint (`invite` edge function) that 302s to `gaingang://invite/[code]` (HTML pages aren't allowed on *.supabase.co)
 - [ ] Universal Links / Associated Domains so https invites open the app (or App Store) automatically
 - [ ] Post-install deferred deep link handoff if the user installs from the store first
 

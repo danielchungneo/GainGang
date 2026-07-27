@@ -3,33 +3,18 @@ import { Share } from 'react-native';
 
 const PENDING_INVITE_KEY = 'pending_gang_invite_code';
 
-const DEFAULT_INVITE_BASE_URL =
-  'https://uqgzzpxujaxgodfduczb.supabase.co/functions/v1/invite';
-
 const DEFAULT_APP_STORE_URL =
   'https://apps.apple.com/us/app/gain-gang/id6792023328';
-
-/** HTTPS invite endpoint (302 → gaingang://invite/CODE). */
-function inviteBaseUrl(): string {
-  const value = process.env.EXPO_PUBLIC_INVITE_BASE_URL?.trim();
-  return value && value.length > 0 ? value.replace(/\/$/, '') : DEFAULT_INVITE_BASE_URL;
-}
 
 function appStoreUrl(): string {
   const value = process.env.EXPO_PUBLIC_APP_STORE_URL?.trim();
   return value && value.length > 0 ? value : DEFAULT_APP_STORE_URL;
 }
 
-/** Deep link path that opens the invite confirm screen inside the app. */
-export function buildGangInviteDeepLink(inviteCode: string): string {
-  const code = inviteCode.trim().toUpperCase();
-  return `gaingang://invite/${encodeURIComponent(code)}`;
-}
-
-/** Shareable HTTPS invite URL (redirects into the app with the invite code). */
+/** Deep link that opens the invite confirm screen inside the app. */
 export function buildGangInviteUrl(inviteCode: string): string {
   const code = inviteCode.trim().toUpperCase();
-  return `${inviteBaseUrl()}?code=${encodeURIComponent(code)}`;
+  return `gaingang://invite/${encodeURIComponent(code)}`;
 }
 
 export function buildGangInviteMessage(gangName: string, inviteCode: string): string {

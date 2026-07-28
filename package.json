@@ -13,7 +13,8 @@
     "update:preview": "eas update --channel preview",
     "update:production": "eas update --channel production",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo-google-fonts/chakra-petch": "^0.4.1",
@@ -75,6 +76,7 @@
     "@types/react": "~19.2.14",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~56.0.4",
+    "patch-package": "^8.0.1",
     "typescript": "~6.0.3"
   },
   "private": true

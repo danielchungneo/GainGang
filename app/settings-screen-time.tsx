@@ -35,7 +35,7 @@ function statusCopy(status: ReturnType<typeof useScreenTimeLock>['status']): str
     case 'locked':
       return 'Locked — selected apps stay blocked until you finish today’s goals.';
     case 'unlocked_today':
-      return 'Unlocked for today — apps reopen after midnight when GainGang is next opened.';
+      return 'Unlocked for today — apps lock again after midnight on your next workout day.';
     default:
       return '';
   }

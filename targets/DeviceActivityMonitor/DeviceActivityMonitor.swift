@@ -22,6 +22,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
   // Usage-step event-name prefix; the suffix is the threshold in seconds.
   private let usageStepEventPrefix = "appBlocker.usageStep."
   private let blockConfigStorageKey = "appBlocker.blockConfiguration.v1"
+  private let focusLockDailyActivityName = "appBlocker.focusLockDaily"
 
   private let store = ManagedSettingsStore()
   private var sharedDefaults: UserDefaults?
@@ -74,8 +75,9 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
   }
 
   /// Fires at the schedule's interval end (23:59:59) — the daily reset. Clears any
-  /// unspent budget and re-applies the shield so earned time does not carry across
-  /// midnight.
+  /// unspent budget. For the Focus lock daily activity, also applies tomorrow's
+  /// lock state after midnight via intervalDidStart; here we only clear temp unlock
+  /// near midnight so earned time does not carry across the day boundary.
   ///
   /// Guards against the spurious callback that `stopMonitoring()` fires during a
   /// re-grant: that fire happens whenever the user earns time, not at the day
@@ -88,11 +90,23 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
       return
     }
     clearUnlockState()
-    reapplyBlockConfiguration()
+
+    // Temporary-unlock activity: re-apply stored config after budget day ends.
+    // Focus lock daily: intervalDidStart on the new day applies schedule-aware locks.
+    if activity.rawValue != focusLockDailyActivityName {
+      reapplyBlockConfiguration()
+    }
   }
 
+  /// Fires at 00:00 for the repeating Focus lock daily schedule. Applies shields
+  /// when today has exercises; clears them on rest days — without opening the app.
   override func intervalDidStart(for activity: DeviceActivityName) {
     super.intervalDidStart(for: activity)
+
+    if activity.rawValue == focusLockDailyActivityName {
+      clearUnlockState()
+      applyFocusLockForCurrentDay()
+    }
   }
 
   /// Extract the threshold seconds from an event name like `appBlocker.usageStep.90`;
@@ -110,13 +124,64 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     sharedDefaults?.removeObject(forKey: unlockGrantedAtKey)
   }
 
+  /// Lock or unlock based on whether today is in `datesWithExercises`.
+  private func applyFocusLockForCurrentDay() {
+    let userDefaults = sharedDefaults ?? UserDefaults.standard
+    guard var configDict = userDefaults.dictionary(forKey: blockConfigStorageKey) else {
+      clearShields()
+      return
+    }
+
+    let focusLockEnabled = configDict["focusLockEnabled"] as? Bool ?? false
+    let dates = configDict["datesWithExercises"] as? [String] ?? []
+    let today = Self.todayISOString()
+
+    guard focusLockEnabled else {
+      configDict["isActive"] = false
+      userDefaults.set(configDict, forKey: blockConfigStorageKey)
+      clearShields()
+      return
+    }
+
+    guard let blockConfig = parseBlockConfig(configDict), !blockConfig.items.isEmpty else {
+      clearShields()
+      return
+    }
+
+    var shouldLock = dates.contains(today)
+    if let unlockedDate = configDict["unlockedDate"] as? String, unlockedDate == today {
+      // Goals already completed today — don't re-lock until the next calendar day.
+      shouldLock = false
+    } else {
+      // Drop a previous day's unlock stamp so it can't affect later syncs.
+      configDict.removeValue(forKey: "unlockedDate")
+    }
+    configDict["isActive"] = shouldLock
+    userDefaults.set(configDict, forKey: blockConfigStorageKey)
+
+    applyBlocks(MonitorBlockConfig(items: blockConfig.items, isActive: shouldLock))
+  }
+
+  private static func todayISOString() -> String {
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar.current
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone.current
+    formatter.dateFormat = "yyyy-MM-dd"
+    return formatter.string(from: Date())
+  }
+
+  private func clearShields() {
+    store.shield.applications = nil
+    store.shield.applicationCategories = nil
+    store.shield.webDomains = nil
+  }
+
   private func reapplyBlockConfiguration() {
     let userDefaults = sharedDefaults ?? UserDefaults.standard
 
     guard let configDict = userDefaults.dictionary(forKey: blockConfigStorageKey) else {
-      store.shield.applications = nil
-      store.shield.applicationCategories = nil
-      store.shield.webDomains = nil
+      clearShields()
       return
     }
 
@@ -172,9 +237,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
   private func applyBlocks(_ config: MonitorBlockConfig) {
     guard config.isActive else {
-      store.shield.applications = nil
-      store.shield.applicationCategories = nil
-      store.shield.webDomains = nil
+      clearShields()
       return
     }
 
@@ -183,9 +246,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     let validWebDomainTokens = config.items.compactMap { $0.webDomainToken }
 
     guard !validAppTokens.isEmpty || !validCategoryTokens.isEmpty || !validWebDomainTokens.isEmpty else {
-      store.shield.applications = nil
-      store.shield.applicationCategories = nil
-      store.shield.webDomains = nil
+      clearShields()
       return
     }
 

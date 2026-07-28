@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { areDailyGoalsComplete } from '@/hooks/use-reward-crates';
-import { useMyTodaysDailyGoals } from '@/hooks/use-weekly-plans';
+import {
+  useMyTodaysDailyGoals,
+  useMyUpcomingExerciseDates,
+} from '@/hooks/use-weekly-plans';
 import {
   deriveScreenTimeLockStatus,
   getScreenTimePermissionGranted,
@@ -26,6 +29,8 @@ const DEFAULT_PREFS: ScreenTimeLockPrefs = {
   totalCategories: 0,
 };
 
+const EMPTY_DATES: string[] = [];
+
 /**
  * Loads Focus lock prefs, syncs shields when goals / AppState change,
  * and exposes settings actions. Mount once near the root so unlock works
@@ -33,8 +38,12 @@ const DEFAULT_PREFS: ScreenTimeLockPrefs = {
  */
 export function useScreenTimeLock() {
   const supported = isScreenTimeLockSupported();
-  const { data: goals } = useMyTodaysDailyGoals();
+  const { data: goals, isFetched: goalsFetched } = useMyTodaysDailyGoals();
+  const { data: upcomingDates, isFetched: datesFetched } = useMyUpcomingExerciseDates();
+  const hasExercisesToday = (goals?.length ?? 0) > 0;
   const goalsComplete = goals ? areDailyGoalsComplete(goals) : false;
+  const datesWithExercises = upcomingDates ?? EMPTY_DATES;
+  const scheduleReady = goalsFetched && datesFetched;
 
   const [prefs, setPrefs] = useState<ScreenTimeLockPrefs>(DEFAULT_PREFS);
   const [permissionGranted, setPermissionGranted] = useState(false);
@@ -65,10 +74,21 @@ export function useScreenTimeLock() {
   );
 
   const runSyncFromStorage = useCallback(async () => {
-    if (!supported) return;
-    const result = await syncScreenTimeLockState({ goalsComplete });
+    if (!supported || !scheduleReady) return;
+    const result = await syncScreenTimeLockState({
+      goalsComplete,
+      hasExercisesToday,
+      datesWithExercises,
+    });
     applySyncResult(result);
-  }, [applySyncResult, goalsComplete, supported]);
+  }, [
+    applySyncResult,
+    datesWithExercises,
+    goalsComplete,
+    hasExercisesToday,
+    scheduleReady,
+    supported,
+  ]);
 
   useEffect(() => {
     if (!supported) {
@@ -84,7 +104,10 @@ export function useScreenTimeLock() {
 
       // Local opt-in can linger after Screen Time access is revoked — clear it.
       if (loaded.enabled && !granted) {
-        const result = await setScreenTimeLockEnabled(false, false);
+        const result = await setScreenTimeLockEnabled(false, false, {
+          hasExercisesToday: false,
+          datesWithExercises: [],
+        });
         if (cancelled) return;
         setPrefs(result.prefs);
         setPermissionGranted(false);
@@ -101,9 +124,9 @@ export function useScreenTimeLock() {
   }, [supported]);
 
   useEffect(() => {
-    if (!supported || !isReady) return;
+    if (!supported || !isReady || !scheduleReady) return;
     void runSyncFromStorage();
-  }, [goalsComplete, isReady, runSyncFromStorage, supported]);
+  }, [goalsComplete, hasExercisesToday, isReady, runSyncFromStorage, scheduleReady, supported]);
 
   useEffect(() => {
     if (!supported || !isReady) return;
@@ -115,7 +138,10 @@ export function useScreenTimeLock() {
         if (!granted) {
           const current = await loadScreenTimeLockPrefs();
           if (current.enabled) {
-            const result = await setScreenTimeLockEnabled(false, goalsComplete);
+            const result = await setScreenTimeLockEnabled(false, goalsComplete, {
+              hasExercisesToday,
+              datesWithExercises,
+            });
             setPrefs(result.prefs);
             return;
           }
@@ -126,12 +152,21 @@ export function useScreenTimeLock() {
 
     const sub = AppState.addEventListener('change', onAppStateChange);
     return () => sub.remove();
-  }, [goalsComplete, isReady, refreshPermission, runSyncFromStorage, supported]);
+  }, [
+    datesWithExercises,
+    goalsComplete,
+    hasExercisesToday,
+    isReady,
+    refreshPermission,
+    runSyncFromStorage,
+    supported,
+  ]);
 
   const status: ScreenTimeLockStatus = deriveScreenTimeLockStatus({
     prefs,
     permissionGranted,
     goalsComplete,
+    hasExercisesToday,
   });
 
   const enable = useCallback(async () => {
@@ -151,7 +186,10 @@ export function useScreenTimeLock() {
         // Non-fatal; Focus lock still works, but the shield button may not notify.
       }
 
-      const result = await setScreenTimeLockEnabled(true, goalsComplete);
+      const result = await setScreenTimeLockEnabled(true, goalsComplete, {
+        hasExercisesToday,
+        datesWithExercises,
+      });
       // Enabling while goals are already done unlocks immediately — don't celebrate
       // that path; celebration is for completing tasks while Focus lock is active.
       setPrefs(result.prefs);
@@ -159,18 +197,21 @@ export function useScreenTimeLock() {
     } finally {
       setIsUpdating(false);
     }
-  }, [goalsComplete, supported]);
+  }, [datesWithExercises, goalsComplete, hasExercisesToday, supported]);
 
   const disable = useCallback(async () => {
     if (!supported) return;
     setIsUpdating(true);
     try {
-      const result = await setScreenTimeLockEnabled(false, goalsComplete);
+      const result = await setScreenTimeLockEnabled(false, goalsComplete, {
+        hasExercisesToday,
+        datesWithExercises,
+      });
       setPrefs(result.prefs);
     } finally {
       setIsUpdating(false);
     }
-  }, [goalsComplete, supported]);
+  }, [datesWithExercises, goalsComplete, hasExercisesToday, supported]);
 
   const saveSelection = useCallback(
     async (input: {
@@ -185,13 +226,15 @@ export function useScreenTimeLock() {
         const result = await updateScreenTimeSelection({
           ...input,
           goalsComplete,
+          hasExercisesToday,
+          datesWithExercises,
         });
         setPrefs(result.prefs);
       } finally {
         setIsUpdating(false);
       }
     },
-    [goalsComplete, supported],
+    [datesWithExercises, goalsComplete, hasExercisesToday, supported],
   );
 
   const dismissUnlockCelebration = useCallback(() => {

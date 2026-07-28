@@ -31,6 +31,13 @@ export type ScreenTimeLockStatus =
   | 'locked'
   | 'unlocked_today';
 
+/** Extra App Group fields for midnight rest-day / relock (persisted with block config). */
+export interface FocusLockNativeExtras {
+  focusLockEnabled: boolean;
+  datesWithExercises: string[];
+  unlockedDate: string | null;
+}
+
 const STORAGE_KEY = 'gaingang.screen-time-lock';
 
 const DEFAULT_PREFS: ScreenTimeLockPrefs = {
@@ -110,6 +117,7 @@ export function deriveScreenTimeLockStatus(input: {
   prefs: ScreenTimeLockPrefs;
   permissionGranted: boolean;
   goalsComplete: boolean;
+  hasExercisesToday: boolean;
 }): ScreenTimeLockStatus {
   if (!isScreenTimeLockSupported()) return 'unsupported';
   if (!input.prefs.enabled) return 'disabled';
@@ -117,23 +125,31 @@ export function deriveScreenTimeLockStatus(input: {
   if (input.prefs.blockedItems.length === 0) return 'needs_apps';
 
   const today = todayISO();
-  if (input.prefs.unlockedDate === today || input.goalsComplete) {
+  if (
+    !input.hasExercisesToday ||
+    input.prefs.unlockedDate === today ||
+    input.goalsComplete
+  ) {
     return 'unlocked_today';
   }
   return 'locked';
 }
 
 /**
- * Apply or clear iOS shields from persisted prefs + today's goal completion.
+ * Apply or clear iOS shields from persisted prefs + today's goals / rest day.
  * Safe no-op on non-iOS or when the native module is unavailable.
- * `justUnlocked` is true only when this sync newly sets unlockedDate to today.
+ * `justUnlocked` is true only when this sync newly sets unlockedDate because
+ * workout goals were completed (not rest days).
  */
 export async function syncScreenTimeLockState(input: {
   prefs?: ScreenTimeLockPrefs;
   goalsComplete: boolean;
+  hasExercisesToday: boolean;
+  datesWithExercises?: string[];
 }): Promise<{ prefs: ScreenTimeLockPrefs; justUnlocked: boolean }> {
   const prefs = input.prefs ?? (await loadScreenTimeLockPrefs());
   const native = loadNative();
+  const datesWithExercises = input.datesWithExercises ?? [];
 
   if (!native || !isScreenTimeLockSupported()) {
     return { prefs, justUnlocked: false };
@@ -141,6 +157,7 @@ export async function syncScreenTimeLockState(input: {
 
   const today = todayISO();
   const hasSelection = prefs.blockedItems.length > 0;
+  const hasExercisesToday = input.hasExercisesToday;
 
   let next = prefs;
   let justUnlocked = false;
@@ -149,7 +166,14 @@ export async function syncScreenTimeLockState(input: {
     next = { ...prefs, unlockedDate: null };
   }
 
-  if (next.enabled && hasSelection && input.goalsComplete && next.unlockedDate !== today) {
+  // Only celebrate / stamp unlockedDate when goals are done on a workout day.
+  if (
+    next.enabled &&
+    hasSelection &&
+    hasExercisesToday &&
+    input.goalsComplete &&
+    next.unlockedDate !== today
+  ) {
     next = { ...next, unlockedDate: today };
     justUnlocked = true;
   }
@@ -164,11 +188,17 @@ export async function syncScreenTimeLockState(input: {
       return { prefs: next, justUnlocked };
     }
 
-    const shouldLock = next.unlockedDate !== today;
+    const shouldLock =
+      hasExercisesToday && next.unlockedDate !== today && !input.goalsComplete;
+
     await native.setBlockConfiguration({
       blockedItems: next.blockedItems,
       isActive: shouldLock,
-    });
+      // Persisted into App Group for DeviceActivityMonitor day-boundary logic.
+      focusLockEnabled: true,
+      datesWithExercises,
+      unlockedDate: next.unlockedDate,
+    } as Parameters<typeof native.setBlockConfiguration>[0] & FocusLockNativeExtras);
   } catch (error) {
     console.warn('[screen-time-lock] sync failed', error);
   }
@@ -179,6 +209,9 @@ export async function syncScreenTimeLockState(input: {
 export async function setScreenTimeLockEnabled(
   enabled: boolean,
   goalsComplete: boolean,
+  options: { hasExercisesToday: boolean; datesWithExercises?: string[] } = {
+    hasExercisesToday: true,
+  },
 ): Promise<{ prefs: ScreenTimeLockPrefs; justUnlocked: boolean }> {
   const prefs = await loadScreenTimeLockPrefs();
   const next: ScreenTimeLockPrefs = {
@@ -187,7 +220,12 @@ export async function setScreenTimeLockEnabled(
     unlockedDate: enabled ? prefs.unlockedDate : null,
   };
   await saveScreenTimeLockPrefs(next);
-  return syncScreenTimeLockState({ prefs: next, goalsComplete });
+  return syncScreenTimeLockState({
+    prefs: next,
+    goalsComplete,
+    hasExercisesToday: options.hasExercisesToday,
+    datesWithExercises: options.datesWithExercises,
+  });
 }
 
 export async function updateScreenTimeSelection(input: {
@@ -196,6 +234,8 @@ export async function updateScreenTimeSelection(input: {
   totalApps: number;
   totalCategories: number;
   goalsComplete: boolean;
+  hasExercisesToday: boolean;
+  datesWithExercises?: string[];
 }): Promise<{ prefs: ScreenTimeLockPrefs; justUnlocked: boolean }> {
   const prefs = await loadScreenTimeLockPrefs();
   const next: ScreenTimeLockPrefs = {
@@ -206,5 +246,10 @@ export async function updateScreenTimeSelection(input: {
     totalCategories: input.totalCategories,
   };
   await saveScreenTimeLockPrefs(next);
-  return syncScreenTimeLockState({ prefs: next, goalsComplete: input.goalsComplete });
+  return syncScreenTimeLockState({
+    prefs: next,
+    goalsComplete: input.goalsComplete,
+    hasExercisesToday: input.hasExercisesToday,
+    datesWithExercises: input.datesWithExercises,
+  });
 }

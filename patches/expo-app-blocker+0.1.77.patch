@@ -1,0 +1,67 @@
+diff --git a/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift b/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
+index 6a7f7c4..b481345 100644
+--- a/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
++++ b/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
+@@ -28,6 +28,9 @@ public class ExpoAppBlockerModule: Module {
+   // for the monitor's premature-fire guard (usage can't exceed elapsed wall-clock).
+   private let unlockGrantedAtKey = "appBlocker.unlockGrantedAt.v1"
+   private let unlockActivityName = "appBlocker.temporaryUnlock"
++  // Repeating all-day schedule so DeviceActivityMonitor can relock / respect rest
++  // days at midnight without the host app being open.
++  private let focusLockDailyActivityName = "appBlocker.focusLockDaily"
+   // Sub-minute usage steps. We register one DeviceActivityEvent per `usageStepSeconds`
+   // of the budget (threshold = k×step seconds of measured usage). Each step's
+   // eventDidReachThreshold lets the monitor write consumed SECONDS back to the App
+@@ -159,6 +162,14 @@ public class ExpoAppBlockerModule: Module {
+           try self.applyBlocks(blockConfig)
+           self.persistBlockConfiguration(config)
+ 
++          let focusLockEnabled = config["focusLockEnabled"] as? Bool ?? false
++          let hasItems = !blockConfig.items.isEmpty
++          if focusLockEnabled && hasItems {
++            try? self.startFocusLockDailyMonitor()
++          } else {
++            self.cancelFocusLockDailyMonitor()
++          }
++
+           DispatchQueue.main.async {
+             promise.resolve(nil)
+           }
+@@ -183,6 +194,7 @@ public class ExpoAppBlockerModule: Module {
+       self.stateQueue.async {
+         self.ensureLoadedPersistedConfig()
+         self.cancelRelockActivity()
++        self.cancelFocusLockDailyMonitor()
+         self.store.shield.applications = nil
+         self.store.shield.applicationCategories = nil
+         self.store.shield.webDomains = nil
+@@ -631,6 +643,29 @@ public class ExpoAppBlockerModule: Module {
+     activityCenter.stopMonitoring([activityName])
+   }
+ 
++  /// Register a repeating 00:00–23:59 DeviceActivity so the monitor extension can
++  /// apply Focus lock for the new calendar day without opening the host app.
++  private func startFocusLockDailyMonitor() throws {
++    scheduleLock.lock()
++    defer { scheduleLock.unlock() }
++
++    let activityName = DeviceActivityName(focusLockDailyActivityName)
++    activityCenter.stopMonitoring([activityName])
++
++    let schedule = DeviceActivitySchedule(
++      intervalStart: DateComponents(hour: 0, minute: 0, second: 0),
++      intervalEnd: DateComponents(hour: 23, minute: 59, second: 59),
++      repeats: true
++    )
++    try activityCenter.startMonitoring(activityName, during: schedule)
++  }
++
++  private func cancelFocusLockDailyMonitor() {
++    scheduleLock.lock()
++    defer { scheduleLock.unlock() }
++    activityCenter.stopMonitoring([DeviceActivityName(focusLockDailyActivityName)])
++  }
++
+   private func isTemporarilyUnlockedInternal() -> Bool {
+     return remainingUnlockSeconds() > 0
+   }

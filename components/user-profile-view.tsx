@@ -22,6 +22,7 @@ import { ProfileStreakCalendar } from '@/components/profile-streak-calendar';
 import {
   Avatar,
   GlassSurface,
+  ImageViewerModal,
   LevelBadge,
   ProgressBar,
   StreakPill,
@@ -43,6 +44,7 @@ interface UserProfileViewProps {
 export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) {
   const t = useThemeTokens();
   const [activeView, setActiveView] = useState<ProfileView>('streak');
+  const [isAvatarViewerOpen, setIsAvatarViewerOpen] = useState(false);
 
   const { data: profile, isLoading } = useProfile(userId);
   const { data: activities } = useUserActivities(userId);
@@ -60,6 +62,7 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
   }
 
   const displayName = profile.full_name || (isOwnProfile ? 'Unnamed Hunter' : 'Hunter');
+  const avatarUri = profile.avatar_url;
 
   return (
     <>
@@ -71,10 +74,18 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
               accessibilityRole="button"
               accessibilityLabel="Edit profile photo"
             >
-              <Avatar name={displayName} uri={profile.avatar_url} size={64} />
+              <Avatar name={displayName} uri={avatarUri} size={64} />
+            </TouchableOpacity>
+          ) : avatarUri ? (
+            <TouchableOpacity
+              onPress={() => setIsAvatarViewerOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="View profile photo"
+            >
+              <Avatar name={displayName} uri={avatarUri} size={64} />
             </TouchableOpacity>
           ) : (
-            <Avatar name={displayName} uri={profile.avatar_url} size={64} />
+            <Avatar name={displayName} uri={avatarUri} size={64} />
           )}
 
           <View style={{ flex: 1, gap: 2 }}>
@@ -253,6 +264,15 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
       ) : null}
 
       {activeView === 'badges' ? <BadgesComingSoon /> : null}
+
+      {!isOwnProfile ? (
+        <ImageViewerModal
+          uri={avatarUri}
+          visible={isAvatarViewerOpen}
+          onClose={() => setIsAvatarViewerOpen(false)}
+          accessibilityLabel={`${displayName}'s profile photo`}
+        />
+      ) : null}
     </>
   );
 }

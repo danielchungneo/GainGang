@@ -31,6 +31,7 @@ export default function OnboardingLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="fitness" />
       <Stack.Screen name="demo" />
+      <Stack.Screen name="focus-lock" />
       <Stack.Screen name="auth" />
     </Stack>
   );

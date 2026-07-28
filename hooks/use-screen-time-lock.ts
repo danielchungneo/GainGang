@@ -81,8 +81,17 @@ export function useScreenTimeLock() {
       const loaded = await loadScreenTimeLockPrefs();
       const granted = await getScreenTimePermissionGranted();
       if (cancelled) return;
-      setPrefs(loaded);
-      setPermissionGranted(granted);
+
+      // Local opt-in can linger after Screen Time access is revoked — clear it.
+      if (loaded.enabled && !granted) {
+        const result = await setScreenTimeLockEnabled(false, false);
+        if (cancelled) return;
+        setPrefs(result.prefs);
+        setPermissionGranted(false);
+      } else {
+        setPrefs(loaded);
+        setPermissionGranted(granted);
+      }
       setIsReady(true);
     })();
 
@@ -102,14 +111,22 @@ export function useScreenTimeLock() {
     function onAppStateChange(state: AppStateStatus) {
       if (state !== 'active') return;
       void (async () => {
-        await refreshPermission();
+        const granted = await refreshPermission();
+        if (!granted) {
+          const current = await loadScreenTimeLockPrefs();
+          if (current.enabled) {
+            const result = await setScreenTimeLockEnabled(false, goalsComplete);
+            setPrefs(result.prefs);
+            return;
+          }
+        }
         await runSyncFromStorage();
       })();
     }
 
     const sub = AppState.addEventListener('change', onAppStateChange);
     return () => sub.remove();
-  }, [isReady, refreshPermission, runSyncFromStorage, supported]);
+  }, [goalsComplete, isReady, refreshPermission, runSyncFromStorage, supported]);
 
   const status: ScreenTimeLockStatus = deriveScreenTimeLockStatus({
     prefs,
@@ -122,8 +139,10 @@ export function useScreenTimeLock() {
     setIsUpdating(true);
     try {
       const granted = await requestScreenTimePermission();
-      setPermissionGranted(granted);
-      if (!granted) return false;
+      // Re-read native status — request can succeed in UI while status stays denied.
+      const confirmed = granted && (await getScreenTimePermissionGranted());
+      setPermissionGranted(confirmed);
+      if (!confirmed) return false;
 
       try {
         const Notifications = await import('expo-notifications');

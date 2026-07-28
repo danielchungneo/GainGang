@@ -48,6 +48,7 @@ export default function SettingsScreenTimeScreen() {
     isReady,
     isUpdating,
     prefs,
+    permissionGranted,
     status,
     enable,
     disable,
@@ -145,7 +146,7 @@ export default function SettingsScreenTimeScreen() {
                 <ActivityIndicator color={t.accent} />
               ) : (
                 <Switch
-                  value={prefs.enabled}
+                  value={prefs.enabled && permissionGranted}
                   onValueChange={(value) => {
                     void handleToggle(value);
                   }}
@@ -153,7 +154,7 @@ export default function SettingsScreenTimeScreen() {
               )}
             </GlassSurface>
 
-            {prefs.enabled ? (
+            {prefs.enabled && permissionGranted ? (
               <GlassSurface style={{ padding: 20, gap: 12 }}>
                 <View
                   style={{
@@ -195,29 +196,6 @@ export default function SettingsScreenTimeScreen() {
                 />
               </GlassSurface>
             ) : null}
-
-            <TouchableOpacity
-              onPress={() => setPreviewUnlock(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Preview unlock animation"
-            >
-              <GlassSurface
-                style={{
-                  padding: 20,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={[type.labelSm, { color: t.body }]}>Preview</Text>
-                  <Text style={[type.bodySm, { color: t.heading }]}>
-                    Play unlock animation
-                  </Text>
-                </View>
-                <Ionicons name="lock-open-outline" size={22} color={t.accent} />
-              </GlassSurface>
-            </TouchableOpacity>
           </>
         )}
       </ScrollView>

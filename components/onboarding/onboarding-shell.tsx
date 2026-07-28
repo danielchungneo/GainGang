@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 interface OnboardingShellProps {
   step: number;
@@ -15,6 +15,11 @@ interface OnboardingShellProps {
   footer?: ReactNode;
   onSkip?: () => void;
   skipLabel?: string;
+  /**
+   * When true, only the step dots + title stay fixed.
+   * Subtitle and body scroll underneath; footer stays pinned at the bottom.
+   */
+  scrollContent?: boolean;
 }
 
 export function OnboardingShell({
@@ -25,10 +30,31 @@ export function OnboardingShell({
   footer,
   onSkip,
   skipLabel = 'Skip',
+  scrollContent = false,
 }: OnboardingShellProps) {
   const t = useThemeTokens();
   const muted = t.placeholder;
   const border = t.buttonBorder;
+
+  const header = (
+    <View style={[styles.header, scrollContent && styles.headerFixed]}>
+      <Text style={[type.heading, { color: t.heading, fontSize: 28 }]}>{title}</Text>
+      {!scrollContent && subtitle ? (
+        <Text style={[type.body, { color: t.body, marginTop: spacing.sm, lineHeight: 22 }]}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
+
+  const subtitleBlock =
+    scrollContent && subtitle ? (
+      <Text style={[type.body, { color: t.body, marginBottom: spacing.md, lineHeight: 22 }]}>
+        {subtitle}
+      </Text>
+    ) : null;
+
+  const footerBlock = footer ? <View style={styles.footer}>{footer}</View> : null;
 
   return (
     <ScreenBackground>
@@ -64,18 +90,24 @@ export function OnboardingShell({
           )}
         </View>
 
-        <View style={styles.header}>
-          <Text style={[type.heading, { color: t.heading, fontSize: 28 }]}>{title}</Text>
-          {subtitle ? (
-            <Text style={[type.body, { color: t.body, marginTop: spacing.sm, lineHeight: 22 }]}>
-              {subtitle}
-            </Text>
-          ) : null}
-        </View>
+        {header}
 
-        <View style={styles.body}>{children}</View>
+        {scrollContent ? (
+          <ScrollView
+            style={styles.body}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+          >
+            {subtitleBlock}
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={styles.body}>{children}</View>
+        )}
 
-        {footer ? <View style={styles.footer}>{footer}</View> : null}
+        {footerBlock}
       </View>
     </ScreenBackground>
   );
@@ -110,8 +142,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.md,
   },
+  headerFixed: {
+    marginBottom: spacing.sm,
+  },
   body: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: spacing.sm,
   },
   footer: {
     gap: spacing.sm,

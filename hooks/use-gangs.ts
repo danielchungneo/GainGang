@@ -227,7 +227,7 @@ export function useLeaveGang() {
       queryClient.removeQueries({ queryKey: queryKeys.activeWeeklyPlan(gangId) });
       queryClient.removeQueries({ queryKey: queryKeys.feed(gangId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.myTodaysDailyGoals(session?.user.id) });
+      queryClient.invalidateQueries({ queryKey: ['daily-goals'] });
       queryClient.invalidateQueries({ queryKey: ['gangs', 'discover'] });
     },
   });
@@ -322,7 +322,7 @@ export function useDeleteGang() {
       queryClient.removeQueries({ queryKey: queryKeys.gangWeeklyPlans(gangId) });
       queryClient.removeQueries({ queryKey: queryKeys.feed(gangId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.myTodaysDailyGoals(session?.user.id) });
+      queryClient.invalidateQueries({ queryKey: ['daily-goals'] });
       queryClient.invalidateQueries({ queryKey: ['gangs', 'discover'] });
     },
   });

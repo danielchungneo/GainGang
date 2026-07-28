@@ -13,7 +13,8 @@
     "update:preview": "eas update --channel preview",
     "update:production": "eas update --channel production",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo-google-fonts/chakra-petch": "^0.4.1",
@@ -26,7 +27,9 @@
     "@tanstack/react-query": "^5.90.21",
     "base64-arraybuffer": "^1.0.2",
     "expo": "~56.0.16",
+    "expo-app-blocker": "^0.1.77",
     "expo-blur": "~56.0.4",
+    "expo-build-properties": "~56.0.24",
     "expo-constants": "~56.0.18",
     "expo-dev-client": "~56.0.23",
     "expo-device": "~56.0.4",
@@ -73,6 +76,7 @@
     "@types/react": "~19.2.14",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~56.0.4",
+    "patch-package": "^8.0.1",
     "typescript": "~6.0.3"
   },
   "private": true

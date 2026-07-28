@@ -5,6 +5,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '@/context/auth-context';
 import {
   useNeedsCrewSetup,
+  useNeedsFocusLockIntro,
   useNeedsPostAuthNotifications,
   useNeedsPreAuthOnboarding,
 } from '@/hooks/use-onboarding';
@@ -16,8 +17,9 @@ import { consumePendingGangInvite } from '@/lib/gang-invite';
  * 2) Sign-in if logged out
  * 3) New-account notifications → /welcome-notifications
  * 4) New-account crew setup → /welcome-crew
- * 5) Pending invite → /invite/[code]
- * 6) Main app
+ * 5) Existing-account Focus lock intro → /welcome-focus-lock
+ * 6) Pending invite → /invite/[code]
+ * 7) Main app
  */
 export default function AppIndex() {
   const { session, isPending } = useAuth();
@@ -25,10 +27,11 @@ export default function AppIndex() {
   const { needsCrewSetup, isLoading: crewLoading } = useNeedsCrewSetup();
   const { needsPostAuthNotifications, isLoading: notifLoading } =
     useNeedsPostAuthNotifications();
+  const { needsFocusLockIntro, isLoading: focusIntroLoading } = useNeedsFocusLockIntro();
   const [pendingInvite, setPendingInvite] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
-    if (!session || needsCrewSetup || crewLoading) {
+    if (!session || needsCrewSetup || crewLoading || needsFocusLockIntro || focusIntroLoading) {
       setPendingInvite(undefined);
       return;
     }
@@ -41,9 +44,13 @@ export default function AppIndex() {
     return () => {
       cancelled = true;
     };
-  }, [session, needsCrewSetup, crewLoading]);
+  }, [session, needsCrewSetup, crewLoading, needsFocusLockIntro, focusIntroLoading]);
 
-  if (isPending || preAuthLoading || (session && (crewLoading || notifLoading))) {
+  if (
+    isPending ||
+    preAuthLoading ||
+    (session && (crewLoading || notifLoading || focusIntroLoading))
+  ) {
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator />
@@ -66,6 +73,10 @@ export default function AppIndex() {
 
   if (needsCrewSetup) {
     return <Redirect href="/welcome-crew" />;
+  }
+
+  if (needsFocusLockIntro) {
+    return <Redirect href="/welcome-focus-lock" />;
   }
 
   if (pendingInvite === undefined) {

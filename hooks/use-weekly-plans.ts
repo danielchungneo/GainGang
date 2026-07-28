@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
 import { queryKeys } from '@/lib/query-keys';
-import { todayISO } from '@/lib/format';
+import { todayISO, toLocalDateISO } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { mondayOfWeek, WEEK_DAYS } from '@/types';
 import { parseActivityAmount } from '@/lib/activity-amount';
@@ -165,6 +165,69 @@ export function useMyTodaysDailyGoals() {
   });
 }
 
+/**
+ * Upcoming local dates (today → ~14 days) that have ≥1 exercise across the
+ * user's active gang plans. Used by Focus lock for midnight rest-day awareness.
+ */
+export async function fetchMyUpcomingExerciseDates(userId: string): Promise<string[]> {
+  const { data: memberships, error: mErr } = await supabase
+    .from('gang_members')
+    .select('gang_id')
+    .eq('user_id', userId);
+  if (mErr) throw mErr;
+  const gangIds = (memberships ?? []).map((m) => m.gang_id);
+  if (gangIds.length === 0) return [];
+
+  const { data: plans, error: pErr } = await supabase
+    .from('weekly_plans')
+    .select('id')
+    .in('gang_id', gangIds)
+    .eq('status', 'active');
+  if (pErr) throw pErr;
+  if (!plans || plans.length === 0) return [];
+
+  const today = todayISO();
+  const end = new Date(`${today}T12:00:00`);
+  end.setDate(end.getDate() + 14);
+  const endDate = toLocalDateISO(end);
+  const planIds = plans.map((p) => p.id);
+
+  const { data: goals, error: gErr } = await supabase
+    .from('daily_goals')
+    .select(
+      `goal_date,
+      exercises:daily_goal_exercises(id)`,
+    )
+    .in('weekly_plan_id', planIds)
+    .gte('goal_date', today)
+    .lte('goal_date', endDate);
+  if (gErr) throw gErr;
+
+  const dates = new Set<string>();
+  for (const goal of goals ?? []) {
+    const exercises = (goal as { exercises?: { id: string }[] }).exercises ?? [];
+    if (exercises.length > 0 && typeof goal.goal_date === 'string') {
+      dates.add(goal.goal_date);
+    }
+  }
+  return [...dates].sort();
+}
+
+/** Upcoming dates with exercises (for Focus lock day-boundary schedule). */
+export function useMyUpcomingExerciseDates() {
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
+  return useQuery({
+    queryKey: queryKeys.myUpcomingExerciseDates(userId),
+    enabled: !!userId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<string[]> => {
+      return fetchMyUpcomingExerciseDates(userId!);
+    },
+  });
+}
+
 /** A single daily goal with exercise progress. */
 export function useDailyGoal(dailyGoalId?: string) {
   const { session } = useAuth();
@@ -222,7 +285,7 @@ export function useCreateWeeklyPlan() {
       queryClient.invalidateQueries({ queryKey: queryKeys.gangWeeklyPlans(plan.gang_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.activeWeeklyPlan(plan.gang_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.weeklyPlan(plan.id) });
-      queryClient.invalidateQueries({ queryKey: ['daily-goals', 'today'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-goals'] });
     },
   });
 }
@@ -253,7 +316,7 @@ export function useUpdateWeeklyPlan() {
       queryClient.invalidateQueries({ queryKey: queryKeys.gangWeeklyPlans(plan.gang_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.activeWeeklyPlan(plan.gang_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.weeklyPlan(plan.id) });
-      queryClient.invalidateQueries({ queryKey: ['daily-goals', 'today'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-goals'] });
     },
   });
 }

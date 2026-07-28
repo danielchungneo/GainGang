@@ -109,6 +109,23 @@ export function isCrewSetupComplete(
   return !!profile?.onboarding_completed_at;
 }
 
+/**
+ * Already-onboarded users who have not seen the Focus lock intro yet.
+ * New signups are stamped at profile create (and again at crew setup) so they
+ * never hit this after completing the pre-auth Focus lock step.
+ */
+export function needsFocusLockIntro(
+  profile:
+    | {
+        onboarding_completed_at: string | null;
+        focus_lock_intro_seen_at: string | null;
+      }
+    | null
+    | undefined,
+): boolean {
+  return isCrewSetupComplete(profile) && !profile?.focus_lock_intro_seen_at;
+}
+
 /** @deprecated Use isCrewSetupComplete */
 export function isOnboardingComplete(
   profile: { onboarding_completed_at: string | null } | null | undefined,

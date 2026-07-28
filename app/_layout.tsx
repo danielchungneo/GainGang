@@ -12,6 +12,8 @@ import "react-native-reanimated";
 
 import { OtaUpdateModal } from "@/components/ota-update-modal";
 
+import { ScreenTimeLockSync } from "@/components/screen-time-lock-sync";
+
 import { AuthProvider } from "@/context/auth-context";
 
 import { QueryProvider } from "@/context/query-client";
@@ -37,6 +39,7 @@ function RootNavigator() {
   return (
     <ThemeProvider value={mode === "dark" ? DarkTheme : DefaultTheme}>
       <OtaUpdateModal />
+      <ScreenTimeLockSync />
       <Stack
         screenOptions={{
           contentStyle: { backgroundColor: theme.colors.bg },
@@ -55,6 +58,8 @@ function RootNavigator() {
         <Stack.Screen name="welcome-crew" options={{ headerShown: false }} />
 
         <Stack.Screen name="welcome-notifications" options={{ headerShown: false }} />
+
+        <Stack.Screen name="welcome-focus-lock" options={{ headerShown: false }} />
 
         <Stack.Screen
           name="modal"
@@ -108,6 +113,11 @@ function RootNavigator() {
         <Stack.Screen name="profile/[userId]" options={{ headerShown: false }} />
 
         <Stack.Screen name="settings" options={{ headerShown: false }} />
+
+        <Stack.Screen
+          name="settings-screen-time"
+          options={{ headerShown: false }}
+        />
 
         <Stack.Screen
           name="edit-profile"

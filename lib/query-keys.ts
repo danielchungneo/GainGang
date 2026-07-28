@@ -22,6 +22,8 @@ export const queryKeys = {
   activeWeeklyPlan: (gangId: string) => ['weekly-plans', 'active', gangId] as const,
   weeklyPlan: (planId?: string) => ['weekly-plans', 'detail', planId] as const,
   myTodaysDailyGoals: (userId?: string) => ['daily-goals', 'today', userId] as const,
+  myUpcomingExerciseDates: (userId?: string) =>
+    ['daily-goals', 'upcoming-exercise-dates', userId] as const,
   dailyGoal: (dailyGoalId?: string, userId?: string) =>
     ['daily-goals', 'detail', dailyGoalId, userId] as const,
   feed: (gangId: string) => ['feed', gangId] as const,

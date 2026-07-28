@@ -8,6 +8,7 @@ import {
   isCrewSetupComplete,
   isPostAuthNotificationsComplete,
   isPreAuthOnboardingComplete,
+  needsFocusLockIntro as profileNeedsFocusLockIntro,
   savePendingFitnessLevel,
   setPostAuthNotificationsComplete,
   setPreAuthOnboardingComplete,
@@ -76,6 +77,55 @@ export function useNeedsCrewSetup(): {
     isLoading: false,
     profile,
   };
+}
+
+/**
+ * Existing accounts that finished onboarding before Focus lock shipped.
+ * New signups are exempted via focus_lock_intro_seen_at on the profile.
+ */
+export function useNeedsFocusLockIntro(): {
+  needsFocusLockIntro: boolean;
+  isLoading: boolean;
+} {
+  const { session, isPending: authPending } = useAuth();
+  const { needsCrewSetup, isLoading: crewLoading, profile } = useNeedsCrewSetup();
+
+  if (authPending || !session || crewLoading) {
+    return { needsFocusLockIntro: false, isLoading: authPending || crewLoading };
+  }
+
+  if (needsCrewSetup) {
+    return { needsFocusLockIntro: false, isLoading: false };
+  }
+
+  return {
+    needsFocusLockIntro: profileNeedsFocusLockIntro(profile),
+    isLoading: false,
+  };
+}
+
+export function useCompleteFocusLockIntro() {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const id = session?.user.id;
+
+  return useMutation({
+    mutationFn: async (): Promise<Profile> => {
+      if (!id) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ focus_lock_intro_seen_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile(id) });
+    },
+  });
 }
 
 /**
@@ -153,12 +203,16 @@ export function useCompleteCrewSetup() {
       if (!id) throw new Error('Not authenticated');
 
       const pendingFitness = options.fitnessLevel ?? (await consumePendingFitnessLevel());
+      const now = new Date().toISOString();
 
+      // Stamp Focus lock intro as seen — new users already saw it in pre-auth.
       const patch: {
         onboarding_completed_at: string;
+        focus_lock_intro_seen_at: string;
         fitness_level?: FitnessLevel;
       } = {
-        onboarding_completed_at: new Date().toISOString(),
+        onboarding_completed_at: now,
+        focus_lock_intro_seen_at: now,
       };
       if (pendingFitness) patch.fitness_level = pendingFitness;
 

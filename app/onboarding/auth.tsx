@@ -30,7 +30,7 @@ export default function OnboardingAuthScreen() {
 
   return (
     <OnboardingShell
-      step={4}
+      step={5}
       title="Claim your reward"
       subtitle="Create a free account to lock in your starter boost and start training with your Gang."
     >

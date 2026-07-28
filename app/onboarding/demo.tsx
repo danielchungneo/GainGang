@@ -109,7 +109,7 @@ export default function OnboardingDemoScreen() {
 
   function handleRewardClaim() {
     setShowReward(false);
-    router.push('/onboarding/auth');
+    router.push('/onboarding/focus-lock');
   }
 
   return (

@@ -19,5 +19,6 @@ export type { GlassSurfaceProps } from './glass-surface';
 export { ScreenBackground } from './screen-background';
 export { KeyboardAwareScrollView } from './keyboard-aware-scroll-view';
 export { Avatar } from './avatar';
+export { ImageViewerModal } from './image-viewer-modal';
 export { IconBadge } from './icon-badge';
 export type { IconBadgeProps } from './icon-badge';

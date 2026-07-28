@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift b/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
-index 6a7f7c4..b481345 100644
+index 6a7f7c4..464576e 100644
 --- a/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
 +++ b/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
 @@ -28,6 +28,9 @@ public class ExpoAppBlockerModule: Module {
@@ -65,3 +65,36 @@ index 6a7f7c4..b481345 100644
    private func isTemporarilyUnlockedInternal() -> Bool {
      return remainingUnlockSeconds() > 0
    }
+@@ -764,8 +799,30 @@ public class ExpoAppBlockerModule: Module {
+   }
+ 
+   private func persistBlockConfiguration(_ config: [String: Any]) {
+-    userDefaults.set(config, forKey: blockConfigStorageKey)
+-    sharedDefaults?.set(config, forKey: blockConfigStorageKey)
++    let sanitized = Self.stripNonPropertyListValues(config)
++    userDefaults.set(sanitized, forKey: blockConfigStorageKey)
++    sharedDefaults?.set(sanitized, forKey: blockConfigStorageKey)
++  }
++
++  /// UserDefaults only accepts property-list types. Expo/JS often sends NSNull for
++  /// optional fields (e.g. unlockedDate) — strip those so persist cannot crash.
++  private static func stripNonPropertyListValues(_ value: Any) -> Any? {
++    if value is NSNull {
++      return nil
++    }
++    if let dict = value as? [String: Any] {
++      var out: [String: Any] = [:]
++      for (key, nested) in dict {
++        if let cleaned = stripNonPropertyListValues(nested) {
++          out[key] = cleaned
++        }
++      }
++      return out
++    }
++    if let array = value as? [Any] {
++      return array.compactMap { stripNonPropertyListValues($0) }
++    }
++    return value
+   }
+ 
+   // MARK: - Token Encoding/Decoding

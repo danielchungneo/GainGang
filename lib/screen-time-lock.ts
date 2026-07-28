@@ -35,7 +35,7 @@ export type ScreenTimeLockStatus =
 export interface FocusLockNativeExtras {
   focusLockEnabled: boolean;
   datesWithExercises: string[];
-  unlockedDate: string | null;
+  unlockedDate?: string;
 }
 
 const STORAGE_KEY = 'gaingang.screen-time-lock';
@@ -191,14 +191,18 @@ export async function syncScreenTimeLockState(input: {
     const shouldLock =
       hasExercisesToday && next.unlockedDate !== today && !input.goalsComplete;
 
-    await native.setBlockConfiguration({
+    // UserDefaults rejects null — only include unlockedDate when it's a real date string.
+    const config: Record<string, unknown> = {
       blockedItems: next.blockedItems,
       isActive: shouldLock,
-      // Persisted into App Group for DeviceActivityMonitor day-boundary logic.
       focusLockEnabled: true,
       datesWithExercises,
-      unlockedDate: next.unlockedDate,
-    } as Parameters<typeof native.setBlockConfiguration>[0] & FocusLockNativeExtras);
+    };
+    if (next.unlockedDate) config.unlockedDate = next.unlockedDate;
+
+    await native.setBlockConfiguration(
+      config as Parameters<typeof native.setBlockConfiguration>[0],
+    );
   } catch (error) {
     console.warn('[screen-time-lock] sync failed', error);
   }

@@ -30,8 +30,8 @@ export const SETUP_GUIDES: Record<CameraExerciseType, ExerciseSetupInfo> = {
     cameraHint: 'front-or-side',
     tips: [
       'Place the phone so your upper body is visible.',
-      'Keep shoulders, elbows, and wrists in frame.',
-      'Go all the way down and fully extend at the top.',
+      'Plant your hands under your shoulders — keep wrists and shoulders in frame.',
+      'Lower your chest each rep, then fully extend at the top.',
     ],
   },
   squat: {

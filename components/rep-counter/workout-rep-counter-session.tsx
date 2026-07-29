@@ -42,10 +42,6 @@ import {
   getCameraTrackingMode,
   SETUP_GUIDES,
 } from '@/lib/rep-counting/exercise-registry';
-import {
-  nextCameraUiRotation,
-  type CameraUiRotation,
-} from '@/lib/rep-counting/landmark-orientation';
 import { isRepCounterNativeSupported, repCounterUnsupportedMessage } from '@/lib/rep-counting/platform';
 import {
   isCameraSetupSkipped,
@@ -118,7 +114,6 @@ export function WorkoutRepCounterSession({
   const [dontShowSetupAgain, setDontShowSetupAgain] = useState(false);
   const [isSetupPreferenceReady, setIsSetupPreferenceReady] = useState(false);
   const [isHintModalVisible, setIsHintModalVisible] = useState(false);
-  const [uiRotation, setUiRotation] = useState<CameraUiRotation>(0);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [cameraRemountKey, setCameraRemountKey] = useState(0);
 
@@ -199,7 +194,6 @@ export function WorkoutRepCounterSession({
       setTrackedAmount(0);
       setDontShowSetupAgain(false);
       setIsSetupPreferenceReady(false);
-      setUiRotation(0);
       setSaveError(null);
       autoFinishRef.current = false;
       savingRef.current = false;
@@ -469,7 +463,7 @@ export function WorkoutRepCounterSession({
           </Text>
           <Text style={{ color: '#94A3B8', textAlign: 'center' }}>
             {excludeCompletedExercises
-              ? 'Every camera-supported exercise with a target is already complete.'
+              ? 'Every camera-supported exercise is already complete — nothing left to split.'
               : 'Workout mode needs at least one camera-supported exercise with a target.'}
           </Text>
           <TouchableOpacity
@@ -550,27 +544,6 @@ export function WorkoutRepCounterSession({
                 accessibilityLabel="Show camera setup hints"
               >
                 <Ionicons name="help-circle-outline" size={26} color="#F8FAFC" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  setUiRotation((current) => nextCameraUiRotation(current));
-                  void Haptics.selectionAsync();
-                }}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  uiRotation === 0
-                    ? 'Rotate UI sideways for floor exercises'
-                    : 'Rotate UI upright'
-                }
-              >
-                <Ionicons
-                  name={
-                    uiRotation === 0 ? 'phone-landscape-outline' : 'phone-portrait-outline'
-                  }
-                  size={24}
-                  color={uiRotation === 0 ? '#F8FAFC' : '#22d3ee'}
-                />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSkipSegment}
@@ -669,7 +642,6 @@ export function WorkoutRepCounterSession({
                 targetSeconds={segment.targetAmount}
                 initialElapsedSeconds={0}
                 onElapsedChange={setTrackedAmount}
-                uiRotation={uiRotation}
               />
             ) : (
               <RepCounterCamera
@@ -678,7 +650,6 @@ export function WorkoutRepCounterSession({
                 onRepCountChange={setTrackedAmount}
                 targetReps={segment.targetAmount}
                 requirePermission
-                uiRotation={uiRotation}
               />
             )}
           </Suspense>

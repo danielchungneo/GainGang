@@ -648,10 +648,15 @@ function WorkoutCyclePickerModal({
   const selectedBreakdown =
     selectedCycles === null
       ? []
-      : workoutExercises.map((exercise) => ({
-          ...exercise,
-          amounts: splitTargetAcrossCycles(exercise.individual.target, selectedCycles),
-        }));
+      : workoutExercises.map((exercise) => {
+          const planningAmount = excludeCompletedExercises
+            ? Math.max(0, exercise.individual.target - exercise.individual.current)
+            : exercise.individual.target;
+          return {
+            ...exercise,
+            amounts: splitTargetAcrossCycles(planningAmount, selectedCycles),
+          };
+        });
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -696,7 +701,7 @@ function WorkoutCyclePickerModal({
               style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: excludeCompletedExercises }}
-              accessibilityLabel="Exclude completed exercises from reps"
+              accessibilityLabel="Base workout on remaining daily reps"
             >
               <View
                 style={[
@@ -716,14 +721,14 @@ function WorkoutCyclePickerModal({
                   color={excludeCompletedExercises ? c.primaryGlow : c.textMuted}
                 />
                 <Text style={[styles.workoutCheckboxLabel, { color: c.text }]}>
-                  Exclude completed exercises from reps
+                  Base workout on remaining reps
                 </Text>
               </View>
             </Pressable>
 
             {excludeCompletedExercises ? (
               <Text style={[styles.workoutCheckboxHint, { color: c.textDim }]}>
-                Completed exercises are skipped now and in later cycles.
+                Skips finished exercises and splits what you still need across your rounds.
               </Text>
             ) : null}
 
@@ -792,16 +797,16 @@ function WorkoutCyclePickerModal({
                 <Text style={[styles.workoutPreviewTitle, { color: c.text }]}>
                   {selectedCycles === 1
                     ? 'One full round'
-                    : `${selectedCycles} rounds · ${
-                        excludeCompletedExercises ? 'up to ' : ''
-                      }${selectedBreakdown.length * selectedCycles} sets`}
+                    : `${selectedCycles} rounds · ${selectedBreakdown.length * selectedCycles} sets`}
                 </Text>
                 <Text style={[styles.workoutPreviewHint, { color: c.textDim }]}>
                   {excludeCompletedExercises
-                    ? 'Exercises will disappear from later rounds as soon as you complete their daily target.'
+                    ? selectedCycles === 1
+                      ? 'One round of each exercise’s remaining daily amount.'
+                      : 'Remaining daily amounts are split across your rounds. Finished exercises are skipped.'
                     : selectedCycles === 1
-                    ? 'Complete each exercise once at its full target.'
-                    : `Example: a 20-rep target becomes ${splitTargetAcrossCycles(20, selectedCycles).join(' + ')} reps across the rounds.`}
+                      ? 'Complete each exercise once at its full target.'
+                      : `Example: a 20-rep target becomes ${splitTargetAcrossCycles(20, selectedCycles).join(' + ')} reps across the rounds.`}
                 </Text>
 
                 <ScrollView

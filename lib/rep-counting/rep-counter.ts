@@ -29,13 +29,35 @@ export interface ExerciseConfig {
    * in-frame session (so curling the torso mid-rep won't disarm the gate).
    */
   latchReady?: boolean;
+  /**
+   * Optional depth signal (e.g. shoulder y). Larger values = lower on screen.
+   * When set with minDepthDelta, a rep only counts if depth rose enough while down.
+   */
+  getDepthSignal?: (landmarks: Landmark[]) => number | null;
+  /** Min depth-signal increase from up → down required to count a rep. */
+  minDepthDelta?: number;
 }
 
-const CORE_VISIBILITY_MIN = 0.45;
+const CORE_VISIBILITY_MIN = 0.4;
 /** Knee must sit this far above hip/shoulder (normalized image y). */
 const KNEE_ABOVE_MARGIN = 0.05;
 /** Thigh should be closer to vertical than horizontal while in tabletop. */
 const CRUNCH_THIGH_VERTICAL_RATIO = 0.85;
+/**
+ * Max horizontal gap between wrist and its shoulder (normalized image x).
+ * Generous enough for front/side angles without requiring a full body line.
+ */
+const PUSHUP_WRIST_UNDER_SHOULDER_X_MAX = 0.22;
+/**
+ * Wrist must sit at/below the shoulder (image y grows downward).
+ * Slightly negative so brief pose jitter does not fail a valid plant.
+ */
+const PUSHUP_WRIST_BELOW_SHOULDER_MIN = -0.02;
+/**
+ * Min shoulder drop (normalized y) between the up hold and the deepest down
+ * before a push-up rep can count — rejects elbow bends that don't lower the chest.
+ */
+const PUSHUP_MIN_SHOULDER_DROP = 0.045;
 
 function avgVisibility(...points: Landmark[]): number {
   if (points.length === 0) return 0;
@@ -90,6 +112,47 @@ function elbowAngle(landmarks: Landmark[]): number | null {
 
   if (avgVisibility(shoulder, elbow, wrist) < CORE_VISIBILITY_MIN) return null;
   return calculateAngle(shoulder, elbow, wrist);
+}
+
+/** Average visible shoulder y — larger means lower on screen (deeper in a push-up). */
+function shoulderDepthY(landmarks: Landmark[]): number | null {
+  const left = landmarks[PoseLandmarkIndex.LEFT_SHOULDER];
+  const right = landmarks[PoseLandmarkIndex.RIGHT_SHOULDER];
+  const visible: Landmark[] = [];
+  if (left.visibility >= CORE_VISIBILITY_MIN) visible.push(left);
+  if (right.visibility >= CORE_VISIBILITY_MIN) visible.push(right);
+  if (visible.length === 0) return null;
+  return visible.reduce((sum, point) => sum + point.y, 0) / visible.length;
+}
+
+/**
+ * Hands planted under the shoulders — no full torso/hip line required.
+ * Uses the clearer arm side so side-angle framing still works.
+ */
+function isPushupReady(landmarks: Landmark[]): ReadyCheckResult {
+  const side = pickSide(landmarks[PoseLandmarkIndex.LEFT_ELBOW], landmarks[PoseLandmarkIndex.RIGHT_ELBOW]);
+  const shoulder =
+    side === 'left'
+      ? landmarks[PoseLandmarkIndex.LEFT_SHOULDER]
+      : landmarks[PoseLandmarkIndex.RIGHT_SHOULDER];
+  const wrist =
+    side === 'left'
+      ? landmarks[PoseLandmarkIndex.LEFT_WRIST]
+      : landmarks[PoseLandmarkIndex.RIGHT_WRIST];
+
+  if (avgVisibility(shoulder, wrist) < CORE_VISIBILITY_MIN) {
+    return { ok: false, message: 'Keep a shoulder and wrist visible' };
+  }
+
+  if (wrist.y < shoulder.y + PUSHUP_WRIST_BELOW_SHOULDER_MIN) {
+    return { ok: false, message: 'Plant your hands under your shoulders' };
+  }
+
+  if (Math.abs(wrist.x - shoulder.x) > PUSHUP_WRIST_UNDER_SHOULDER_X_MAX) {
+    return { ok: false, message: 'Plant your hands under your shoulders' };
+  }
+
+  return { ok: true, message: '' };
 }
 
 function kneeAngle(landmarks: Landmark[]): number | null {
@@ -213,10 +276,14 @@ export const EXERCISE_CONFIGS: Record<CameraExerciseType, ExerciseConfig> = {
     type: 'pushup',
     getAngle: elbowAngle,
     upThreshold: 150,
-    downThreshold: 102,
+    downThreshold: 110,
     minFramesInPhase: 3,
     countTransition: 'down-to-up',
     initialPhase: 'up',
+    isReady: isPushupReady,
+    latchReady: true,
+    getDepthSignal: shoulderDepthY,
+    minDepthDelta: PUSHUP_MIN_SHOULDER_DROP,
   },
   squat: {
     type: 'squat',
@@ -282,6 +349,10 @@ export class RepCounter {
   private fullyInFrame = false;
   private frameMessage: string;
   private readyLatched = false;
+  /** Shoulder (or other) depth while in the up phase — baseline for drop checks. */
+  private upDepth: number | null = null;
+  /** Deepest depth observed while in the down phase. */
+  private downDepth: number | null = null;
 
   constructor(private config: ExerciseConfig) {
     this.phase = config.initialPhase;
@@ -303,6 +374,30 @@ export class RepCounter {
     this.framesInPhase = 0;
     this.pendingPhase = null;
     this.pendingFrames = 0;
+    this.upDepth = null;
+    this.downDepth = null;
+  }
+
+  private updateDepthTracking(depth: number | null) {
+    if (depth === null || this.config.minDepthDelta == null) return;
+
+    if (this.phase === 'up') {
+      // Prefer the highest up position (smallest y) as the baseline.
+      this.upDepth = this.upDepth === null ? depth : Math.min(this.upDepth, depth);
+      this.downDepth = null;
+      return;
+    }
+
+    if (this.phase === 'down') {
+      this.downDepth = this.downDepth === null ? depth : Math.max(this.downDepth, depth);
+    }
+  }
+
+  private depthDeltaMet(): boolean {
+    const minDelta = this.config.minDepthDelta;
+    if (minDelta == null) return true;
+    if (this.upDepth === null || this.downDepth === null) return false;
+    return this.downDepth - this.upDepth >= minDelta;
   }
 
   processFrame(landmarks: Landmark[]): RepCounterSnapshot {
@@ -338,10 +433,12 @@ export class RepCounter {
     }
 
     this.lastAngle = angle;
+    const depth = this.config.getDepthSignal?.(landmarks) ?? null;
 
     const targetPhase = resolveTargetPhase(angle, this.config);
 
     if (targetPhase === 'transition') {
+      this.updateDepthTracking(depth);
       return this.snapshot();
     }
 
@@ -349,6 +446,7 @@ export class RepCounter {
       this.pendingPhase = null;
       this.pendingFrames = 0;
       this.framesInPhase++;
+      this.updateDepthTracking(depth);
       return this.snapshot();
     }
 
@@ -360,6 +458,7 @@ export class RepCounter {
     }
 
     if (this.pendingFrames < this.config.minFramesInPhase) {
+      this.updateDepthTracking(depth);
       return this.snapshot();
     }
 
@@ -373,11 +472,22 @@ export class RepCounter {
     const completedUpToDown = previousPhase === 'up' && targetPhase === 'down';
 
     const shouldCount =
-      (this.config.countTransition === 'down-to-up' && completedDownToUp) ||
-      (this.config.countTransition === 'up-to-down' && completedUpToDown);
+      ((this.config.countTransition === 'down-to-up' && completedDownToUp) ||
+        (this.config.countTransition === 'up-to-down' && completedUpToDown)) &&
+      this.depthDeltaMet();
 
     if (shouldCount) {
       this.repCount++;
+    }
+
+    // Refresh baselines after the transition so the next rep starts clean.
+    if (completedDownToUp) {
+      this.upDepth = depth;
+      this.downDepth = null;
+    } else if (completedUpToDown) {
+      this.downDepth = depth;
+    } else {
+      this.updateDepthTracking(depth);
     }
 
     return this.snapshot();

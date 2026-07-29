@@ -47,4 +47,4 @@ export const POSE_CONNECTIONS: readonly [number, number][] = [
   [26, 28],
 ] as const;
 
-export const MIN_LANDMARK_VISIBILITY = 0.5;
+export const MIN_LANDMARK_VISIBILITY = 0.45;

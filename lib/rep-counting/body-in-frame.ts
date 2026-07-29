@@ -4,6 +4,11 @@ import { pickSide } from '@/utils/pose-math';
 
 /** Allow tiny overflow so edge joints still count when the overlay draws them. */
 const ON_CAMERA_SLOP = 0.02;
+/**
+ * Plank side-profile often clips the knee near the frame edge; accept weaker
+ * detections so a faintly drawn knee still clears the in-frame gate.
+ */
+const PLANK_IN_FRAME_VISIBILITY_MIN = 0.28;
 
 export interface BodyInFrameResult {
   ok: boolean;
@@ -11,9 +16,12 @@ export interface BodyInFrameResult {
 }
 
 /** True when the joint would still render on the skeleton overlay. */
-function isLandmarkInFrame(landmark: Landmark | undefined): boolean {
+function isLandmarkInFrame(
+  landmark: Landmark | undefined,
+  visibilityMin: number = MIN_LANDMARK_VISIBILITY,
+): boolean {
   if (!landmark) return false;
-  if (landmark.visibility < MIN_LANDMARK_VISIBILITY) return false;
+  if (landmark.visibility < visibilityMin) return false;
   if (landmark.x < -ON_CAMERA_SLOP || landmark.x > 1 + ON_CAMERA_SLOP) return false;
   if (landmark.y < -ON_CAMERA_SLOP || landmark.y > 1 + ON_CAMERA_SLOP) return false;
   return true;
@@ -61,8 +69,9 @@ function checkIndicesInFrame(
   landmarks: Landmark[],
   indices: number[],
   message: string,
+  visibilityMin: number = MIN_LANDMARK_VISIBILITY,
 ): BodyInFrameResult {
-  const missing = indices.filter((index) => !isLandmarkInFrame(landmarks[index]));
+  const missing = indices.filter((index) => !isLandmarkInFrame(landmarks[index], visibilityMin));
   if (missing.length === 0) {
     return { ok: true, message: '' };
   }
@@ -130,6 +139,7 @@ function checkPlankBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
       PoseLandmarkIndex.LEFT_KNEE,
     ],
     '',
+    PLANK_IN_FRAME_VISIBILITY_MIN,
   );
   const rightBody = checkIndicesInFrame(
     landmarks,
@@ -139,6 +149,7 @@ function checkPlankBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
       PoseLandmarkIndex.RIGHT_KNEE,
     ],
     '',
+    PLANK_IN_FRAME_VISIBILITY_MIN,
   );
   if (!leftBody.ok && !rightBody.ok) {
     return { ok: false, message: 'Keep shoulder, hip, and knee in frame' };
@@ -148,15 +159,23 @@ function checkPlankBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
     landmarks,
     [PoseLandmarkIndex.LEFT_ELBOW, PoseLandmarkIndex.LEFT_WRIST],
     '',
+    PLANK_IN_FRAME_VISIBILITY_MIN,
   );
   const rightArm = checkIndicesInFrame(
     landmarks,
     [PoseLandmarkIndex.RIGHT_ELBOW, PoseLandmarkIndex.RIGHT_WRIST],
     '',
+    PLANK_IN_FRAME_VISIBILITY_MIN,
   );
   // Wrist alone is enough if the elbow is briefly occluded mid-hold.
-  const leftWristOk = isLandmarkInFrame(landmarks[PoseLandmarkIndex.LEFT_WRIST]);
-  const rightWristOk = isLandmarkInFrame(landmarks[PoseLandmarkIndex.RIGHT_WRIST]);
+  const leftWristOk = isLandmarkInFrame(
+    landmarks[PoseLandmarkIndex.LEFT_WRIST],
+    PLANK_IN_FRAME_VISIBILITY_MIN,
+  );
+  const rightWristOk = isLandmarkInFrame(
+    landmarks[PoseLandmarkIndex.RIGHT_WRIST],
+    PLANK_IN_FRAME_VISIBILITY_MIN,
+  );
   if (leftArm.ok || rightArm.ok || leftWristOk || rightWristOk) {
     return { ok: true, message: '' };
   }

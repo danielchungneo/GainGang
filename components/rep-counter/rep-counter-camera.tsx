@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -26,9 +27,9 @@ import { Worklets } from 'react-native-worklets-core';
 import { cameraHud, cameraHudStyles as hud } from '@/components/rep-counter/camera-hud-styles';
 import { CameraSidewaysStage } from '@/components/rep-counter/camera-sideways-stage';
 import { PoseSkeletonOverlay } from '@/components/rep-counter/pose-skeleton-overlay';
-import { isDebugEnabled } from '@/lib/debug';
 import { iosPoseLandmarkerPlugin } from '@/lib/rep-counting/ios-pose-plugin';
 import {
+  nextCameraUiRotation,
   remapLandmarksForUiRotation,
   type CameraUiRotation,
 } from '@/lib/rep-counting/landmark-orientation';
@@ -37,7 +38,6 @@ import { createRepCounter } from '@/lib/rep-counting/rep-counter';
 import type { CameraExerciseType, Landmark, RepCounterSnapshot } from '@/lib/rep-counting/types';
 
 const BRIDGE_INTERVAL_MS = 66;
-const SHOW_ANGLE_DEBUG = isDebugEnabled();
 
 interface RepCounterCameraProps {
   exerciseType: CameraExerciseType;
@@ -47,8 +47,6 @@ interface RepCounterCameraProps {
   targetReps?: number;
   /** Stronger permission-denied UX with retry + Settings. */
   requirePermission?: boolean;
-  /** Header-controlled UI tip rotation for sideways filming. */
-  uiRotation?: CameraUiRotation;
 }
 
 export function RepCounterCamera({
@@ -57,7 +55,6 @@ export function RepCounterCamera({
   onSnapshot,
   targetReps,
   requirePermission = false,
-  uiRotation = 0,
 }: RepCounterCameraProps) {
   // Prefer multi-cam front devices so zoom can reach the wider FOV (iPhone
   // Camera app selfie "zoom out" / ~0.5x). Still returns a single-lens front cam if that's all there is.
@@ -73,6 +70,8 @@ export function RepCounterCamera({
   const [phase, setPhase] = useState<string>('—');
   const [angle, setAngle] = useState(0);
   const [isCameraActive, setIsCameraActive] = useState(true);
+  const [uiRotation, setUiRotation] = useState<CameraUiRotation>(0);
+  const [showAngleDebug, setShowAngleDebug] = useState(false);
 
   const repCounterRef = useRef(createRepCounter(exerciseType));
   const lastRepRef = useRef(0);
@@ -294,6 +293,51 @@ export function RepCounterCamera({
         const compact = rotation !== 0;
         return (
           <>
+            {__DEV__ ? (
+              <TouchableOpacity
+                style={[hud.angleDebugBtn, showAngleDebug ? hud.orientationBtnActive : null]}
+                onPress={() => {
+                  setShowAngleDebug((current) => !current);
+                  void Haptics.selectionAsync();
+                }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showAngleDebug ? 'Hide rep angle debug' : 'Show rep angle debug'
+                }
+                accessibilityState={{ selected: showAngleDebug }}
+              >
+                <Ionicons
+                  name="speedometer-outline"
+                  size={22}
+                  color={showAngleDebug ? cameraHud.primaryGlow : cameraHud.text}
+                />
+              </TouchableOpacity>
+            ) : null}
+
+            <TouchableOpacity
+              style={[hud.orientationBtn, compact ? hud.orientationBtnActive : null]}
+              onPress={() => {
+                setUiRotation((current) => nextCameraUiRotation(current));
+                void Haptics.selectionAsync();
+              }}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={
+                compact
+                  ? 'Rotate UI upright'
+                  : 'Rotate UI sideways for floor exercises'
+              }
+              accessibilityState={{ selected: compact }}
+            >
+              <Ionicons
+                name={compact ? 'phone-portrait-outline' : 'phone-landscape-outline'}
+                size={22}
+                color={compact ? cameraHud.primaryGlow : cameraHud.text}
+                style={compact ? { transform: [{ rotate: '180deg' }] } : undefined}
+              />
+            </TouchableOpacity>
+
             <View style={[hud.hudTop, compact ? hud.hudTopCompact : null]}>
               {!fullyInFrame || !trackingOk ? (
                 <View style={[hud.warningCard, compact ? hud.warningCardCompact : null]}>
@@ -308,7 +352,7 @@ export function RepCounterCamera({
                       : 'Reposition — keep joints in frame'}
                   </Text>
                 </View>
-              ) : SHOW_ANGLE_DEBUG ? (
+              ) : showAngleDebug ? (
                 <View style={[hud.secondaryBadge, compact ? hud.secondaryBadgeCompact : null]}>
                   <Text style={hud.secondaryLabel}>Angle</Text>
                   <Text style={[hud.secondaryValue, compact ? hud.secondaryValueCompact : null]}>

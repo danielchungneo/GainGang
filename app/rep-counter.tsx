@@ -14,10 +14,6 @@ import {
   SETUP_GUIDES,
 } from '@/lib/rep-counting/exercise-registry';
 import {
-  nextCameraUiRotation,
-  type CameraUiRotation,
-} from '@/lib/rep-counting/landmark-orientation';
-import {
   buildRepCounterSessionKey,
   parseRepCounterQueue,
   serializeRepCounterQueue,
@@ -98,7 +94,6 @@ export default function RepCounterScreen() {
   const [dontShowSetupAgain, setDontShowSetupAgain] = useState(false);
   const [isSetupPreferenceReady, setIsSetupPreferenceReady] = useState(false);
   const [isHintModalVisible, setIsHintModalVisible] = useState(false);
-  const [uiRotation, setUiRotation] = useState<CameraUiRotation>(0);
 
   const targetSeconds = useMemo(() => {
     const raw = Array.isArray(params.targetSeconds)
@@ -133,7 +128,6 @@ export default function RepCounterScreen() {
       setTrackedAmount(0);
       setDontShowSetupAgain(false);
       setIsSetupPreferenceReady(false);
-      setUiRotation(0);
       autoFinishRef.current = false;
 
       if (!exerciseType) {
@@ -317,29 +311,6 @@ export default function RepCounterScreen() {
                 <Ionicons name="help-circle-outline" size={26} color="#F8FAFC" />
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => {
-                  setUiRotation((current) => nextCameraUiRotation(current));
-                  void Haptics.selectionAsync();
-                }}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  uiRotation === 0
-                    ? 'Rotate UI sideways for floor exercises'
-                    : 'Rotate UI upright'
-                }
-                accessibilityState={{ selected: uiRotation !== 0 }}
-              >
-                <Ionicons
-                  name={
-                    uiRotation === 0 ? 'phone-landscape-outline' : 'phone-portrait-outline'
-                  }
-                  size={24}
-                  color={uiRotation === 0 ? '#F8FAFC' : '#22d3ee'}
-                  style={uiRotation !== 0 ? { transform: [{ rotate: '180deg' }] } : undefined}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
                 onPress={() => setStep('review')}
                 hitSlop={12}
                 accessibilityRole="button"
@@ -349,39 +320,14 @@ export default function RepCounterScreen() {
               </TouchableOpacity>
             </View>
           ) : step === 'active' && isOnboarding ? (
-            <View style={styles.activeHeaderActions}>
-              <TouchableOpacity
-                onPress={() => setIsHintModalVisible(true)}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Show camera setup hints"
-              >
-                <Ionicons name="help-circle-outline" size={26} color="#F8FAFC" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  setUiRotation((current) => nextCameraUiRotation(current));
-                  void Haptics.selectionAsync();
-                }}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  uiRotation === 0
-                    ? 'Rotate UI sideways for floor exercises'
-                    : 'Rotate UI upright'
-                }
-                accessibilityState={{ selected: uiRotation !== 0 }}
-              >
-                <Ionicons
-                  name={
-                    uiRotation === 0 ? 'phone-landscape-outline' : 'phone-portrait-outline'
-                  }
-                  size={24}
-                  color={uiRotation === 0 ? '#F8FAFC' : '#22d3ee'}
-                  style={uiRotation !== 0 ? { transform: [{ rotate: '180deg' }] } : undefined}
-                />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={() => setIsHintModalVisible(true)}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Show camera setup hints"
+            >
+              <Ionicons name="help-circle-outline" size={26} color="#F8FAFC" />
+            </TouchableOpacity>
           ) : undefined
         }
       />
@@ -437,7 +383,6 @@ export default function RepCounterScreen() {
                 targetSeconds={targetSeconds}
                 initialElapsedSeconds={trackedAmount}
                 onElapsedChange={setTrackedAmount}
-                uiRotation={uiRotation}
               />
             ) : (
               <RepCounterCamera
@@ -445,7 +390,6 @@ export default function RepCounterScreen() {
                 onRepCountChange={setTrackedAmount}
                 targetReps={isOnboarding ? targetReps : undefined}
                 requirePermission
-                uiRotation={uiRotation}
               />
             )}
           </Suspense>

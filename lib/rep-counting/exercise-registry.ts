@@ -43,9 +43,9 @@ export const SETUP_GUIDES: Record<CameraExerciseType, ExerciseSetupInfo> = {
     cameraHint: 'front-or-side',
     tips: [
       'Film from the front or back — keep shoulders, elbows, and hips in frame.',
-      'Hang with both hands above your head before the first rep counts.',
-      'Pull until your chin clears the bar — your shoulders and torso should rise.',
-      'Lower all the way down before the next rep.',
+      'Hang with both hands above your head first — counting starts only after that.',
+      'Pull until your elbows bend and your shoulders and torso rise toward the bar.',
+      'Lower to a full hang (arms nearly straight) before the next rep.',
     ],
   },
   squat: {
@@ -105,8 +105,7 @@ export const CAMERA_SETUP_VIDEO = require('../../assets/videos/user-tutorials/ca
 /** Local tutorial clips shown on the pre-camera setup screen (muted, looping). */
 export const EXERCISE_TUTORIAL_VIDEOS: Record<CameraExerciseType, number> = {
   pushup: require('../../assets/videos/exercise-video-tutorials/pushup.mov'),
-  // Dedicated pull-up clip TBD — reuse camera setup until one ships.
-  pullup: require('../../assets/videos/user-tutorials/camera-setup.mov'),
+  pullup: require('../../assets/videos/exercise-video-tutorials/pullups.mov'),
   squat: require('../../assets/videos/exercise-video-tutorials/squats.mov'),
   lunge: require('../../assets/videos/exercise-video-tutorials/lunge.mov'),
   situp: require('../../assets/videos/exercise-video-tutorials/situps.mov'),

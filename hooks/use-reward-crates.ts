@@ -6,14 +6,17 @@ import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
 import type { DailyGoalWithProgress, UserRewardCrate } from '@/types';
 
-/** True when every exercise across today's goals is personally cleared. */
+/** True when every required exercise across today's goals is personally cleared. */
 export function areDailyGoalsComplete(goals: DailyGoalWithProgress[]): boolean {
   if (goals.length === 0) return false;
   return goals.every(
     (goal) =>
       goal.exercises.length > 0 &&
       goal.exercises.every(
-        (ex) => ex.individual_target <= 0 || ex.user_total >= ex.individual_target,
+        (ex) =>
+          !ex.is_required_for_user ||
+          ex.individual_target <= 0 ||
+          ex.user_total >= ex.individual_target,
       ),
   );
 }

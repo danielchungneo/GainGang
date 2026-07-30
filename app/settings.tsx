@@ -123,7 +123,7 @@ export default function SettingsScreen() {
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={[type.labelSm, { color: t.body }]}>Profile</Text>
               <Text style={[type.bodySm, { color: t.heading }]}>
-                Photo, name, bio
+                Photo, name, bio, equipment
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={t.body} />

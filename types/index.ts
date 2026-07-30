@@ -11,6 +11,7 @@ export type {
   GangRole,
   ExerciseCategory,
   ExerciseUnit,
+  ExerciseRequiredEquipment,
   QuestType,
   QuestStatus,
   WeeklyPlanStatus,
@@ -26,6 +27,7 @@ import type {
   Tables,
   ExerciseCategory,
   ExerciseUnit,
+  ExerciseRequiredEquipment,
   Rank,
 } from './database';
 
@@ -91,7 +93,11 @@ export interface DailyGoalExerciseWithProgress {
   id: string;
   exercise_id: string;
   exercise_name: string;
+  category: ExerciseCategory;
   unit: ExerciseUnit;
+  required_equipment: ExerciseRequiredEquipment | null;
+  eligible_member_count: number;
+  is_required_for_user: boolean;
   individual_target: number;
   gang_target: number;
   gang_total: number;

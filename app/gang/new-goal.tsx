@@ -23,6 +23,7 @@ import {
 } from '@/hooks/use-weekly-plans';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { formatAmountInputValue, parseActivityAmount, sanitizeAmountInput } from '@/lib/activity-amount';
+import { equipmentLabel } from '@/lib/equipment';
 import { formatAmount, formatGoalDate, goalDateForWeekDay } from '@/lib/format';
 import {
   CATEGORY_LABELS,
@@ -30,6 +31,7 @@ import {
   WEEKLY_SCHEDULE,
   mondayOfWeek,
   type ExerciseCategory,
+  type ExerciseRequiredEquipment,
   type ExerciseUnit,
   type WeeklyPlanWithGoals,
 } from '@/types';
@@ -39,6 +41,7 @@ interface DayExerciseDraft {
   name: string;
   unit: ExerciseUnit;
   individualTarget: string;
+  requiredEquipment?: ExerciseRequiredEquipment | null;
 }
 
 interface DayDraft {
@@ -67,6 +70,7 @@ function buildDaysFromPlan(plan: WeeklyPlanWithGoals): Record<number, DayDraft> 
         name: e.exercise_name,
         unit: e.unit,
         individualTarget: formatAmountInputValue(e.individual_target, e.unit),
+        requiredEquipment: e.required_equipment,
       })),
     };
   }
@@ -126,6 +130,7 @@ export default function NewGoalScreen() {
               name: ex.name,
               unit: ex.unit,
               individualTarget: ex.unit === 'miles' ? '2' : ex.unit === 'seconds' ? '60' : '20',
+              requiredEquipment: ex.required_equipment,
             },
           ],
         },
@@ -317,7 +322,11 @@ export default function NewGoalScreen() {
                 {availableExercises.map((ex) => (
                   <Chip
                     key={ex.id}
-                    label={`+ ${ex.name}`}
+                    label={
+                      ex.required_equipment
+                        ? `+ ${ex.name} (${equipmentLabel(ex.required_equipment)})`
+                        : `+ ${ex.name}`
+                    }
                     active={false}
                     onPress={() => addExercise(ex.id)}
                   />
@@ -342,9 +351,17 @@ export default function NewGoalScreen() {
                   style={[styles.exerciseRow, { borderColor: t.buttonBorder }]}
                 >
                   <View className="mb-2 flex-row items-center justify-between">
-                    <Text style={{ color: t.heading }} className="font-semibold">
-                      {ex.name}
-                    </Text>
+                    <View className="flex-1 pr-3">
+                      <Text style={{ color: t.heading }} className="font-semibold">
+                        {ex.name}
+                      </Text>
+                      {ex.requiredEquipment ? (
+                        <Text style={{ color: t.body }} className="mt-0.5 text-xs">
+                          Requires {equipmentLabel(ex.requiredEquipment)?.toLowerCase()} — only
+                          members with access are required
+                        </Text>
+                      ) : null}
+                    </View>
                     <TouchableOpacity onPress={() => removeExercise(ex.exerciseId)}>
                       <Ionicons name="trash-outline" size={18} color={t.body} />
                     </TouchableOpacity>

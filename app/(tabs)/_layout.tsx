@@ -8,7 +8,7 @@ import { HapticTab } from "@/components/haptic-tab";
 
 import { useAuth } from "@/context/auth-context";
 
-import { useNeedsCrewSetup, useNeedsPostAuthNotifications } from "@/hooks/use-onboarding";
+import { useNeedsCrewSetup, useNeedsEquipmentPrompt, useNeedsPostAuthNotifications } from "@/hooks/use-onboarding";
 
 import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 
@@ -22,13 +22,14 @@ export default function TabLayout() {
   const { needsCrewSetup, isLoading: crewLoading } = useNeedsCrewSetup();
   const { needsPostAuthNotifications, isLoading: notifLoading } =
     useNeedsPostAuthNotifications();
+  const { needsEquipmentPrompt, isLoading: equipmentLoading } = useNeedsEquipmentPrompt();
   const unreadAlerts = useUnreadNotificationCount();
   const unopenedCrates = useUnopenedCrateCount();
   const profileAttention = unreadAlerts + unopenedCrates;
 
   const c = theme.colors;
 
-  if (isPending || (session && (crewLoading || notifLoading))) {
+  if (isPending || (session && (crewLoading || notifLoading || equipmentLoading))) {
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator />
@@ -43,6 +44,8 @@ export default function TabLayout() {
   }
 
   if (needsCrewSetup) return <Redirect href="/welcome-crew" />;
+
+  if (needsEquipmentPrompt) return <Redirect href="/welcome-equipment" />;
 
   return (
     <Tabs

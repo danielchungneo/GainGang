@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
+import { countEligibleMembers, profileHasEquipment } from '@/lib/equipment';
 import { queryKeys } from '@/lib/query-keys';
 import { todayISO } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
@@ -11,9 +12,15 @@ import type {
   DailyGoalExerciseWithProgress,
   DailyGoalWithProgress,
   ExerciseCategory,
+  ExerciseRequiredEquipment,
   WeeklyPlan,
   WeeklyPlanWithGoals,
 } from '@/types';
+
+interface MemberEquipmentProfile {
+  has_pull_up_bar: boolean;
+  has_weights: boolean;
+}
 
 interface DailyGoalRow extends DailyGoal {
   weekly_plan: { gang_id: string; status: string; gang: { name: string } | null };
@@ -23,9 +30,18 @@ interface DailyGoalRow extends DailyGoal {
     unit: DailyGoalExerciseWithProgress['unit'];
     individual_target: number;
     sort_order: number;
-    exercise: { name: string } | null;
+    exercise: {
+      name: string;
+      category: ExerciseCategory;
+      required_equipment: ExerciseRequiredEquipment | null;
+    } | null;
   }[];
 }
+
+const DAILY_GOAL_EXERCISE_SELECT = `
+  id, exercise_id, unit, individual_target, sort_order,
+  exercise:exercises(name, category, required_equipment)
+`;
 
 export interface CreateWeeklyPlanDayInput {
   dayOfWeek: number;
@@ -136,10 +152,7 @@ export async function fetchMyTodaysDailyGoals(
     .select(
       `*,
       weekly_plan:weekly_plans!inner(gang_id, status, gang:gangs(name)),
-      exercises:daily_goal_exercises(
-        id, exercise_id, unit, individual_target, sort_order,
-        exercise:exercises(name)
-      )`,
+      exercises:daily_goal_exercises(${DAILY_GOAL_EXERCISE_SELECT})`,
     )
     .in('weekly_plan_id', planIds)
     .eq('goal_date', today)
@@ -179,10 +192,7 @@ export function useDailyGoal(dailyGoalId?: string) {
         .select(
           `*,
           weekly_plan:weekly_plans!inner(gang_id, status, gang:gangs(name)),
-          exercises:daily_goal_exercises(
-            id, exercise_id, unit, individual_target, sort_order,
-            exercise:exercises(name)
-          )`,
+            exercises:daily_goal_exercises(${DAILY_GOAL_EXERCISE_SELECT})`,
         )
         .eq('id', dailyGoalId!)
         .maybeSingle();
@@ -301,10 +311,7 @@ async function fetchDailyGoalsForPlan(
     .select(
       `*,
       weekly_plan:weekly_plans!inner(gang_id, status, gang:gangs(name)),
-      exercises:daily_goal_exercises(
-        id, exercise_id, unit, individual_target, sort_order,
-        exercise:exercises(name)
-      )`,
+      exercises:daily_goal_exercises(${DAILY_GOAL_EXERCISE_SELECT})`,
     )
     .eq('weekly_plan_id', plan.id)
     .order('day_of_week', { ascending: true });
@@ -321,7 +328,22 @@ async function hydrateDailyGoals(
   const exerciseIds = rows.flatMap((g) => g.exercises.map((e) => e.id));
   const gangIds = [...new Set(rows.map((g) => g.weekly_plan.gang_id))];
 
-  const memberCounts = await fetchMemberCounts(gangIds);
+  const memberEquipmentByGang = await fetchMemberEquipmentByGang(gangIds);
+
+  let viewerEquipment: MemberEquipmentProfile | null = null;
+  if (userId) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('has_pull_up_bar, has_weights')
+      .eq('id', userId)
+      .maybeSingle();
+    if (profile) {
+      viewerEquipment = {
+        has_pull_up_bar: profile.has_pull_up_bar,
+        has_weights: profile.has_weights,
+      };
+    }
+  }
 
   const progressMap = new Map<string, { gang_total: number; contributor_count: number }>();
   if (exerciseIds.length > 0) {
@@ -371,19 +393,28 @@ async function hydrateDailyGoals(
 
   return rows.map((g) => {
     const gangId = g.weekly_plan.gang_id;
-    const memberCount = memberCounts[gangId] ?? 1;
+    const members = memberEquipmentByGang[gangId] ?? [];
+    const memberCount = members.length || 1;
 
     const exercises: DailyGoalExerciseWithProgress[] = g.exercises
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((e) => {
         const p = progressMap.get(e.id);
+        const requiredEquipment = e.exercise?.required_equipment ?? null;
+        const eligibleMemberCount = countEligibleMembers(members, requiredEquipment);
+        const isRequiredForUser = profileHasEquipment(viewerEquipment, requiredEquipment);
+        const gangDivisor = Math.max(eligibleMemberCount, 0);
         return {
           id: e.id,
           exercise_id: e.exercise_id,
           exercise_name: e.exercise?.name ?? 'Exercise',
+          category: e.exercise?.category ?? g.day_category ?? 'core',
           unit: e.unit,
+          required_equipment: requiredEquipment,
+          eligible_member_count: eligibleMemberCount,
+          is_required_for_user: isRequiredForUser,
           individual_target: e.individual_target,
-          gang_target: e.individual_target * memberCount,
+          gang_target: e.individual_target * gangDivisor,
           gang_total: p?.gang_total ?? 0,
           contributor_count: p?.contributor_count ?? 0,
           user_total: userTotals[e.id] ?? 0,
@@ -406,17 +437,26 @@ async function hydrateDailyGoals(
   });
 }
 
-async function fetchMemberCounts(gangIds: string[]): Promise<Record<string, number>> {
+async function fetchMemberEquipmentByGang(
+  gangIds: string[],
+): Promise<Record<string, MemberEquipmentProfile[]>> {
   if (gangIds.length === 0) return {};
   const { data, error } = await supabase
     .from('gang_members')
-    .select('gang_id')
+    .select('gang_id, profile:profiles(has_pull_up_bar, has_weights)')
     .in('gang_id', gangIds);
   if (error) throw error;
 
-  const counts: Record<string, number> = {};
+  const byGang: Record<string, MemberEquipmentProfile[]> = {};
   for (const row of data ?? []) {
-    counts[row.gang_id] = (counts[row.gang_id] ?? 0) + 1;
+    const profile = row.profile as MemberEquipmentProfile | MemberEquipmentProfile[] | null;
+    const resolved = Array.isArray(profile) ? profile[0] : profile;
+    const entry: MemberEquipmentProfile = {
+      has_pull_up_bar: resolved?.has_pull_up_bar ?? false,
+      has_weights: resolved?.has_weights ?? false,
+    };
+    if (!byGang[row.gang_id]) byGang[row.gang_id] = [];
+    byGang[row.gang_id].push(entry);
   }
-  return counts;
+  return byGang;
 }

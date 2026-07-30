@@ -116,13 +116,15 @@ export function RepCounterCamera({
     setTrackingOk(false);
     setFullyInFrame(false);
     setFrameMessage(
-      exerciseType === 'pushup'
-        ? 'Keep your upper body in frame'
-        : exerciseType === 'situp' || exerciseType === 'crunch'
-          ? 'Keep your torso and knees in frame'
-          : exerciseType === 'plank'
-            ? 'Get into plank position'
-            : 'Step back — keep your full body in frame',
+      exerciseType === 'pullup'
+        ? 'Keep your shoulders and hips in frame'
+        : exerciseType === 'pushup'
+          ? 'Keep your upper body in frame'
+          : exerciseType === 'situp' || exerciseType === 'crunch'
+            ? 'Keep your torso and knees in frame'
+            : exerciseType === 'plank'
+              ? 'Get into plank position'
+              : 'Step back — keep your full body in frame',
     );
   }, [exerciseType]);
 
@@ -161,6 +163,14 @@ export function RepCounterCamera({
     [onRepCountChange, onSnapshot, repFlash],
   );
 
+  const handlePoseResultRef = useRef(handlePoseResult);
+  handlePoseResultRef.current = handlePoseResult;
+  const exerciseTypeRef = useRef(exerciseType);
+  exerciseTypeRef.current = exerciseType;
+
+  // Keep a single RunOnJS bridge for the camera lifetime. Recreating it while
+  // frames are flowing drops the worklets-core invoker ("Expected Worklet
+  // context to have a worklet call invoker").
   const onPoseDetected = useMemo(
     () =>
       Worklets.createRunOnJS((result: { pose?: Landmark[] }) => {
@@ -169,24 +179,27 @@ export function RepCounterCamera({
         lastBridgeAtRef.current = now;
 
         if (!result.pose || result.pose.length === 0) {
+          const type = exerciseTypeRef.current;
           setLandmarks(null);
           setTrackingOk(false);
           setFullyInFrame(false);
           setFrameMessage(
-            exerciseType === 'pushup'
-              ? 'Keep your upper body in frame'
-              : exerciseType === 'situp' || exerciseType === 'crunch'
-                ? 'Keep your torso and knees in frame'
-                : exerciseType === 'plank'
-                  ? 'Get into plank position'
-                  : 'Step back — keep your full body in frame',
+            type === 'pullup'
+              ? 'Keep your shoulders and hips in frame'
+              : type === 'pushup'
+                ? 'Keep your upper body in frame'
+                : type === 'situp' || type === 'crunch'
+                  ? 'Keep your torso and knees in frame'
+                  : type === 'plank'
+                    ? 'Get into plank position'
+                    : 'Step back — keep your full body in frame',
           );
           return;
         }
 
-        handlePoseResult(result.pose);
+        handlePoseResultRef.current(result.pose);
       }),
-    [exerciseType, handlePoseResult],
+    [],
   );
 
   // Platform.OS is unreliable inside worklets — use separate processors and pick on the JS thread.
@@ -347,9 +360,10 @@ export function RepCounterCamera({
                     adjustsFontSizeToFit={compact}
                     minimumFontScale={0.75}
                   >
-                    {!fullyInFrame
-                      ? frameMessage
-                      : 'Reposition — keep joints in frame'}
+                    {frameMessage ||
+                      (!fullyInFrame
+                        ? 'Keep joints in frame'
+                        : 'Get into position')}
                   </Text>
                 </View>
               ) : showAngleDebug ? (

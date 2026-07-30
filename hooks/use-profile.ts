@@ -68,6 +68,8 @@ export function useUpdateProfile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.profile(id) });
+      queryClient.invalidateQueries({ queryKey: ['daily-goals'] });
+      queryClient.invalidateQueries({ queryKey: ['weekly-plans'] });
     },
   });
 }

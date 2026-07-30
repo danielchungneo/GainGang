@@ -11,6 +11,7 @@ import { DailyGoalCard as DailyGoalCardView } from '@/components/ui/daily-goal-c
 import { useLogActivity } from '@/hooks/use-activities';
 import { useAuth } from '@/context/auth-context';
 import { useProfile } from '@/hooks/use-profile';
+import { equipmentLabel } from '@/lib/equipment';
 import { formatGoalDate, timeLeftUntilDateEnd } from '@/lib/format';
 import {
   buildDailyGoalTotalsAfter,
@@ -298,14 +299,22 @@ export function DailyGoalCard({
             unit: e.unit,
             gang: { current: e.gang_total, target: e.gang_target },
             individual: { current: e.user_total, target: e.individual_target },
+            isRequiredForUser: e.is_required_for_user,
+            equipmentLabel: equipmentLabel(e.required_equipment),
+            onOptInEquipment:
+              e.is_required_for_user === false
+                ? () => router.push('/edit-profile')
+                : undefined,
             cameraSupported,
             onPerform:
-              useCameraFlow && cameraSupported
+              useCameraFlow && cameraSupported && e.is_required_for_user !== false
                 ? () => openRepCounter(e)
                 : undefined,
             isPerforming: savingExerciseId === e.id,
             onManualLog:
-              useCameraFlow && !cameraSupported
+              useCameraFlow &&
+              !cameraSupported &&
+              e.is_required_for_user !== false
                 ? (amount) => handleManualLog(e, amount)
                 : undefined,
             isManualLogging: savingExerciseId === e.id,

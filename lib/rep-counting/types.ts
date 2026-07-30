@@ -8,7 +8,14 @@ export interface Landmark {
 
 export type RepPhase = 'up' | 'down' | 'transition';
 
-export type CameraExerciseType = 'pushup' | 'squat' | 'situp' | 'crunch' | 'lunge' | 'plank';
+export type CameraExerciseType =
+  | 'pushup'
+  | 'pullup'
+  | 'squat'
+  | 'situp'
+  | 'crunch'
+  | 'lunge'
+  | 'plank';
 
 /** Rep exercises count reps; hold exercises track elapsed seconds. */
 export type CameraTrackingMode = 'reps' | 'hold';

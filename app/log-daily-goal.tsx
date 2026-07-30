@@ -34,6 +34,7 @@ import type {
   StreakContinuePayload,
 } from '@/lib/daily-goal-celebration';
 import { formatAmount, formatGoalActivityList, formatGoalDate } from '@/lib/format';
+import { equipmentLabel } from '@/lib/equipment';
 import {
   buildRepCounterSessionKey,
   consumePendingRepCount,
@@ -384,9 +385,29 @@ export default function LogDailyGoalScreen() {
                   ) : null}
                 </View>
 
+                {!ex.is_required_for_user && ex.required_equipment ? (
+                  <View className="mb-3">
+                    <Text style={{ color: t.body }} className="text-sm">
+                      {(equipmentLabel(ex.required_equipment) ?? 'Equipment')} required. Not
+                      counted toward your daily complete.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => router.push('/edit-profile')}
+                      className="mt-1"
+                    >
+                      <Text style={{ color: t.accent }} className="text-sm font-semibold">
+                        Opt in via profile
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+
                 <Text style={{ color: t.body }} className="mb-3 text-sm">
                   Your target: {formatAmount(ex.individual_target, ex.unit)} · Gang:{' '}
                   {formatAmount(ex.gang_target, ex.unit)}
+                  {ex.required_equipment
+                    ? ` · ${ex.eligible_member_count} eligible`
+                    : ''}
                 </Text>
 
                 {requiresCamera ? (

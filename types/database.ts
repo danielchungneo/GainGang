@@ -14,6 +14,7 @@ export type GangPrivacy = 'public' | 'invite_only';
 export type GangRole = 'owner' | 'admin' | 'member';
 export type ExerciseCategory = 'chest' | 'legs' | 'cardio' | 'back' | 'core';
 export type ExerciseUnit = 'reps' | 'seconds' | 'miles';
+export type ExerciseRequiredEquipment = 'pull_up_bar' | 'weights';
 export type QuestType = 'daily' | 'weekly';
 export type QuestStatus = 'active' | 'completed' | 'failed';
 export type WeeklyPlanStatus = 'active' | 'completed' | 'failed';
@@ -61,6 +62,8 @@ export type Database = {
           longest_streak: number;
           last_active_on: string | null;
           onboarding_completed_at: string | null;
+          has_pull_up_bar: boolean;
+          has_weights: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -78,6 +81,8 @@ export type Database = {
           longest_streak?: number;
           last_active_on?: string | null;
           onboarding_completed_at?: string | null;
+          has_pull_up_bar?: boolean;
+          has_weights?: boolean;
         };
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
         Relationships: [];
@@ -149,6 +154,8 @@ export type Database = {
           unit: ExerciseUnit;
           description: string | null;
           gang_id: string | null;
+          active: boolean;
+          required_equipment: ExerciseRequiredEquipment | null;
           created_at: string;
         };
         Insert: {
@@ -158,6 +165,9 @@ export type Database = {
           unit?: ExerciseUnit;
           description?: string | null;
           gang_id?: string | null;
+          active?: boolean;
+          required_equipment?: ExerciseRequiredEquipment | null;
+          created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['exercises']['Insert']>;
         Relationships: [];

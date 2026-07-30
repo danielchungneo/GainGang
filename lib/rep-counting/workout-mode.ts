@@ -45,6 +45,7 @@ export function getWorkoutEligibleExercises(
 ): DailyGoalExerciseWithProgress[] {
   return exercises.filter(
     (ex) =>
+      ex.is_required_for_user !== false &&
       supportsCameraTracking(ex.exercise_name, ex.unit) &&
       getWorkoutPlanningAmount(ex, options) > 0,
   );

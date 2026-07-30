@@ -7,12 +7,18 @@ import type { Exercise, ExerciseCategory } from '@/types';
 /**
  * Exercises in the catalog. Returns global defaults (gang_id null) plus any
  * gang-custom exercises when a gangId is supplied. Filterable by category.
+ * Only active exercises are returned (inactive ones are staged in the DB
+ * but hidden from weekly planning until enabled).
  */
 export function useExercises(category?: ExerciseCategory, gangId?: string) {
   return useQuery({
     queryKey: queryKeys.exercises(category, gangId),
     queryFn: async (): Promise<Exercise[]> => {
-      let query = supabase.from('exercises').select('*').order('name');
+      let query = supabase
+        .from('exercises')
+        .select('*')
+        .eq('active', true)
+        .order('name');
       if (category) query = query.eq('category', category);
       if (gangId) query = query.or(`gang_id.is.null,gang_id.eq.${gangId}`);
       else query = query.is('gang_id', null);

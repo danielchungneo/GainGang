@@ -58,6 +58,16 @@ const PUSHUP_WRIST_BELOW_SHOULDER_MIN = -0.02;
  * before a push-up rep can count — rejects elbow bends that don't lower the chest.
  */
 const PUSHUP_MIN_SHOULDER_DROP = 0.045;
+/**
+ * Min upward travel of shoulders/hips (normalized y) from hang → chin-up.
+ * Rejects elbow bends that don't lift the torso.
+ */
+const PULLUP_MIN_TORSO_RISE = 0.035;
+/**
+ * Wrist must sit this far above the head reference (nose, or shoulders if nose
+ * is hidden — e.g. back-to-camera) before pull-up counting arms.
+ */
+const PULLUP_HANDS_ABOVE_HEAD_MIN = 0.02;
 
 function avgVisibility(...points: Landmark[]): number {
   if (points.length === 0) return 0;
@@ -114,6 +124,36 @@ function elbowAngle(landmarks: Landmark[]): number | null {
   return calculateAngle(shoulder, elbow, wrist);
 }
 
+/**
+ * Average elbow angle across visible arms — pull-ups use both sides when possible.
+ * Small angle = chin-up (flexed); large angle = hang (extended).
+ */
+function pullupElbowAngle(landmarks: Landmark[]): number | null {
+  const sides: Array<'left' | 'right'> = ['left', 'right'];
+  const angles: number[] = [];
+
+  for (const side of sides) {
+    const shoulder =
+      side === 'left'
+        ? landmarks[PoseLandmarkIndex.LEFT_SHOULDER]
+        : landmarks[PoseLandmarkIndex.RIGHT_SHOULDER];
+    const elbow =
+      side === 'left'
+        ? landmarks[PoseLandmarkIndex.LEFT_ELBOW]
+        : landmarks[PoseLandmarkIndex.RIGHT_ELBOW];
+    const wrist =
+      side === 'left'
+        ? landmarks[PoseLandmarkIndex.LEFT_WRIST]
+        : landmarks[PoseLandmarkIndex.RIGHT_WRIST];
+
+    if (avgVisibility(shoulder, elbow, wrist) < CORE_VISIBILITY_MIN) continue;
+    angles.push(calculateAngle(shoulder, elbow, wrist));
+  }
+
+  if (angles.length === 0) return null;
+  return angles.reduce((sum, value) => sum + value, 0) / angles.length;
+}
+
 /** Average visible shoulder y — larger means lower on screen (deeper in a push-up). */
 function shoulderDepthY(landmarks: Landmark[]): number | null {
   const left = landmarks[PoseLandmarkIndex.LEFT_SHOULDER];
@@ -123,6 +163,72 @@ function shoulderDepthY(landmarks: Landmark[]): number | null {
   if (right.visibility >= CORE_VISIBILITY_MIN) visible.push(right);
   if (visible.length === 0) return null;
   return visible.reduce((sum, point) => sum + point.y, 0) / visible.length;
+}
+
+/**
+ * Pull-up torso height: average of visible shoulders + hips.
+ * Larger y = lower on screen (dead hang); smaller y = body risen toward the bar.
+ */
+function pullupTorsoDepthY(landmarks: Landmark[]): number | null {
+  const points = [
+    landmarks[PoseLandmarkIndex.LEFT_SHOULDER],
+    landmarks[PoseLandmarkIndex.RIGHT_SHOULDER],
+    landmarks[PoseLandmarkIndex.LEFT_HIP],
+    landmarks[PoseLandmarkIndex.RIGHT_HIP],
+  ].filter((point) => point.visibility >= CORE_VISIBILITY_MIN);
+
+  if (points.length < 2) return null;
+  return points.reduce((sum, point) => sum + point.y, 0) / points.length;
+}
+
+/**
+ * Arms counting only after hands have been seen above the head (hang setup).
+ * Latched afterward so mid-rep head motion does not disarm.
+ */
+function isPullupReady(landmarks: Landmark[]): ReadyCheckResult {
+  const nose = landmarks[PoseLandmarkIndex.NOSE];
+  const leftShoulder = landmarks[PoseLandmarkIndex.LEFT_SHOULDER];
+  const rightShoulder = landmarks[PoseLandmarkIndex.RIGHT_SHOULDER];
+  const leftWrist = landmarks[PoseLandmarkIndex.LEFT_WRIST];
+  const rightWrist = landmarks[PoseLandmarkIndex.RIGHT_WRIST];
+
+  let headY: number | null = null;
+  if (nose.visibility >= CORE_VISIBILITY_MIN) {
+    headY = nose.y;
+  } else {
+    // Back-to-camera: nose is often missing — use the higher shoulder as a stand-in.
+    const shoulders: Landmark[] = [];
+    if (leftShoulder.visibility >= CORE_VISIBILITY_MIN) shoulders.push(leftShoulder);
+    if (rightShoulder.visibility >= CORE_VISIBILITY_MIN) shoulders.push(rightShoulder);
+    if (shoulders.length > 0) {
+      headY = Math.min(...shoulders.map((s) => s.y));
+    }
+  }
+
+  if (headY === null) {
+    return { ok: false, message: 'Keep your head or shoulders in frame' };
+  }
+
+  const wrists = [leftWrist, rightWrist].filter(
+    (wrist) => wrist.visibility >= CORE_VISIBILITY_MIN,
+  );
+  if (wrists.length === 0) {
+    return { ok: false, message: 'Keep a wrist in frame to start' };
+  }
+
+  const aboveHead = wrists.filter(
+    (wrist) => wrist.y < headY! - PULLUP_HANDS_ABOVE_HEAD_MIN,
+  );
+  if (aboveHead.length === 0) {
+    return { ok: false, message: 'Reach up — hang with hands above your head to start' };
+  }
+
+  // If both wrists are visible, both should clear the head before arming.
+  if (wrists.length >= 2 && aboveHead.length < 2) {
+    return { ok: false, message: 'Reach up — hang with both hands above your head' };
+  }
+
+  return { ok: true, message: '' };
 }
 
 /**
@@ -285,6 +391,22 @@ export const EXERCISE_CONFIGS: Record<CameraExerciseType, ExerciseConfig> = {
     getDepthSignal: shoulderDepthY,
     minDepthDelta: PUSHUP_MIN_SHOULDER_DROP,
   },
+  // Core style: small elbow angle = chin-up (up), large = hang (down).
+  // Reps also require the shoulders/hips to rise with the elbow bend.
+  pullup: {
+    type: 'pullup',
+    getAngle: pullupElbowAngle,
+    upThreshold: 100,
+    downThreshold: 150,
+    minFramesInPhase: 3,
+    countTransition: 'down-to-up',
+    initialPhase: 'down',
+    isReady: isPullupReady,
+    // Arm once hands are overhead so setup motion cannot count early.
+    latchReady: true,
+    getDepthSignal: pullupTorsoDepthY,
+    minDepthDelta: PULLUP_MIN_TORSO_RISE,
+  },
   squat: {
     type: 'squat',
     getAngle: kneeAngle,
@@ -393,11 +515,15 @@ export class RepCounter {
     }
   }
 
-  private depthDeltaMet(): boolean {
+  private depthDeltaMet(currentDepth: number | null = null): boolean {
     const minDelta = this.config.minDepthDelta;
     if (minDelta == null) return true;
-    if (this.upDepth === null || this.downDepth === null) return false;
-    return this.downDepth - this.upDepth >= minDelta;
+    if (this.downDepth === null) return false;
+    // Exercises that start in "down" (pull-ups) may not have an up baseline yet;
+    // use the depth at the up transition as the risen position.
+    const up = this.upDepth ?? currentDepth;
+    if (up === null) return false;
+    return this.downDepth - up >= minDelta;
   }
 
   processFrame(landmarks: Landmark[]): RepCounterSnapshot {
@@ -474,7 +600,7 @@ export class RepCounter {
     const shouldCount =
       ((this.config.countTransition === 'down-to-up' && completedDownToUp) ||
         (this.config.countTransition === 'up-to-down' && completedUpToDown)) &&
-      this.depthDeltaMet();
+      this.depthDeltaMet(depth);
 
     if (shouldCount) {
       this.repCount++;
@@ -506,8 +632,9 @@ export class RepCounter {
 }
 
 /**
- * Push-up/squat/crunch: large angle = up, small = down (upThreshold > downThreshold).
- * Sit-up: small angle = curled/up, large = open/down (upThreshold < downThreshold).
+ * Push-up/squat/lunge: large angle = up, small = down (upThreshold > downThreshold).
+ * Sit-up/pull-up: small angle = flexed/up, large = open/down (upThreshold < downThreshold).
+ * Crunch: elevation degrees use the same core-style comparison.
  */
 function resolveTargetPhase(angle: number, config: ExerciseConfig): RepPhase {
   const { upThreshold, downThreshold } = config;
@@ -525,6 +652,7 @@ function resolveTargetPhase(angle: number, config: ExerciseConfig): RepPhase {
 }
 
 function defaultRepFrameMessage(type: CameraExerciseType): string {
+  if (type === 'pullup') return 'Keep your shoulders and hips in frame';
   if (type === 'pushup') return 'Keep your upper body in frame';
   if (type === 'situp' || type === 'crunch') return 'Keep your torso and knees in frame';
   if (type === 'plank') return 'Keep shoulder, hip, knee, and one arm in frame';

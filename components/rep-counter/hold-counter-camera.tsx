@@ -168,6 +168,11 @@ export function HoldCounterCamera({
     [hasTarget, onElapsedChange, onSnapshot, targetSeconds, tickFlash],
   );
 
+  const handlePoseResultRef = useRef(handlePoseResult);
+  handlePoseResultRef.current = handlePoseResult;
+
+  // Keep a single RunOnJS bridge for the camera lifetime. Recreating it while
+  // frames are flowing drops the worklets-core invoker.
   const onPoseDetected = useMemo(
     () =>
       Worklets.createRunOnJS((result: { pose?: Landmark[] }) => {
@@ -183,9 +188,9 @@ export function HoldCounterCamera({
           return;
         }
 
-        handlePoseResult(result.pose);
+        handlePoseResultRef.current(result.pose);
       }),
-    [handlePoseResult],
+    [],
   );
 
   const iosFrameProcessor = useFrameProcessor(

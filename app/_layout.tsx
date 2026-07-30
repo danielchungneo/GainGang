@@ -56,6 +56,8 @@ function RootNavigator() {
 
         <Stack.Screen name="welcome-notifications" options={{ headerShown: false }} />
 
+        <Stack.Screen name="welcome-equipment" options={{ headerShown: false }} />
+
         <Stack.Screen
           name="modal"
           options={{ presentation: "modal", headerShown: false }}

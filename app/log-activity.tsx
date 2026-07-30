@@ -118,6 +118,8 @@ export default function LogActivityScreen() {
         unit: (params.unit as ExerciseUnit) ?? questActivity?.unit ?? 'reps',
         description: null,
         gang_id: params.gangId ?? null,
+        active: true,
+        required_equipment: null,
         created_at: '',
       };
     }

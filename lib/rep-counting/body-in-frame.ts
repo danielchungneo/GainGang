@@ -88,6 +88,26 @@ function checkPushupBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
   );
 }
 
+/** Pull-ups: shoulders, arms, and hips — legs are not required. */
+function checkPullupBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
+  const side = pickSide(landmarks[PoseLandmarkIndex.LEFT_ELBOW], landmarks[PoseLandmarkIndex.RIGHT_ELBOW]);
+  const arm = checkIndicesInFrame(
+    landmarks,
+    getUpperTorsoIndices(side),
+    'Keep your upper body in frame',
+  );
+  if (!arm.ok) return arm;
+
+  const hipOk =
+    isLandmarkInFrame(landmarks[PoseLandmarkIndex.LEFT_HIP]) ||
+    isLandmarkInFrame(landmarks[PoseLandmarkIndex.RIGHT_HIP]);
+  if (!hipOk) {
+    return { ok: false, message: 'Keep your shoulders and hips in frame' };
+  }
+
+  return { ok: true, message: '' };
+}
+
 function checkSquatBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
   const side = pickSide(landmarks[PoseLandmarkIndex.LEFT_KNEE], landmarks[PoseLandmarkIndex.RIGHT_KNEE]);
   const chain = checkIndicesInFrame(
@@ -197,6 +217,8 @@ export function checkBodyInFrame(
   switch (exerciseType) {
     case 'pushup':
       return checkPushupBodyInFrame(landmarks);
+    case 'pullup':
+      return checkPullupBodyInFrame(landmarks);
     case 'squat':
     case 'lunge':
       return checkSquatBodyInFrame(landmarks);
@@ -209,7 +231,12 @@ export function checkBodyInFrame(
 }
 
 function defaultFrameMessage(exerciseType: CameraExerciseType): string {
-  if (exerciseType === 'pushup') return 'Keep your upper body in frame';
+  if (exerciseType === 'pullup') {
+    return 'Keep your shoulders and hips in frame';
+  }
+  if (exerciseType === 'pushup') {
+    return 'Keep your upper body in frame';
+  }
   if (exerciseType === 'situp' || exerciseType === 'crunch') {
     return 'Keep your torso and knees in frame';
   }

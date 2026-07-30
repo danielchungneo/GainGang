@@ -14,9 +14,19 @@ export const ONBOARDING_STARTER_XP = 25;
 
 const PRE_AUTH_COMPLETE_KEY = 'gaingang_pre_auth_onboarding_complete';
 const PENDING_FITNESS_KEY = 'gaingang_pending_fitness_level';
+const PENDING_EQUIPMENT_KEY = 'gaingang_pending_equipment';
+
+export interface PendingEquipment {
+  has_pull_up_bar: boolean;
+  has_weights: boolean;
+}
 
 function postAuthNotificationsKey(userId: string): string {
   return `gaingang_post_auth_notifications_complete:${userId}`;
+}
+
+function equipmentPromptKey(userId: string): string {
+  return `gaingang_equipment_prompt_complete:${userId}`;
 }
 
 export type OnboardingDemoOptionId = 'pushup' | 'squat';
@@ -70,7 +80,11 @@ export async function setPreAuthOnboardingComplete(): Promise<void> {
 
 /** Clears local pre-auth tour state (dev / retest). */
 export async function resetPreAuthOnboarding(): Promise<void> {
-  await AsyncStorage.multiRemove([PRE_AUTH_COMPLETE_KEY, PENDING_FITNESS_KEY]);
+  await AsyncStorage.multiRemove([
+    PRE_AUTH_COMPLETE_KEY,
+    PENDING_FITNESS_KEY,
+    PENDING_EQUIPMENT_KEY,
+  ]);
 }
 
 /** Post-sign-in "Stay in the loop" step (per user, device-local). */
@@ -87,6 +101,23 @@ export async function resetPostAuthNotifications(userId: string): Promise<void> 
   await AsyncStorage.removeItem(postAuthNotificationsKey(userId));
 }
 
+/**
+ * One-time equipment opt-in after the OTA (existing users) or skipped for
+ * accounts that already chose equipment during pre-auth fitness.
+ */
+export async function isEquipmentPromptComplete(userId: string): Promise<boolean> {
+  const value = await AsyncStorage.getItem(equipmentPromptKey(userId));
+  return value === '1';
+}
+
+export async function setEquipmentPromptComplete(userId: string): Promise<void> {
+  await AsyncStorage.setItem(equipmentPromptKey(userId), '1');
+}
+
+export async function resetEquipmentPrompt(userId: string): Promise<void> {
+  await AsyncStorage.removeItem(equipmentPromptKey(userId));
+}
+
 /** Fitness level chosen during pre-auth; applied after the user signs up. */
 export async function savePendingFitnessLevel(level: FitnessLevel): Promise<void> {
   await AsyncStorage.setItem(PENDING_FITNESS_KEY, level);
@@ -100,6 +131,25 @@ export async function consumePendingFitnessLevel(): Promise<FitnessLevel | null>
     return value;
   }
   return null;
+}
+
+export async function savePendingEquipment(equipment: PendingEquipment): Promise<void> {
+  await AsyncStorage.setItem(PENDING_EQUIPMENT_KEY, JSON.stringify(equipment));
+}
+
+export async function consumePendingEquipment(): Promise<PendingEquipment | null> {
+  const raw = await AsyncStorage.getItem(PENDING_EQUIPMENT_KEY);
+  if (!raw) return null;
+  await AsyncStorage.removeItem(PENDING_EQUIPMENT_KEY);
+  try {
+    const parsed = JSON.parse(raw) as PendingEquipment;
+    return {
+      has_pull_up_bar: !!parsed.has_pull_up_bar,
+      has_weights: !!parsed.has_weights,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Post-auth join/create crew prompt finished (stored on profile). */

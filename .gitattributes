@@ -1,0 +1,5 @@
+# The expo-app-blocker config plugin regenerates these on every config
+# evaluation and always writes LF. Checking them out as CRLF on Windows makes
+# each evaluation rewrite the whole file and dirty the working tree.
+targets/**/*.swift text eol=lf
+targets/**/*.config.js text eol=lf

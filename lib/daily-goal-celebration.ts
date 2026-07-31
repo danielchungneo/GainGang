@@ -30,6 +30,7 @@ export function isDailyGoalExerciseMet(
   ex: DailyGoalExerciseWithProgress,
   total: number,
 ): boolean {
+  if (!ex.is_required_for_user) return true;
   if (ex.individual_target <= 0) return true;
   return total >= ex.individual_target;
 }

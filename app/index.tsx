@@ -5,6 +5,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '@/context/auth-context';
 import {
   useNeedsCrewSetup,
+  useNeedsEquipmentPrompt,
   useNeedsFocusLockIntro,
   useNeedsPostAuthNotifications,
   useNeedsPreAuthOnboarding,
@@ -18,8 +19,9 @@ import { consumePendingGangInvite } from '@/lib/gang-invite';
  * 3) New-account notifications → /welcome-notifications
  * 4) New-account crew setup → /welcome-crew
  * 5) Existing-account Focus lock intro → /welcome-focus-lock
- * 6) Pending invite → /invite/[code]
- * 7) Main app
+ * 6) Equipment opt-in (OTA / existing users) → /welcome-equipment
+ * 7) Pending invite → /invite/[code]
+ * 8) Main app
  */
 export default function AppIndex() {
   const { session, isPending } = useAuth();
@@ -28,10 +30,19 @@ export default function AppIndex() {
   const { needsPostAuthNotifications, isLoading: notifLoading } =
     useNeedsPostAuthNotifications();
   const { needsFocusLockIntro, isLoading: focusIntroLoading } = useNeedsFocusLockIntro();
+  const { needsEquipmentPrompt, isLoading: equipmentLoading } = useNeedsEquipmentPrompt();
   const [pendingInvite, setPendingInvite] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
-    if (!session || needsCrewSetup || crewLoading || needsFocusLockIntro || focusIntroLoading) {
+    if (
+      !session ||
+      needsCrewSetup ||
+      crewLoading ||
+      needsFocusLockIntro ||
+      focusIntroLoading ||
+      needsEquipmentPrompt ||
+      equipmentLoading
+    ) {
       setPendingInvite(undefined);
       return;
     }
@@ -44,12 +55,20 @@ export default function AppIndex() {
     return () => {
       cancelled = true;
     };
-  }, [session, needsCrewSetup, crewLoading, needsFocusLockIntro, focusIntroLoading]);
+  }, [
+    session,
+    needsCrewSetup,
+    crewLoading,
+    needsFocusLockIntro,
+    focusIntroLoading,
+    needsEquipmentPrompt,
+    equipmentLoading,
+  ]);
 
   if (
     isPending ||
     preAuthLoading ||
-    (session && (crewLoading || notifLoading || focusIntroLoading))
+    (session && (crewLoading || notifLoading || focusIntroLoading || equipmentLoading))
   ) {
     return (
       <View className="flex-1 items-center justify-center">
@@ -77,6 +96,10 @@ export default function AppIndex() {
 
   if (needsFocusLockIntro) {
     return <Redirect href="/welcome-focus-lock" />;
+  }
+
+  if (needsEquipmentPrompt) {
+    return <Redirect href="/welcome-equipment" />;
   }
 
   if (pendingInvite === undefined) {

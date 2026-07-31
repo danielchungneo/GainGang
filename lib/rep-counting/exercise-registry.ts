@@ -9,6 +9,10 @@ const EXERCISE_NAME_MAP: Record<string, CameraExerciseType> = {
   'push-up': 'pushup',
   pushups: 'pushup',
   pushup: 'pushup',
+  'pull-ups': 'pullup',
+  'pull-up': 'pullup',
+  pullups: 'pullup',
+  pullup: 'pullup',
   'bodyweight squats': 'squat',
   squat: 'squat',
   squats: 'squat',
@@ -30,8 +34,18 @@ export const SETUP_GUIDES: Record<CameraExerciseType, ExerciseSetupInfo> = {
     cameraHint: 'front-or-side',
     tips: [
       'Place the phone so your upper body is visible.',
-      'Keep shoulders, elbows, and wrists in frame.',
-      'Go all the way down and fully extend at the top.',
+      'Plant your hands under your shoulders — keep wrists and shoulders in frame.',
+      'Lower your chest each rep, then fully extend at the top.',
+    ],
+  },
+  pullup: {
+    title: 'Pull-ups',
+    cameraHint: 'front-or-side',
+    tips: [
+      'Film from the front or back — keep shoulders, elbows, and hips in frame.',
+      'Hang with both hands above your head first — counting starts only after that.',
+      'Pull until your elbows bend and your shoulders and torso rise toward the bar.',
+      'Lower to a full hang (arms nearly straight) before the next rep.',
     ],
   },
   squat: {
@@ -91,6 +105,7 @@ export const CAMERA_SETUP_VIDEO = require('../../assets/videos/user-tutorials/ca
 /** Local tutorial clips shown on the pre-camera setup screen (muted, looping). */
 export const EXERCISE_TUTORIAL_VIDEOS: Record<CameraExerciseType, number> = {
   pushup: require('../../assets/videos/exercise-video-tutorials/pushup.mov'),
+  pullup: require('../../assets/videos/exercise-video-tutorials/pullups.mov'),
   squat: require('../../assets/videos/exercise-video-tutorials/squats.mov'),
   lunge: require('../../assets/videos/exercise-video-tutorials/lunge.mov'),
   situp: require('../../assets/videos/exercise-video-tutorials/situps.mov'),
@@ -106,6 +121,7 @@ export function getCameraExerciseType(exerciseName: string): CameraExerciseType 
   const key = normalizeExerciseName(exerciseName);
   if (EXERCISE_NAME_MAP[key]) return EXERCISE_NAME_MAP[key];
 
+  if (key.includes('pull')) return 'pullup';
   if (key.includes('push')) return 'pushup';
   if (key.includes('lunge')) return 'lunge';
   if (key.includes('squat')) return 'squat';

@@ -5,6 +5,10 @@ export const WORKOUT_MIN_CYCLES = 1;
 export const WORKOUT_MAX_CYCLES = 5;
 
 export interface WorkoutModeOptions {
+  /**
+   * When true, skip exercises already at their daily target and split each
+   * exercise's *remaining* daily amount across the chosen cycles.
+   */
   excludeCompletedExercises?: boolean;
 }
 
@@ -23,16 +27,27 @@ export interface WorkoutSegment {
   segmentCount: number;
 }
 
-/** Camera-trackable exercises with a positive individual target. */
+/** Amount used to plan cycle splits for this exercise. */
+export function getWorkoutPlanningAmount(
+  exercise: DailyGoalExerciseWithProgress,
+  options: WorkoutModeOptions = {},
+): number {
+  if (options.excludeCompletedExercises) {
+    return Math.max(0, Math.floor(exercise.individual_target - exercise.user_total));
+  }
+  return Math.max(0, Math.floor(exercise.individual_target));
+}
+
+/** Camera-trackable exercises with a positive planning amount. */
 export function getWorkoutEligibleExercises(
   exercises: DailyGoalExerciseWithProgress[],
   options: WorkoutModeOptions = {},
 ): DailyGoalExerciseWithProgress[] {
   return exercises.filter(
     (ex) =>
+      ex.is_required_for_user !== false &&
       supportsCameraTracking(ex.exercise_name, ex.unit) &&
-      ex.individual_target > 0 &&
-      (!options.excludeCompletedExercises || ex.user_total < ex.individual_target),
+      getWorkoutPlanningAmount(ex, options) > 0,
   );
 }
 
@@ -51,7 +66,7 @@ export function splitTargetAcrossCycles(total: number, cycles: number): number[]
 
 /**
  * Max cycles the picker may offer: 1–5, but never more than the smallest
- * positive eligible target so every segment gets at least 1 unit.
+ * positive planning amount so every segment gets at least 1 unit.
  */
 export function getMaxWorkoutCycles(
   exercises: DailyGoalExerciseWithProgress[],
@@ -60,10 +75,12 @@ export function getMaxWorkoutCycles(
   const eligible = getWorkoutEligibleExercises(exercises, options);
   if (eligible.length === 0) return 0;
 
-  const smallestTarget = Math.min(...eligible.map((ex) => ex.individual_target));
+  const smallestAmount = Math.min(
+    ...eligible.map((ex) => getWorkoutPlanningAmount(ex, options)),
+  );
   return Math.max(
     WORKOUT_MIN_CYCLES,
-    Math.min(WORKOUT_MAX_CYCLES, Math.floor(smallestTarget)),
+    Math.min(WORKOUT_MAX_CYCLES, Math.floor(smallestAmount)),
   );
 }
 
@@ -78,8 +95,9 @@ export function getAvailableWorkoutCycles(
 
 /**
  * Build a round-ordered workout queue: each eligible exercise once per cycle.
- * Targets are split from the full individual target. When completed exercises
- * are excluded, exercises already complete at workout start are omitted.
+ * Default: splits the full individual target.
+ * With excludeCompletedExercises: skips finished exercises and splits remaining
+ * daily amount across cycles (e.g. 10 left / 2 cycles → 5 + 5).
  */
 export function buildWorkoutQueue(
   exercises: DailyGoalExerciseWithProgress[],
@@ -97,7 +115,10 @@ export function buildWorkoutQueue(
 
   const splitsByExerciseId = new Map<string, number[]>();
   for (const ex of eligible) {
-    splitsByExerciseId.set(ex.id, splitTargetAcrossCycles(ex.individual_target, safeCycles));
+    splitsByExerciseId.set(
+      ex.id,
+      splitTargetAcrossCycles(getWorkoutPlanningAmount(ex, options), safeCycles),
+    );
   }
 
   const segments: WorkoutSegment[] = [];

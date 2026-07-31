@@ -10,10 +10,10 @@ import { useAuth } from "@/context/auth-context";
 
 import {
   useNeedsCrewSetup,
+  useNeedsEquipmentPrompt,
   useNeedsFocusLockIntro,
   useNeedsPostAuthNotifications,
 } from "@/hooks/use-onboarding";
-
 
 import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 
@@ -28,13 +28,17 @@ export default function TabLayout() {
   const { needsPostAuthNotifications, isLoading: notifLoading } =
     useNeedsPostAuthNotifications();
   const { needsFocusLockIntro, isLoading: focusIntroLoading } = useNeedsFocusLockIntro();
+  const { needsEquipmentPrompt, isLoading: equipmentLoading } = useNeedsEquipmentPrompt();
   const unreadAlerts = useUnreadNotificationCount();
   const unopenedCrates = useUnopenedCrateCount();
   const profileAttention = unreadAlerts + unopenedCrates;
 
   const c = theme.colors;
 
-  if (isPending || (session && (crewLoading || notifLoading || focusIntroLoading))) {
+  if (
+    isPending ||
+    (session && (crewLoading || notifLoading || focusIntroLoading || equipmentLoading))
+  ) {
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator />
@@ -51,6 +55,8 @@ export default function TabLayout() {
   if (needsCrewSetup) return <Redirect href="/welcome-crew" />;
 
   if (needsFocusLockIntro) return <Redirect href="/welcome-focus-lock" />;
+
+  if (needsEquipmentPrompt) return <Redirect href="/welcome-equipment" />;
 
   return (
     <Tabs

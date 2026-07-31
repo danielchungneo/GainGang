@@ -19,7 +19,7 @@ interface HudLayout extends CameraLayout {
 }
 
 interface CameraSidewaysStageProps {
-  /** Controlled by the screen header rotate control. */
+  /** UI tip rotation for sideways filming (controlled by the on-camera button). */
   rotation: CameraUiRotation;
   /** Live preview + skeleton — never rotated; always matches the phone sensor. */
   camera: (layout: CameraLayout) => ReactNode;

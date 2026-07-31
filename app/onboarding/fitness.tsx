@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { OnboardingShell } from '@/components/onboarding/onboarding-shell';
 import { Button } from '@/components/ui/button';
 import { GlassSurface } from '@/components/ui/glass-surface';
-import { useSaveOnboardingFitnessLevel } from '@/hooks/use-onboarding';
+import {
+  useSaveOnboardingEquipment,
+  useSaveOnboardingFitnessLevel,
+} from '@/hooks/use-onboarding';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
 import type { FitnessLevel } from '@/types';
@@ -40,16 +43,25 @@ const LEVELS: {
 export default function OnboardingFitnessScreen() {
   const t = useThemeTokens();
   const saveLevel = useSaveOnboardingFitnessLevel();
+  const saveEquipment = useSaveOnboardingEquipment();
   const [selected, setSelected] = useState<FitnessLevel>('beginner');
+  const [hasPullUpBar, setHasPullUpBar] = useState(false);
+  const [hasWeights, setHasWeights] = useState(false);
 
   async function continueWith(level: FitnessLevel) {
     try {
       await saveLevel.mutateAsync(level);
+      await saveEquipment.mutateAsync({
+        has_pull_up_bar: hasPullUpBar,
+        has_weights: hasWeights,
+      });
     } catch {
-      // Default remains on profile; don't block onboarding.
+      // Defaults remain; don't block onboarding.
     }
     router.push('/onboarding/demo');
   }
+
+  const isPending = saveLevel.isPending || saveEquipment.isPending;
 
   return (
     <OnboardingShell
@@ -59,7 +71,7 @@ export default function OnboardingFitnessScreen() {
       footer={
         <Button
           label="Ready to Work!"
-          disabled={saveLevel.isPending}
+          disabled={isPending}
           onPress={() => void continueWith(selected)}
         />
       }
@@ -107,6 +119,32 @@ export default function OnboardingFitnessScreen() {
         })}
       </View>
 
+      <GlassSurface style={[styles.equipmentCard, { marginTop: spacing.lg }]}>
+        <Text style={[type.body, { color: t.heading, fontFamily: fontFamily.bodySemi }]}>
+          Equipment access
+        </Text>
+        <Text style={[type.bodySm, { color: t.body, marginTop: 4, lineHeight: 20 }]}>
+          Optional. Turn these on if you have a pull-up bar or weights — your gang can plan those
+          exercises for you.
+        </Text>
+        <View style={styles.equipmentRow}>
+          <Text style={[type.body, { color: t.heading, flex: 1 }]}>Pull-up bar</Text>
+          <Switch
+            value={hasPullUpBar}
+            onValueChange={setHasPullUpBar}
+            trackColor={{ true: t.accent }}
+          />
+        </View>
+        <View style={styles.equipmentRow}>
+          <Text style={[type.body, { color: t.heading, flex: 1 }]}>Weights</Text>
+          <Switch
+            value={hasWeights}
+            onValueChange={setHasWeights}
+            trackColor={{ true: t.accent }}
+          />
+        </View>
+      </GlassSurface>
+
       <Text
         style={[
           type.bodySm,
@@ -145,5 +183,14 @@ const styles = StyleSheet.create({
   },
   copy: {
     flex: 1,
+  },
+  equipmentCard: {
+    padding: 16,
+    gap: 12,
+  },
+  equipmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });

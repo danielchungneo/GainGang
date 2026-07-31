@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
@@ -22,6 +23,7 @@ import { PoseSkeletonOverlay } from '@/components/rep-counter/pose-skeleton-over
 import { createHoldCounter } from '@/lib/rep-counting/hold-counter';
 import { iosPoseLandmarkerPlugin } from '@/lib/rep-counting/ios-pose-plugin';
 import {
+  nextCameraUiRotation,
   remapLandmarksForUiRotation,
   type CameraUiRotation,
 } from '@/lib/rep-counting/landmark-orientation';
@@ -36,8 +38,6 @@ interface HoldCounterCameraProps {
   initialElapsedSeconds?: number;
   onElapsedChange?: (seconds: number) => void;
   onSnapshot?: (snapshot: HoldCounterSnapshot) => void;
-  /** Header-controlled UI tip rotation for sideways filming. */
-  uiRotation?: CameraUiRotation;
 }
 
 function formatHoldTime(totalSeconds: number): string {
@@ -51,7 +51,6 @@ export function HoldCounterCamera({
   initialElapsedSeconds = 0,
   onElapsedChange,
   onSnapshot,
-  uiRotation = 0,
 }: HoldCounterCameraProps) {
   const device = useCameraDevice('front', {
     physicalDevices: ['ultra-wide-angle-camera', 'wide-angle-camera'],
@@ -65,6 +64,7 @@ export function HoldCounterCamera({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [countdownRemaining, setCountdownRemaining] = useState(0);
   const [isCameraActive, setIsCameraActive] = useState(true);
+  const [uiRotation, setUiRotation] = useState<CameraUiRotation>(0);
 
   const holdCounterRef = useRef(createHoldCounter('plank'));
   const lastElapsedRef = useRef(0);
@@ -168,6 +168,11 @@ export function HoldCounterCamera({
     [hasTarget, onElapsedChange, onSnapshot, targetSeconds, tickFlash],
   );
 
+  const handlePoseResultRef = useRef(handlePoseResult);
+  handlePoseResultRef.current = handlePoseResult;
+
+  // Keep a single RunOnJS bridge for the camera lifetime. Recreating it while
+  // frames are flowing drops the worklets-core invoker.
   const onPoseDetected = useMemo(
     () =>
       Worklets.createRunOnJS((result: { pose?: Landmark[] }) => {
@@ -183,9 +188,9 @@ export function HoldCounterCamera({
           return;
         }
 
-        handlePoseResult(result.pose);
+        handlePoseResultRef.current(result.pose);
       }),
-    [handlePoseResult],
+    [],
   );
 
   const iosFrameProcessor = useFrameProcessor(
@@ -272,6 +277,29 @@ export function HoldCounterCamera({
         const compact = rotation !== 0;
         return (
           <>
+            <TouchableOpacity
+              style={[hud.orientationBtn, compact ? hud.orientationBtnActive : null]}
+              onPress={() => {
+                setUiRotation((current) => nextCameraUiRotation(current));
+                void Haptics.selectionAsync();
+              }}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={
+                compact
+                  ? 'Rotate UI upright'
+                  : 'Rotate UI sideways for floor exercises'
+              }
+              accessibilityState={{ selected: compact }}
+            >
+              <Ionicons
+                name={compact ? 'phone-portrait-outline' : 'phone-landscape-outline'}
+                size={22}
+                color={compact ? cameraHud.primaryGlow : cameraHud.text}
+                style={compact ? { transform: [{ rotate: '180deg' }] } : undefined}
+              />
+            </TouchableOpacity>
+
             <View style={[hud.hudTop, compact ? hud.hudTopCompact : null]}>
               <Animated.View
                 style={[

@@ -7,12 +7,22 @@ export const PoseLandmarkIndex = {
   RIGHT_ELBOW: 14,
   LEFT_WRIST: 15,
   RIGHT_WRIST: 16,
+  LEFT_PINKY: 17,
+  LEFT_INDEX: 18,
+  LEFT_THUMB: 19,
+  RIGHT_PINKY: 20,
+  RIGHT_INDEX: 21,
+  RIGHT_THUMB: 22,
   LEFT_HIP: 23,
   RIGHT_HIP: 24,
   LEFT_KNEE: 25,
   RIGHT_KNEE: 26,
   LEFT_ANKLE: 27,
   RIGHT_ANKLE: 28,
+  LEFT_HEEL: 29,
+  RIGHT_HEEL: 30,
+  LEFT_FOOT_INDEX: 31,
+  RIGHT_FOOT_INDEX: 32,
 } as const;
 
 /** BlazePose indices used for body overlay (excludes face landmarks 0–10). */
@@ -47,4 +57,4 @@ export const POSE_CONNECTIONS: readonly [number, number][] = [
   [26, 28],
 ] as const;
 
-export const MIN_LANDMARK_VISIBILITY = 0.5;
+export const MIN_LANDMARK_VISIBILITY = 0.45;

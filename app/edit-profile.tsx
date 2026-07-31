@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -48,6 +49,8 @@ export default function EditProfileScreen() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [hasPullUpBar, setHasPullUpBar] = useState(false);
+  const [hasWeights, setHasWeights] = useState(false);
 
   const {
     control,
@@ -67,6 +70,8 @@ export default function EditProfileScreen() {
       bio: profile.bio ?? '',
     });
     setAvatarUri(profile.avatar_url);
+    setHasPullUpBar(!!profile.has_pull_up_bar);
+    setHasWeights(!!profile.has_weights);
   }, [profile, reset]);
 
   async function handlePickAvatar(source: AvatarPickSource) {
@@ -145,6 +150,8 @@ export default function EditProfileScreen() {
       await updateProfile.mutateAsync({
         full_name: values.full_name.trim(),
         bio: values.bio?.trim() || null,
+        has_pull_up_bar: hasPullUpBar,
+        has_weights: hasWeights,
       });
       router.back();
     } catch (e) {
@@ -266,6 +273,34 @@ export default function EditProfileScreen() {
                   )}
                 />
                 {errors.bio ? <Text style={styles.error}>{errors.bio.message}</Text> : null}
+              </View>
+
+              <View style={{ gap: 12 }}>
+                <Text style={[type.labelSm, { color: t.body }]}>Equipment access</Text>
+                <Text style={[type.bodySm, { color: t.placeholder, lineHeight: 18 }]}>
+                  Used when your gang plans pull-ups or weighted exercises. You can change this
+                  anytime.
+                </Text>
+                <View className="flex-row items-center justify-between">
+                  <Text style={[type.body, { color: t.heading, flex: 1, paddingRight: 12 }]}>
+                    Pull-up bar
+                  </Text>
+                  <Switch
+                    value={hasPullUpBar}
+                    onValueChange={setHasPullUpBar}
+                    trackColor={{ true: t.accent }}
+                  />
+                </View>
+                <View className="flex-row items-center justify-between">
+                  <Text style={[type.body, { color: t.heading, flex: 1, paddingRight: 12 }]}>
+                    Weights
+                  </Text>
+                  <Switch
+                    value={hasWeights}
+                    onValueChange={setHasWeights}
+                    trackColor={{ true: t.accent }}
+                  />
+                </View>
               </View>
 
               {errors.root ? <Text style={styles.error}>{errors.root.message}</Text> : null}

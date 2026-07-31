@@ -8,7 +8,9 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "APP_VARIANT": "development"
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://otgwritdvqzutsvqrpdl.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_SlfanhwWlLd__vO2WzvtAw_wLZCz5T6"
       },
       "android": {
         "buildType": "apk"

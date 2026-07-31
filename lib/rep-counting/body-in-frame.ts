@@ -4,6 +4,11 @@ import { pickSide } from '@/utils/pose-math';
 
 /** Allow tiny overflow so edge joints still count when the overlay draws them. */
 const ON_CAMERA_SLOP = 0.02;
+/**
+ * Plank side-profile often clips the knee near the frame edge; accept weaker
+ * detections so a faintly drawn knee still clears the in-frame gate.
+ */
+const PLANK_IN_FRAME_VISIBILITY_MIN = 0.28;
 
 export interface BodyInFrameResult {
   ok: boolean;
@@ -11,9 +16,12 @@ export interface BodyInFrameResult {
 }
 
 /** True when the joint would still render on the skeleton overlay. */
-function isLandmarkInFrame(landmark: Landmark | undefined): boolean {
+function isLandmarkInFrame(
+  landmark: Landmark | undefined,
+  visibilityMin: number = MIN_LANDMARK_VISIBILITY,
+): boolean {
   if (!landmark) return false;
-  if (landmark.visibility < MIN_LANDMARK_VISIBILITY) return false;
+  if (landmark.visibility < visibilityMin) return false;
   if (landmark.x < -ON_CAMERA_SLOP || landmark.x > 1 + ON_CAMERA_SLOP) return false;
   if (landmark.y < -ON_CAMERA_SLOP || landmark.y > 1 + ON_CAMERA_SLOP) return false;
   return true;
@@ -61,8 +69,9 @@ function checkIndicesInFrame(
   landmarks: Landmark[],
   indices: number[],
   message: string,
+  visibilityMin: number = MIN_LANDMARK_VISIBILITY,
 ): BodyInFrameResult {
-  const missing = indices.filter((index) => !isLandmarkInFrame(landmarks[index]));
+  const missing = indices.filter((index) => !isLandmarkInFrame(landmarks[index], visibilityMin));
   if (missing.length === 0) {
     return { ok: true, message: '' };
   }
@@ -77,6 +86,26 @@ function checkPushupBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
     getUpperTorsoIndices(side),
     'Keep your upper body in frame',
   );
+}
+
+/** Pull-ups: shoulders, arms, and hips — legs are not required. */
+function checkPullupBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
+  const side = pickSide(landmarks[PoseLandmarkIndex.LEFT_ELBOW], landmarks[PoseLandmarkIndex.RIGHT_ELBOW]);
+  const arm = checkIndicesInFrame(
+    landmarks,
+    getUpperTorsoIndices(side),
+    'Keep your upper body in frame',
+  );
+  if (!arm.ok) return arm;
+
+  const hipOk =
+    isLandmarkInFrame(landmarks[PoseLandmarkIndex.LEFT_HIP]) ||
+    isLandmarkInFrame(landmarks[PoseLandmarkIndex.RIGHT_HIP]);
+  if (!hipOk) {
+    return { ok: false, message: 'Keep your shoulders and hips in frame' };
+  }
+
+  return { ok: true, message: '' };
 }
 
 function checkSquatBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
@@ -130,6 +159,7 @@ function checkPlankBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
       PoseLandmarkIndex.LEFT_KNEE,
     ],
     '',
+    PLANK_IN_FRAME_VISIBILITY_MIN,
   );
   const rightBody = checkIndicesInFrame(
     landmarks,
@@ -139,6 +169,7 @@ function checkPlankBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
       PoseLandmarkIndex.RIGHT_KNEE,
     ],
     '',
+    PLANK_IN_FRAME_VISIBILITY_MIN,
   );
   if (!leftBody.ok && !rightBody.ok) {
     return { ok: false, message: 'Keep shoulder, hip, and knee in frame' };
@@ -148,15 +179,23 @@ function checkPlankBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
     landmarks,
     [PoseLandmarkIndex.LEFT_ELBOW, PoseLandmarkIndex.LEFT_WRIST],
     '',
+    PLANK_IN_FRAME_VISIBILITY_MIN,
   );
   const rightArm = checkIndicesInFrame(
     landmarks,
     [PoseLandmarkIndex.RIGHT_ELBOW, PoseLandmarkIndex.RIGHT_WRIST],
     '',
+    PLANK_IN_FRAME_VISIBILITY_MIN,
   );
   // Wrist alone is enough if the elbow is briefly occluded mid-hold.
-  const leftWristOk = isLandmarkInFrame(landmarks[PoseLandmarkIndex.LEFT_WRIST]);
-  const rightWristOk = isLandmarkInFrame(landmarks[PoseLandmarkIndex.RIGHT_WRIST]);
+  const leftWristOk = isLandmarkInFrame(
+    landmarks[PoseLandmarkIndex.LEFT_WRIST],
+    PLANK_IN_FRAME_VISIBILITY_MIN,
+  );
+  const rightWristOk = isLandmarkInFrame(
+    landmarks[PoseLandmarkIndex.RIGHT_WRIST],
+    PLANK_IN_FRAME_VISIBILITY_MIN,
+  );
   if (leftArm.ok || rightArm.ok || leftWristOk || rightWristOk) {
     return { ok: true, message: '' };
   }
@@ -178,6 +217,8 @@ export function checkBodyInFrame(
   switch (exerciseType) {
     case 'pushup':
       return checkPushupBodyInFrame(landmarks);
+    case 'pullup':
+      return checkPullupBodyInFrame(landmarks);
     case 'squat':
     case 'lunge':
       return checkSquatBodyInFrame(landmarks);
@@ -190,7 +231,12 @@ export function checkBodyInFrame(
 }
 
 function defaultFrameMessage(exerciseType: CameraExerciseType): string {
-  if (exerciseType === 'pushup') return 'Keep your upper body in frame';
+  if (exerciseType === 'pullup') {
+    return 'Keep your shoulders and hips in frame';
+  }
+  if (exerciseType === 'pushup') {
+    return 'Keep your upper body in frame';
+  }
   if (exerciseType === 'situp' || exerciseType === 'crunch') {
     return 'Keep your torso and knees in frame';
   }

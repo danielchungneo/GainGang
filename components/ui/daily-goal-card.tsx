@@ -44,6 +44,12 @@ export interface DailyGoalExerciseDisplay {
   unit: ExerciseUnit;
   gang: { current: number; target: number };
   individual: { current: number; target: number };
+  /** False when the member lacks required equipment — still shown, not required. */
+  isRequiredForUser?: boolean;
+  /** e.g. "Pull-up bar" when equipment is required. */
+  equipmentLabel?: string | null;
+  /** Opens settings/profile so the user can opt in to having the equipment. */
+  onOptInEquipment?: () => void;
   cameraSupported?: boolean;
   onPerform?: () => void;
   isPerforming?: boolean;
@@ -97,7 +103,10 @@ export function DailyGoalCard({
   const allComplete =
     exercises.length > 0 &&
     exercises.every(
-      (ex) => ex.individual.target <= 0 || ex.individual.current >= ex.individual.target,
+      (ex) =>
+        ex.isRequiredForUser === false ||
+        ex.individual.target <= 0 ||
+        ex.individual.current >= ex.individual.target,
     );
   const [progressMode, setProgressMode] = useState<DailyGoalProgressMode>('individual');
   const [manualLogKey, setManualLogKey] = useState<string | null>(null);
@@ -341,8 +350,11 @@ export function DailyGoalCard({
           const showYouBar = showProgressToggle
             ? progressMode === 'individual'
             : showIndividual;
+          const lacksEquipment = ex.isRequiredForUser === false;
           const youComplete =
-            ex.individual.target <= 0 || ex.individual.current >= ex.individual.target;
+            !lacksEquipment &&
+            (ex.individual.target <= 0 ||
+              ex.individual.current >= ex.individual.target);
           const gangComplete =
             ex.gang.target <= 0 || ex.gang.current >= ex.gang.target;
 
@@ -350,7 +362,14 @@ export function DailyGoalCard({
             <View key={ex.key} style={styles.exerciseBlock}>
               <View style={styles.exerciseHeader}>
                 <View style={styles.exerciseNameRow}>
-                  {allComplete || youComplete ? (
+                  {lacksEquipment ? (
+                    <Ionicons
+                      name="ban"
+                      size={16}
+                      color={status.warning}
+                      style={styles.exerciseCheck}
+                    />
+                  ) : allComplete || youComplete ? (
                     <Ionicons
                       name="checkmark-circle"
                       size={16}
@@ -361,7 +380,13 @@ export function DailyGoalCard({
                   <Text
                     style={[
                       styles.exerciseName,
-                      { color: allComplete ? status.success : c.text },
+                      {
+                        color: lacksEquipment
+                          ? c.textMuted
+                          : allComplete
+                            ? status.success
+                            : c.text,
+                      },
                     ]}
                     numberOfLines={1}
                   >
@@ -369,7 +394,14 @@ export function DailyGoalCard({
                   </Text>
                 </View>
 
-                {ex.onPerform ? (
+                {lacksEquipment && ex.onOptInEquipment ? (
+                  <ExerciseActionButton
+                    icon="settings-outline"
+                    label="Opt in"
+                    onPress={ex.onOptInEquipment}
+                    accessibilityLabel={`Opt in to ${ex.equipmentLabel ?? 'equipment'} for ${ex.name}`}
+                  />
+                ) : ex.onPerform ? (
                   <ExerciseActionButton
                     icon="videocam"
                     label={ex.unit === 'seconds' ? 'Time' : 'Count'}
@@ -391,6 +423,20 @@ export function DailyGoalCard({
                   />
                 ) : null}
               </View>
+
+              {lacksEquipment && ex.equipmentLabel ? (
+                <Text
+                  style={{
+                    color: status.warning,
+                    fontSize: 12,
+                    marginBottom: 8,
+                    fontFamily: fontFamily.bodySemi,
+                  }}
+                  numberOfLines={2}
+                >
+                  {ex.equipmentLabel} required
+                </Text>
+              ) : null}
 
               <View
                 style={showProgressToggle ? styles.progressSlot : undefined}
@@ -640,6 +686,7 @@ function WorkoutCyclePickerModal({
   const c = theme.colors;
   const workoutExercises = exercises.filter(
     (exercise) =>
+      exercise.isRequiredForUser !== false &&
       exercise.cameraSupported &&
       exercise.individual.target > 0 &&
       (!excludeCompletedExercises ||
@@ -648,10 +695,15 @@ function WorkoutCyclePickerModal({
   const selectedBreakdown =
     selectedCycles === null
       ? []
-      : workoutExercises.map((exercise) => ({
-          ...exercise,
-          amounts: splitTargetAcrossCycles(exercise.individual.target, selectedCycles),
-        }));
+      : workoutExercises.map((exercise) => {
+          const planningAmount = excludeCompletedExercises
+            ? Math.max(0, exercise.individual.target - exercise.individual.current)
+            : exercise.individual.target;
+          return {
+            ...exercise,
+            amounts: splitTargetAcrossCycles(planningAmount, selectedCycles),
+          };
+        });
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -696,7 +748,7 @@ function WorkoutCyclePickerModal({
               style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: excludeCompletedExercises }}
-              accessibilityLabel="Exclude completed exercises from reps"
+              accessibilityLabel="Base workout on remaining daily reps"
             >
               <View
                 style={[
@@ -716,14 +768,14 @@ function WorkoutCyclePickerModal({
                   color={excludeCompletedExercises ? c.primaryGlow : c.textMuted}
                 />
                 <Text style={[styles.workoutCheckboxLabel, { color: c.text }]}>
-                  Exclude completed exercises from reps
+                  Base workout on remaining reps
                 </Text>
               </View>
             </Pressable>
 
             {excludeCompletedExercises ? (
               <Text style={[styles.workoutCheckboxHint, { color: c.textDim }]}>
-                Completed exercises are skipped now and in later cycles.
+                Skips finished exercises and splits what you still need across your rounds.
               </Text>
             ) : null}
 
@@ -792,16 +844,16 @@ function WorkoutCyclePickerModal({
                 <Text style={[styles.workoutPreviewTitle, { color: c.text }]}>
                   {selectedCycles === 1
                     ? 'One full round'
-                    : `${selectedCycles} rounds · ${
-                        excludeCompletedExercises ? 'up to ' : ''
-                      }${selectedBreakdown.length * selectedCycles} sets`}
+                    : `${selectedCycles} rounds · ${selectedBreakdown.length * selectedCycles} sets`}
                 </Text>
                 <Text style={[styles.workoutPreviewHint, { color: c.textDim }]}>
                   {excludeCompletedExercises
-                    ? 'Exercises will disappear from later rounds as soon as you complete their daily target.'
+                    ? selectedCycles === 1
+                      ? 'One round of each exercise’s remaining daily amount.'
+                      : 'Remaining daily amounts are split across your rounds. Finished exercises are skipped.'
                     : selectedCycles === 1
-                    ? 'Complete each exercise once at its full target.'
-                    : `Example: a 20-rep target becomes ${splitTargetAcrossCycles(20, selectedCycles).join(' + ')} reps across the rounds.`}
+                      ? 'Complete each exercise once at its full target.'
+                      : `Example: a 20-rep target becomes ${splitTargetAcrossCycles(20, selectedCycles).join(' + ')} reps across the rounds.`}
                 </Text>
 
                 <ScrollView

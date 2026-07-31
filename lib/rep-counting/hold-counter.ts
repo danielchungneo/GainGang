@@ -22,8 +22,14 @@ const HIP_ABOVE_WRIST_MARGIN = 0.05;
 const KNEE_ON_GROUND_MARGIN = 0.05;
 /**
  * Max how far hips may sit below shoulders (sag). Larger y = lower on screen.
+ * Generous enough for solid form with a slight natural dip.
  */
-const MAX_HIP_SAG = 0.12;
+const MAX_HIP_SAG = 0.3;
+/**
+ * Max how far hips may sit above shoulders (pike / butt-up).
+ * Smaller y = higher on screen — blocks a high-hip “tent” pose.
+ */
+const MAX_HIP_PIKE = 0.03;
 /**
  * Support (wrist/elbow) must be at least this far below the shoulder.
  * Slightly negative so a chin tuck that pulls estimated shoulders downward
@@ -146,6 +152,11 @@ export function isPlankPose(landmarks: Landmark[]): PlankPoseResult {
   // Hips must be clearly off the floor.
   if (body.hip.y >= supportY - HIP_ABOVE_WRIST_MARGIN) {
     return { ok: false, message: 'Lift your hips off the ground' };
+  }
+
+  // Butt too high (pike) — hips well above the shoulder line.
+  if (body.hip.y < body.shoulder.y - MAX_HIP_PIKE) {
+    return { ok: false, message: 'Lower your hips — keep a straight line' };
   }
 
   if (body.hip.y > body.shoulder.y + MAX_HIP_SAG) {

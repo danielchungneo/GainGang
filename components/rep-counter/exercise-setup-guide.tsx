@@ -282,7 +282,7 @@ export function ExerciseSetupGuide({
                 <View style={styles.tipRow}>
                   <Text style={{ color: t.accent }}>•</Text>
                   <Text style={[styles.tipText, { color: t.body }]}>
-                    Tap the landscape button in the camera header (next to Finish).
+                    Tap the landscape button in the upper-right corner of the camera screen.
                   </Text>
                 </View>
                 <View style={styles.tipRow}>

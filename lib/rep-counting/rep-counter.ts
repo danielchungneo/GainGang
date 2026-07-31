@@ -430,7 +430,7 @@ export const EXERCISE_CONFIGS: Record<CameraExerciseType, ExerciseConfig> = {
     getAngle: hipAngle,
     // Core style: small angle = curled (up), large = flat (down).
     upThreshold: 95,
-    downThreshold: 130,
+    downThreshold: 115,
     minFramesInPhase: 4,
     countTransition: 'down-to-up',
     initialPhase: 'down',

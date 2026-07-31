@@ -4,6 +4,7 @@ import { ActivityIndicator, Modal, View } from 'react-native';
 
 import { LevelUpOverlay } from '@/components/level-up-overlay';
 import { RewardReveal, type RewardRowData } from '@/components/reward-reveal';
+import { useCelebrationGate } from '@/hooks/use-celebration-gate';
 import {
   useLevelUpRewardCrate,
   useOpenRewardCrate,
@@ -50,6 +51,8 @@ export function LevelUpWithRewardClaim({
   toLevel,
   onDismiss,
 }: LevelUpWithRewardClaimProps) {
+  useCelebrationGate(visible);
+
   const { data: levelCrate, refetch } = useLevelUpRewardCrate(visible ? toLevel : undefined);
   const openCrate = useOpenRewardCrate();
 

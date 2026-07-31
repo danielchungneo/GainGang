@@ -23,6 +23,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { useCelebrationGate } from '@/hooks/use-celebration-gate';
 import { fontFamily, status } from '@/lib/gaingang-theme';
 
 const SCREEN = Dimensions.get('window');
@@ -191,6 +192,8 @@ export function StreakContinueOverlay({
   toDays = 1,
   onDismiss,
 }: StreakContinueOverlayProps) {
+  useCelebrationGate(visible);
+
   const [displayDays, setDisplayDays] = useState(fromDays);
   const isFirstStreak = fromDays <= 0;
 

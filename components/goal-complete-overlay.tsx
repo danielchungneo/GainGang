@@ -29,6 +29,7 @@ import Svg, { Defs, LinearGradient as SvgGradient, Rect, Stop } from 'react-nati
 
 import { formatAmount } from '@/lib/format';
 import { fontFamily } from '@/lib/gaingang-theme';
+import { useCelebrationGate } from '@/hooks/use-celebration-gate';
 import type { ExerciseUnit } from '@/types';
 
 const SCREEN = Dimensions.get('window');
@@ -274,6 +275,8 @@ export function GoalCompleteOverlay({
   yourTarget,
   onDismiss,
 }: GoalCompleteOverlayProps) {
+  useCelebrationGate(visible);
+
   const exercises: GoalCompleteExerciseTarget[] =
     exercisesProp ??
     (yourTarget

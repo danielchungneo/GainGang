@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { areDailyGoalsComplete } from '@/hooks/use-reward-crates';
@@ -6,6 +6,10 @@ import {
   useMyTodaysDailyGoals,
   useMyUpcomingExerciseDates,
 } from '@/hooks/use-weekly-plans';
+import {
+  isCelebrationBusy,
+  subscribeCelebrationGate,
+} from '@/lib/celebration-gate';
 import {
   deriveScreenTimeLockStatus,
   getScreenTimePermissionGranted,
@@ -31,6 +35,9 @@ const DEFAULT_PREFS: ScreenTimeLockPrefs = {
 
 const EMPTY_DATES: string[] = [];
 
+/** Pause after other celebrations clear before showing Focus unlock. */
+const UNLOCK_AFTER_IDLE_MS = 500;
+
 /**
  * Loads Focus lock prefs, syncs shields when goals / AppState change,
  * and exposes settings actions. Mount once near the root so unlock works
@@ -50,6 +57,8 @@ export function useScreenTimeLock() {
   const [isReady, setIsReady] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showUnlockCelebration, setShowUnlockCelebration] = useState(false);
+  const [pendingUnlockCelebration, setPendingUnlockCelebration] = useState(false);
+  const wasGoalsComplete = useRef<boolean | null>(null);
 
   const refreshPermission = useCallback(async () => {
     if (!supported) {
@@ -61,16 +70,17 @@ export function useScreenTimeLock() {
     return granted;
   }, [supported]);
 
+  const queueUnlockCelebration = useCallback(() => {
+    setPendingUnlockCelebration(true);
+  }, []);
+
   const applySyncResult = useCallback(
     (result: { prefs: ScreenTimeLockPrefs; justUnlocked: boolean }) => {
       setPrefs(result.prefs);
       // Celebrate only when this sync newly unlocked for today (Focus lock on + goals done).
-      // Delay so the daily-goal celebration can play first when both fire together.
-      if (result.justUnlocked) {
-        setTimeout(() => setShowUnlockCelebration(true), 2800);
-      }
+      if (result.justUnlocked) queueUnlockCelebration();
     },
-    [],
+    [queueUnlockCelebration],
   );
 
   const runSyncFromStorage = useCallback(async () => {
@@ -127,6 +137,69 @@ export function useScreenTimeLock() {
     if (!supported || !isReady || !scheduleReady) return;
     void runSyncFromStorage();
   }, [goalsComplete, hasExercisesToday, isReady, runSyncFromStorage, scheduleReady, supported]);
+
+  // Backup: if goals flip incomplete → complete while Focus lock is armed, queue
+  // the unlock celebration even when sync races ahead of the celebration overlays.
+  useEffect(() => {
+    if (!supported || !isReady || !scheduleReady) return;
+
+    if (wasGoalsComplete.current === null) {
+      wasGoalsComplete.current = goalsComplete;
+      return;
+    }
+
+    const newlyComplete =
+      goalsComplete &&
+      !wasGoalsComplete.current &&
+      hasExercisesToday &&
+      prefs.enabled &&
+      prefs.blockedItems.length > 0 &&
+      permissionGranted;
+
+    wasGoalsComplete.current = goalsComplete;
+
+    if (newlyComplete) queueUnlockCelebration();
+  }, [
+    goalsComplete,
+    hasExercisesToday,
+    isReady,
+    permissionGranted,
+    prefs.blockedItems.length,
+    prefs.enabled,
+    queueUnlockCelebration,
+    scheduleReady,
+    supported,
+  ]);
+
+  // Show Focus unlock only after streak / goal / level-up / reveal overlays clear.
+  useEffect(() => {
+    if (!pendingUnlockCelebration || showUnlockCelebration) return;
+
+    let showTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function tryShowUnlock() {
+      if (showTimer) {
+        clearTimeout(showTimer);
+        showTimer = null;
+      }
+      if (isCelebrationBusy()) return;
+
+      showTimer = setTimeout(() => {
+        showTimer = null;
+        if (isCelebrationBusy()) return;
+        setShowUnlockCelebration(true);
+        setPendingUnlockCelebration(false);
+      }, UNLOCK_AFTER_IDLE_MS);
+    }
+
+    tryShowUnlock();
+    const unsubscribe = subscribeCelebrationGate(tryShowUnlock);
+
+    return () => {
+      unsubscribe();
+      if (showTimer) clearTimeout(showTimer);
+    };
+  }, [pendingUnlockCelebration, showUnlockCelebration]);
 
   useEffect(() => {
     if (!supported || !isReady) return;
@@ -239,6 +312,7 @@ export function useScreenTimeLock() {
 
   const dismissUnlockCelebration = useCallback(() => {
     setShowUnlockCelebration(false);
+    setPendingUnlockCelebration(false);
   }, []);
 
   return {

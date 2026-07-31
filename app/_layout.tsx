@@ -124,6 +124,11 @@ function RootNavigator() {
         />
 
         <Stack.Screen
+          name="dev-animations"
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
           name="edit-profile"
           options={{ presentation: "modal", headerShown: false }}
         />

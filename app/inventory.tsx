@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -16,7 +17,7 @@ import { CosmeticsEquipPanel } from '@/components/cosmetics-equip-panel';
 import { CosmeticsLeaderboardPreview } from '@/components/cosmetics-leaderboard-preview';
 import { LevelUpWithRewardClaim } from '@/components/level-up-with-reward-claim';
 import { RewardReveal, type RewardRowData } from '@/components/reward-reveal';
-import { GlassSurface, LevelBadge, ScreenBackground } from '@/components/ui';
+import { GlassSurface, ScreenBackground } from '@/components/ui';
 import {
   useOpenStarterCosmeticCrate,
   useStarterCosmeticCrates,
@@ -35,6 +36,7 @@ import {
   revealTierFromCrate,
   rewardAccentColor,
   type CrateReward,
+  type RewardRarity,
 } from '@/lib/rewards';
 import { getLevelUpInfo, type CosmeticItem, type EquippedCosmeticSlots, type UserRewardCrate } from '@/types';
 
@@ -235,8 +237,7 @@ export default function InventoryScreen() {
   }
 
   const headerCopy: Record<InventoryTab, string> = {
-    crates:
-      'Sealed crates wait here until you open them. Daily clears grant Uncommon crates; level-ups grant Common, Rare (every 5), or Epic (every 10).',
+    crates: 'Your sealed rewards await below.',
     banners: 'Equip a profile banner. Unlock more from daily crates.',
     titles: 'Equip a title next to your username. Unlock more from daily crates.',
     borders: 'Equip an icon border around your avatar. Unlock more from daily crates.',
@@ -763,97 +764,129 @@ interface CrateCardProps {
   isOpening: boolean;
 }
 
+function crateTierOrNull(tier: UserRewardCrate['tier']): RewardRarity | null {
+  if (
+    tier === 'E' ||
+    tier === 'D' ||
+    tier === 'C' ||
+    tier === 'B' ||
+    tier === 'A' ||
+    tier === 'S'
+  ) {
+    return tier;
+  }
+  return null;
+}
+
 function CrateCard({ crate, onOpen, isOpening }: CrateCardProps) {
   const t = useThemeTokens();
   const isSealed = crate.status === 'sealed';
   const rewards = parseCrateContents(crate.contents)?.rewards ?? [];
   const xpReward = rewards.find((r) => r.kind === 'xp');
-  const crateTier =
-    crate.tier === 'E' ||
-    crate.tier === 'D' ||
-    crate.tier === 'C' ||
-    crate.tier === 'B' ||
-    crate.tier === 'A' ||
-    crate.tier === 'S'
-      ? rarityDef(crate.tier)
-      : null;
-  const accent = xpReward
-    ? rarityDef(xpReward.rarity).color
-    : (crateTier?.color ?? t.accent);
+  const cosmeticReward = rewards.find((r) => r.kind === 'cosmetic');
+  const tierKey = crateTierOrNull(crate.tier) ?? 'D';
+  const tier = rarityDef(tierKey);
+  const openedRarity =
+    cosmeticReward?.rarity ?? xpReward?.rarity ?? tierKey;
+  const displayRarity = isSealed ? tier : rarityDef(openedRarity);
+  const borderColor = tier.color;
 
   return (
-    <GlassSurface style={{ padding: 16, gap: 12 }}>
-      <View className="flex-row items-start gap-3">
-        {xpReward ? (
-          <LevelBadge level={xpReward.badgeLevel} size={44} centerLabel="XP" />
-        ) : (
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: crateTier ? `${crateTier.color}22` : 'rgba(77,140,255,0.12)',
-              borderWidth: 1,
-              borderColor: crateTier ? `${crateTier.color}66` : 'rgba(77,140,255,0.35)',
-            }}
-          >
-            <Ionicons
-              name={isSealed ? 'cube' : 'cube-outline'}
-              size={22}
-              color={crateTier?.color ?? t.accent}
-            />
-          </View>
-        )}
-
-        <View className="flex-1 gap-1">
-          <Text
-            style={{
-              fontFamily: fontFamily.displaySemi,
-              fontSize: 17,
-              color: t.heading,
-            }}
-          >
-            {crate.title}
-          </Text>
-          <Text style={[type.labelSm, { color: accent }]}>
-            {isSealed ? 'SEALED' : 'OPENED'}
-            {crateTier ? ` · ${crateTier.name.toUpperCase()}+` : ''}
-            {crate.source === 'level_up' && crate.source_level
-              ? ` · LV ${crate.source_level}`
-              : ` · ${crate.source_date}`}
-            {xpReward ? ` · ${rarityDef(xpReward.rarity).name.toUpperCase()}` : ''}
-          </Text>
-          {crate.subtitle ? (
-            <Text style={[type.bodySm, { color: t.body }]}>{crate.subtitle}</Text>
-          ) : null}
+    <GlassSurface
+      style={{
+        padding: 16,
+        gap: 14,
+        borderWidth: 2,
+        borderColor,
+        shadowColor: borderColor,
+      }}
+    >
+      <View className="flex-row items-center gap-3">
+        <View
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 16,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: `${displayRarity.color}22`,
+            borderWidth: 1.5,
+            borderColor: `${displayRarity.color}88`,
+          }}
+        >
+          <Ionicons
+            name={isSealed ? 'cube' : 'cube-outline'}
+            size={26}
+            color={displayRarity.color}
+          />
         </View>
+
+        <Text
+          style={{
+            flex: 1,
+            fontFamily: fontFamily.displaySemi,
+            fontSize: 20,
+            letterSpacing: 0.4,
+            color: displayRarity.color,
+          }}
+        >
+          {displayRarity.name}
+        </Text>
       </View>
 
       <Pressable
         onPress={onOpen}
         disabled={isOpening}
-        style={({ pressed }) => ({
-          opacity: pressed || isOpening ? 0.7 : 1,
-          paddingVertical: 12,
-          borderRadius: 12,
-          alignItems: 'center',
-          backgroundColor: isSealed ? t.accent : 'rgba(77,140,255,0.12)',
-        })}
         accessibilityRole="button"
         accessibilityLabel={isSealed ? 'Open reward crate' : 'Replay reward reveal'}
+        style={({ pressed }) => ({
+          opacity: pressed || isOpening ? 0.85 : 1,
+          borderRadius: 14,
+          overflow: 'hidden',
+        })}
       >
-        <Text
+        <LinearGradient
+          colors={
+            isSealed
+              ? [displayRarity.fill[0], displayRarity.fill[1]]
+              : [`${t.accent}33`, `${t.accent}18`]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={{
-            fontFamily: fontFamily.display,
-            fontSize: 14,
-            letterSpacing: 1.4,
-            color: isSealed ? '#fff' : t.heading,
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            borderWidth: isSealed ? 0 : 1,
+            borderColor: t.buttonBorder,
+            borderRadius: 14,
           }}
         >
-          {isOpening ? 'OPENING…' : isSealed ? 'OPEN CRATE' : 'REPLAY REVEAL'}
-        </Text>
+          {isOpening ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Ionicons
+                name={isSealed ? 'lock-open' : 'play'}
+                size={18}
+                color={isSealed ? '#fff' : t.heading}
+              />
+              <Text
+                style={{
+                  fontFamily: fontFamily.display,
+                  fontSize: 15,
+                  letterSpacing: 1.6,
+                  color: isSealed ? '#fff' : t.heading,
+                }}
+              >
+                {isSealed ? 'OPEN CRATE' : 'REPLAY REVEAL'}
+              </Text>
+            </>
+          )}
+        </LinearGradient>
       </Pressable>
     </GlassSurface>
   );

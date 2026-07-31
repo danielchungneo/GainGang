@@ -240,6 +240,31 @@ export default function SettingsScreen() {
             style={{ textAlign: "left", opacity: 1 }}
           />
         </GlassSurface>
+
+        {__DEV__ ? (
+          <TouchableOpacity
+            onPress={() => router.push("/dev-animations" as Href)}
+            accessibilityRole="button"
+            accessibilityLabel="Open animations playground"
+          >
+            <GlassSurface
+              style={{
+                padding: 20,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={[type.labelSm, { color: t.body }]}>Developer</Text>
+                <Text style={[type.bodySm, { color: t.heading }]}>
+                  Animations
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={t.body} />
+            </GlassSurface>
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
     </ScreenBackground>
   );

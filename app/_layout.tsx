@@ -10,7 +10,8 @@ import { LogBox } from "react-native";
 
 import "react-native-reanimated";
 
-import { ForceStoreUpdateModal } from "@/components/force-store-update-modal";
+// Temporarily disabled for this release — re-enable once min store versions are set.
+// import { ForceStoreUpdateModal } from "@/components/force-store-update-modal";
 import { OtaUpdateModal } from "@/components/ota-update-modal";
 
 import { ScreenTimeLockSync } from "@/components/screen-time-lock-sync";
@@ -39,7 +40,7 @@ function RootNavigator() {
 
   return (
     <ThemeProvider value={mode === "dark" ? DarkTheme : DefaultTheme}>
-      <ForceStoreUpdateModal />
+      {/* <ForceStoreUpdateModal /> */}
       <OtaUpdateModal />
       <ScreenTimeLockSync />
       <Stack

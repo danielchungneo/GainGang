@@ -25,6 +25,11 @@ const VALUE_PROPS = [
     title: 'Camera counts your reps',
     body: 'Point your phone and let GainGang verify your form and volume.',
   },
+  {
+    icon: 'phone-portrait' as const,
+    title: 'Focus until you’re done',
+    body: 'Optionally restrict distracting apps until today’s workouts are finished.',
+  },
 ];
 
 export default function OnboardingWelcomeScreen() {
@@ -35,6 +40,7 @@ export default function OnboardingWelcomeScreen() {
       step={1}
       title="Welcome to GainGang"
       subtitle="The social workout app that turns daily goals into a team game."
+      scrollContent
       footer={
         <Button label="Let's Go!" onPress={() => router.push('/onboarding/fitness')} />
       }
@@ -70,6 +76,7 @@ export default function OnboardingWelcomeScreen() {
             fontStyle: 'italic',
             lineHeight: 20,
             marginTop: spacing.lg,
+            marginBottom: spacing.sm,
             paddingHorizontal: spacing.sm,
           },
         ]}

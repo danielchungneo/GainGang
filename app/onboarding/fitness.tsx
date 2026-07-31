@@ -68,6 +68,7 @@ export default function OnboardingFitnessScreen() {
       step={2}
       title="What's your level?"
       subtitle="We'll use this to personalize goals. You can change it later."
+      scrollContent
       footer={
         <Button
           label="Ready to Work!"
@@ -154,6 +155,7 @@ export default function OnboardingFitnessScreen() {
             fontStyle: 'italic',
             lineHeight: 20,
             marginTop: spacing.lg,
+            marginBottom: spacing.sm,
             paddingHorizontal: spacing.sm,
           },
         ]}

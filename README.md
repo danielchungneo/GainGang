@@ -124,6 +124,9 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
 [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) for the full conventions, and
 [`docs/STACK_NOTES.md`](docs/STACK_NOTES.md) for the reasoning behind the stack.
 
+For OTA vs App Store / Play Store force-updates (and when to touch
+`app_settings.force_update`), see [`docs/APP_UPDATES.md`](docs/APP_UPDATES.md).
+
 ## Renaming / branding
 
 App name, slug, and scheme live in `app.json`; package name in `package.json`.

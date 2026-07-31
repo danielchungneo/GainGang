@@ -22,7 +22,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
-import { LevelUpOverlay } from '@/components/level-up-overlay';
+import { LevelUpWithRewardClaim } from '@/components/level-up-with-reward-claim';
 import { ExerciseSetupGuide } from '@/components/rep-counter/exercise-setup-guide';
 import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { useAuth } from '@/context/auth-context';
@@ -804,7 +804,7 @@ export function WorkoutRepCounterSession({
       ) : null}
 
       {levelUp && !celebration && !streakContinue ? (
-        <LevelUpOverlay
+        <LevelUpWithRewardClaim
           visible
           fromLevel={levelUp.fromLevel}
           toLevel={levelUp.toLevel}

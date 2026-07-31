@@ -20,6 +20,10 @@ interface MemberProfile {
   username: string | null;
   avatar_url: string | null;
   xp: number;
+  equipped_banner_id: string | null;
+  equipped_title_id: string | null;
+  equipped_avatar_border_id: string | null;
+  equipped_level_border_id: string | null;
 }
 
 interface ExerciseAmount {
@@ -62,6 +66,10 @@ function rankBoard(
       avatar_url: p?.avatar_url ?? null,
       xp,
       level: levelFromXp(xp),
+      equipped_banner_id: p?.equipped_banner_id ?? null,
+      equipped_title_id: p?.equipped_title_id ?? null,
+      equipped_avatar_border_id: p?.equipped_avatar_border_id ?? null,
+      equipped_level_border_id: p?.equipped_level_border_id ?? null,
       unit: metric,
       total: totals.get(m.user_id)?.[metric] ?? 0,
       position: 0,
@@ -83,7 +91,9 @@ export function useLeaderboard(gangId: string, period: LeaderboardPeriod = 'week
     queryFn: async (): Promise<LeaderboardBoards> => {
       const { data: members, error: mErr } = await supabase
         .from('gang_members')
-        .select('user_id, profile:profiles(id, full_name, username, avatar_url, xp)')
+        .select(
+          'user_id, profile:profiles(id, full_name, username, avatar_url, xp, equipped_banner_id, equipped_title_id, equipped_avatar_border_id, equipped_level_border_id)',
+        )
         .eq('gang_id', gangId);
       if (mErr) throw mErr;
 

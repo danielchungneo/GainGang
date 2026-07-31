@@ -41,8 +41,10 @@ export type NotificationType =
 export type PushPlatform = 'ios' | 'android' | 'web' | 'unknown';
 export type XpAwardKind = 'activity_log' | 'personal_goal' | 'gang_goal' | 'crate_reward';
 export type RewardCrateStatus = 'sealed' | 'opened';
-export type RewardCrateSource = 'daily_completion';
+export type RewardCrateSource = 'daily_completion' | 'level_up';
 export type RewardCrateTier = 'aura' | 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+export type CosmeticKind = 'title' | 'avatar_border' | 'level_border' | 'banner';
+export type CosmeticSource = 'crate' | 'grant';
 
 export type Database = {
   public: {
@@ -65,6 +67,10 @@ export type Database = {
           focus_lock_intro_seen_at: string | null;
           has_pull_up_bar: boolean;
           has_weights: boolean;
+          equipped_title_id: string | null;
+          equipped_avatar_border_id: string | null;
+          equipped_level_border_id: string | null;
+          equipped_banner_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -85,6 +91,10 @@ export type Database = {
           focus_lock_intro_seen_at?: string | null;
           has_pull_up_bar?: boolean;
           has_weights?: boolean;
+          equipped_title_id?: string | null;
+          equipped_avatar_border_id?: string | null;
+          equipped_level_border_id?: string | null;
+          equipped_banner_id?: string | null;
         };
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
         Relationships: [];
@@ -634,6 +644,7 @@ export type Database = {
           user_id: string;
           source: RewardCrateSource;
           source_date: string;
+          source_level: number | null;
           status: RewardCrateStatus;
           tier: RewardCrateTier;
           title: string;
@@ -648,6 +659,7 @@ export type Database = {
           user_id: string;
           source?: RewardCrateSource;
           source_date: string;
+          source_level?: number | null;
           status?: RewardCrateStatus;
           tier?: RewardCrateTier;
           title?: string;
@@ -667,6 +679,79 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      cosmetic_items: {
+        Row: {
+          id: string;
+          kind: CosmeticKind;
+          rarity: Rank;
+          name: string;
+          description: string | null;
+          style: Json;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          kind: CosmeticKind;
+          rarity: Rank;
+          name: string;
+          description?: string | null;
+          style?: Json;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['cosmetic_items']['Insert']>;
+        Relationships: [];
+      };
+      user_cosmetics: {
+        Row: {
+          user_id: string;
+          cosmetic_id: string;
+          acquired_at: string;
+          source: CosmeticSource;
+        };
+        Insert: {
+          user_id: string;
+          cosmetic_id: string;
+          acquired_at?: string;
+          source?: CosmeticSource;
+        };
+        Update: Partial<Database['public']['Tables']['user_cosmetics']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'user_cosmetics_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_cosmetics_cosmetic_id_fkey';
+            columns: ['cosmetic_id'];
+            isOneToOne: false;
+            referencedRelation: 'cosmetic_items';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      user_starter_cosmetic_crates: {
+        Row: {
+          user_id: string;
+          category: 'banner' | 'title' | 'icon_border' | 'level_border';
+          cosmetic_id: string;
+          opened_at: string;
+        };
+        Insert: {
+          user_id: string;
+          category: 'banner' | 'title' | 'icon_border' | 'level_border';
+          cosmetic_id: string;
+          opened_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['user_starter_cosmetic_crates']['Insert']
+        >;
+        Relationships: [];
       };
     };
     Views: {
@@ -796,6 +881,18 @@ export type Database = {
       open_reward_crate: {
         Args: { p_crate_id: string };
         Returns: Database['public']['Tables']['user_reward_crates']['Row'];
+      };
+      equip_cosmetic: {
+        Args: { p_cosmetic_id: string };
+        Returns: Database['public']['Tables']['profiles']['Row'];
+      };
+      unequip_cosmetic: {
+        Args: { p_kind: string };
+        Returns: Database['public']['Tables']['profiles']['Row'];
+      };
+      open_starter_cosmetic_crate: {
+        Args: { p_category: string };
+        Returns: Json;
       };
       send_gang_poke: {
         Args: {

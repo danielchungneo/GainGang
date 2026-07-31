@@ -13,7 +13,7 @@ import {
 import { GlassSurface, KeyboardAwareScrollView, ScreenBackground } from '@/components/ui';
 import { AmountInput } from '@/components/ui/amount-input';
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
-import { LevelUpOverlay } from '@/components/level-up-overlay';
+import { LevelUpWithRewardClaim } from '@/components/level-up-with-reward-claim';
 import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { CameraRepCountButton } from '@/components/rep-counter/camera-rep-count-button';
 import { useDailyGoalActivities, useLogActivity, useUpdateActivity } from '@/hooks/use-activities';
@@ -553,7 +553,7 @@ export default function LogDailyGoalScreen() {
       ) : null}
 
       {levelUp && !celebration && !streakContinue ? (
-        <LevelUpOverlay
+        <LevelUpWithRewardClaim
           key={levelUpKey}
           visible
           fromLevel={levelUp.fromLevel}

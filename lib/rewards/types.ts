@@ -1,13 +1,14 @@
 import type { Rank } from '@/types';
+import type { CosmeticKind } from '@/types/database';
 
 /** Rarity ladder shared by all crate loot (E common → S mythic). */
 export type RewardRarity = Rank;
 
 /**
  * Extensible reward kinds. Add new kinds here as loot expands
- * (e.g. 'title' | 'banner' | 'border' | 'currency' | 'xp_boost').
+ * (e.g. 'currency' | 'xp_boost').
  */
-export type RewardKind = 'xp';
+export type RewardKind = 'xp' | 'cosmetic';
 
 interface CrateRewardBase {
   kind: RewardKind;
@@ -29,8 +30,16 @@ export interface XpCrateReward extends CrateRewardBase {
   badgeLevel: number;
 }
 
+/** Cosmetic unlock from a reward crate. */
+export interface CosmeticCrateReward extends CrateRewardBase {
+  kind: 'cosmetic';
+  cosmeticId: string;
+  cosmeticKind: CosmeticKind;
+  name: string;
+}
+
 /** Discriminated union — extend as new reward kinds ship. */
-export type CrateReward = XpCrateReward;
+export type CrateReward = XpCrateReward | CosmeticCrateReward;
 
 /** Persisted shape of `user_reward_crates.contents`. */
 export interface CrateContents {

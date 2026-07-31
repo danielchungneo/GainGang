@@ -1,4 +1,5 @@
 export type {
+  CosmeticCrateReward,
   CrateContents,
   CrateReward,
   RewardKind,
@@ -9,7 +10,9 @@ export type {
 export {
   REWARD_RARITIES,
   REWARD_RARITY_ORDER,
+  crateTierForLevel,
   rarityDef,
+  rollRewardRarity,
   type RewardRarityDef,
 } from './rarities';
 

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { Button, GlassSurface } from '@/components/ui';
@@ -17,33 +17,39 @@ export interface DailyRewardClaimBannerProps {
   goals: DailyGoalWithProgress[];
 }
 
+/** Shown once today's goals are cleared. Crate is auto-granted into inventory. */
 export function DailyRewardClaimBanner({ goals }: DailyRewardClaimBannerProps) {
   const t = useThemeTokens();
   const rewardDate = todayISO();
   const { data: todaysCrate, isLoading } = useTodaysRewardCrate(rewardDate);
   const claimReward = useClaimDailyReward();
-  const [error, setError] = useState<string | null>(null);
+  const grantAttemptedRef = useRef(false);
+  const claimMutateRef = useRef(claimReward.mutateAsync);
+  claimMutateRef.current = claimReward.mutateAsync;
 
   const isComplete = areDailyGoalsComplete(goals);
+
+  // Client sync: if the DB trigger already granted, this is a no-op.
+  // If the user completed before the trigger existed, this backfills.
+  useEffect(() => {
+    if (!isComplete || todaysCrate || isLoading || claimReward.isPending) return;
+    if (grantAttemptedRef.current) return;
+    grantAttemptedRef.current = true;
+    void claimMutateRef.current(rewardDate).catch(() => {
+      grantAttemptedRef.current = false;
+    });
+  }, [isComplete, todaysCrate, isLoading, claimReward.isPending, rewardDate]);
+
   if (!isComplete) return null;
 
-  const isClaimed = !!todaysCrate;
   const isSealed = todaysCrate?.status === 'sealed';
-
-  async function handleClaim() {
-    setError(null);
-    try {
-      await claimReward.mutateAsync(rewardDate);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not claim reward');
-    }
-  }
+  const isGranted = !!todaysCrate;
 
   return (
     <GlassSurface style={{ padding: 18, gap: 12 }}>
       <View className="gap-1">
         <Text style={[type.labelSm, { color: t.accent }]}>
-          {isClaimed ? 'REWARD CLAIMED' : 'DAILY REWARD READY'}
+          {isGranted ? 'REWARD READY' : 'DAILY COMPLETE'}
         </Text>
         <Text
           style={{
@@ -53,39 +59,29 @@ export function DailyRewardClaimBanner({ goals }: DailyRewardClaimBannerProps) {
             color: t.heading,
           }}
         >
-          {isClaimed
+          {isGranted
             ? isSealed
               ? 'Crate waiting in inventory'
-              : 'Today\'s crate is opened'
-            : 'Claim your daily reward crate'}
+              : "Today's crate is opened"
+            : 'Adding crate to inventory…'}
         </Text>
         <Text style={[type.bodySm, { color: t.body }]}>
-          {isClaimed
+          {isGranted
             ? isSealed
               ? 'Open it from inventory to reveal what’s inside.'
               : 'Come back tomorrow after clearing your goals for another crate.'
-            : 'You cleared every exercise today. Claim a sealed crate for your inventory.'}
+            : 'You cleared every exercise today. Your sealed crate is on its way.'}
         </Text>
       </View>
 
-      {isLoading ? (
+      {isLoading || claimReward.isPending || !isGranted ? (
         <ActivityIndicator color={t.accent} />
-      ) : isClaimed ? (
+      ) : (
         <Button
           label={isSealed ? 'OPEN INVENTORY' : 'VIEW INVENTORY'}
           onPress={() => router.push('/inventory')}
         />
-      ) : (
-        <Button
-          label={claimReward.isPending ? 'CLAIMING…' : 'CLAIM REWARD'}
-          onPress={handleClaim}
-          disabled={claimReward.isPending}
-        />
       )}
-
-      {error ? (
-        <Text style={[type.bodySm, { color: '#FF5C89' }]}>{error}</Text>
-      ) : null}
     </GlassSurface>
   );
 }

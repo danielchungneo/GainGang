@@ -28,10 +28,12 @@ import {
   StreakPill,
 } from '@/components/ui';
 import { useUserActivities } from '@/hooks/use-activities';
+import { useEquippedCosmetics } from '@/hooks/use-cosmetics';
 import { useFollowCounts, useFollowStatus, useToggleFollow } from '@/hooks/use-follows';
 import { useProfile } from '@/hooks/use-profile';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { fontFamily, type } from '@/lib/gaingang-theme';
+import { rarityDef } from '@/lib/rewards';
 import { levelProgress } from '@/types';
 
 type ProfileView = 'streak' | 'activities' | 'badges';
@@ -48,6 +50,7 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
 
   const { data: profile, isLoading } = useProfile(userId);
   const { data: activities } = useUserActivities(userId);
+  const equipped = useEquippedCosmetics(profile);
   const { data: followCounts } = useFollowCounts(userId);
   const { data: followStatus } = useFollowStatus(isOwnProfile ? undefined : userId);
   const toggleFollow = useToggleFollow(userId);
@@ -63,6 +66,10 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
 
   const displayName = profile.full_name || (isOwnProfile ? 'Unnamed Hunter' : 'Hunter');
   const avatarUri = profile.avatar_url;
+  const titleName = equipped.title?.name ?? null;
+  const titleColor = equipped.title
+    ? rarityDef(equipped.title.rarity).color
+    : t.accent;
 
   return (
     <>
@@ -74,7 +81,12 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
               accessibilityRole="button"
               accessibilityLabel="Edit profile photo"
             >
-              <Avatar name={displayName} uri={avatarUri} size={64} />
+              <Avatar
+                name={displayName}
+                uri={avatarUri}
+                size={64}
+                borderStyle={equipped.avatarBorder?.style}
+              />
             </TouchableOpacity>
           ) : avatarUri ? (
             <TouchableOpacity
@@ -82,10 +94,20 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
               accessibilityRole="button"
               accessibilityLabel="View profile photo"
             >
-              <Avatar name={displayName} uri={avatarUri} size={64} />
+              <Avatar
+                name={displayName}
+                uri={avatarUri}
+                size={64}
+                borderStyle={equipped.avatarBorder?.style}
+              />
             </TouchableOpacity>
           ) : (
-            <Avatar name={displayName} uri={avatarUri} size={64} />
+            <Avatar
+              name={displayName}
+              uri={avatarUri}
+              size={64}
+              borderStyle={equipped.avatarBorder?.style}
+            />
           )}
 
           <View style={{ flex: 1, gap: 2 }}>
@@ -121,9 +143,25 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
               {profile.username ? (
                 <Text style={[type.bodySm, { color: t.body }]}>@{profile.username}</Text>
               ) : null}
-              {(profile.current_streak ?? 0) > 0 ? (
+              {titleName ? (
                 <>
                   {profile.username ? (
+                    <Text style={[type.bodySm, { color: t.placeholder }]}>·</Text>
+                  ) : null}
+                  <Text
+                    style={{
+                      fontFamily: fontFamily.bodySemi,
+                      fontSize: 12,
+                      color: titleColor,
+                    }}
+                  >
+                    {titleName}
+                  </Text>
+                </>
+              ) : null}
+              {(profile.current_streak ?? 0) > 0 ? (
+                <>
+                  {profile.username || titleName ? (
                     <Text style={[type.bodySm, { color: t.placeholder }]}>·</Text>
                   ) : null}
                   <StreakPill days={profile.current_streak} />
@@ -132,7 +170,11 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
             </View>
           </View>
 
-          <LevelBadge level={progress.level} size={52} />
+          <LevelBadge
+            level={progress.level}
+            size={52}
+            borderStyle={equipped.levelBorder?.style}
+          />
         </View>
 
         <View style={{ gap: 6 }}>

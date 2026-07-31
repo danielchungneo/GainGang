@@ -40,7 +40,7 @@ export default function ActivityDetailScreen() {
     queryFn: async (): Promise<ActivityFeedItem | null> => {
       const { data, error } = await supabase
         .from('activities')
-        .select('*, author:profiles(id, full_name, username, avatar_url, rank), exercises:activity_exercises(*)')
+        .select('*, author:profiles(id, full_name, username, avatar_url, xp, equipped_level_border_id, rank), exercises:activity_exercises(*)')
         .eq('id', activityId)
         .maybeSingle();
       if (error) throw error;

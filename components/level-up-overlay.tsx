@@ -201,8 +201,16 @@ export interface LevelUpOverlayProps {
   fromLevel?: number;
   /** New level reached */
   toLevel?: number;
-  /** Called when the user taps the backdrop */
+  /** Called when the user taps the backdrop / continue without claiming */
   onDismiss?: () => void;
+  /**
+   * When set, shows a CLAIM REWARD CTA after the stamp that opens this
+   * sealed level-up crate. Prefer the crate for `toLevel`.
+   */
+  rewardCrateId?: string | null;
+  /** Tier label shown on the claim CTA (e.g. Uncommon). */
+  rewardCrateTierLabel?: string | null;
+  onClaimReward?: (crateId: string) => void;
 }
 
 export function LevelUpOverlay({
@@ -210,6 +218,9 @@ export function LevelUpOverlay({
   fromLevel = 12,
   toLevel = 13,
   onDismiss,
+  rewardCrateId,
+  rewardCrateTierLabel,
+  onClaimReward,
 }: LevelUpOverlayProps) {
   const bgOpa = useSharedValue(0);
   const cardY = useSharedValue(50);
@@ -223,6 +234,7 @@ export function LevelUpOverlay({
   const stampSc = useSharedValue(0.1);
   const stampOpa = useSharedValue(0);
   const bodyOpa = useSharedValue(1);
+  const ctaOpa = useSharedValue(0);
   const r1Sc = useSharedValue(0.3);
   const r1Opa = useSharedValue(0);
   const r2Sc = useSharedValue(0.3);
@@ -232,6 +244,7 @@ export function LevelUpOverlay({
 
   const easeOut = Easing.out(Easing.cubic);
   const easeInOut = Easing.inOut(Easing.cubic);
+  const hasClaim = !!rewardCrateId && !!onClaimReward;
 
   function reset() {
     'worklet';
@@ -248,6 +261,7 @@ export function LevelUpOverlay({
     stampSc.value = 0.1;
     stampOpa.value = 0;
     bodyOpa.value = 1;
+    ctaOpa.value = 0;
     r1Sc.value = 0.3;
     r1Opa.value = 0;
     r2Sc.value = 0.3;
@@ -278,6 +292,10 @@ export function LevelUpOverlay({
     cardW.value = withDelay(
       T.stampDelay,
       withSpring(CARD_W_STAMP, { damping: 14, stiffness: 150, mass: 0.9 }),
+    );
+    ctaOpa.value = withDelay(
+      T.stampDelay + 720,
+      withTiming(1, { duration: 320, easing: easeOut }),
     );
 
     (
@@ -311,7 +329,7 @@ export function LevelUpOverlay({
     // instead of springing from 0 (which onLayout can then lock in as ~1px).
     const expandTimer = setTimeout(() => {
       const base = cardHBase.value > 0 ? cardHBase.value : CARD_H_STAMP;
-      const stampHeight = Math.max(CARD_H_STAMP, base);
+      const stampHeight = Math.max(CARD_H_STAMP + (hasClaim ? 120 : 0), base);
       cardH.value = base;
       cardH.value = withSpring(stampHeight, { damping: 14, stiffness: 150, mass: 0.9 });
     }, T.stampDelay);
@@ -368,6 +386,10 @@ export function LevelUpOverlay({
     transform: [{ scale: stampSc.value }],
   }));
 
+  const ctaStyle = useAnimatedStyle(() => ({
+    opacity: ctaOpa.value,
+  }));
+
   const r1Style = useAnimatedStyle(() => ({
     transform: [{ scale: r1Sc.value }],
     opacity: r1Opa.value,
@@ -407,14 +429,11 @@ export function LevelUpOverlay({
           <Animated.View style={[StyleSheet.absoluteFill, s.ring, r3Style]} />
         </View>
 
-        <Pressable onPress={onDismiss}>
+        <View>
           <Animated.View
             style={[s.card, cardStyle]}
             onLayout={(e: LayoutChangeEvent) => {
               const h = e.nativeEvent.layout.height;
-              // Only capture natural height while unconstrained (cardH === 0).
-              // If we also write cardH here during a from-0 spring, onLayout can
-              // freeze the card at a 1–2px sliver and cancel the expand animation.
               if (h > 0 && cardHBase.value === 0 && cardH.value === 0) {
                 cardHBase.value = h;
               }
@@ -445,14 +464,39 @@ export function LevelUpOverlay({
             </View>
           </Animated.View>
 
-          <Animated.View style={[StyleSheet.absoluteFill, s.stamp, stampStyle]} pointerEvents="none">
-            <View style={s.stampContent}>
+          <Animated.View style={[StyleSheet.absoluteFill, s.stamp, stampStyle]} pointerEvents="box-none">
+            <View style={s.stampContent} pointerEvents="box-none">
               <Text style={s.stampEyebrow}>LEVEL UP</Text>
               <StampLevelFrame level={toLevel} />
+              {hasClaim ? (
+                <Animated.View style={[s.claimWrap, ctaStyle]}>
+                  <Pressable
+                    onPress={() => {
+                      if (rewardCrateId) onClaimReward?.(rewardCrateId);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Claim level-up reward crate"
+                    style={({ pressed }) => [s.claimButton, pressed && { opacity: 0.85 }]}
+                  >
+                    <Text style={s.claimButtonText}>CLAIM REWARD</Text>
+                    {rewardCrateTierLabel ? (
+                      <Text style={s.claimSubtext}>{rewardCrateTierLabel} crate</Text>
+                    ) : null}
+                  </Pressable>
+                  <Pressable
+                    onPress={onDismiss}
+                    accessibilityRole="button"
+                    accessibilityLabel="Save crate for later"
+                    hitSlop={8}
+                  >
+                    <Text style={s.claimLater}>Save for inventory</Text>
+                  </Pressable>
+                </Animated.View>
+              ) : null}
             </View>
           </Animated.View>
           </Animated.View>
-        </Pressable>
+        </View>
       </View>
     </Modal>
   );
@@ -570,6 +614,38 @@ const s = StyleSheet.create({
     color: '#AEB8D0',
     textAlign: 'center',
     width: '100%',
+  },
+  claimWrap: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  claimButton: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: ACCENT,
+    gap: 2,
+  },
+  claimButtonText: {
+    fontFamily: fontFamily.display,
+    fontSize: 14,
+    letterSpacing: 1.6,
+    color: '#FFFFFF',
+  },
+  claimSubtext: {
+    fontFamily: fontFamily.mono,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: 'rgba(255,255,255,0.75)',
+  },
+  claimLater: {
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 13,
+    color: '#7D8AA8',
   },
   levelFrame: {
     alignItems: 'center',

@@ -95,7 +95,7 @@ export function useDiscoverGangs(search?: string) {
   return useQuery({
     queryKey: queryKeys.discoverGangs(search, userId),
     enabled: !!userId,
-    queryFn: async (): Promise<Gang[]> => {
+    queryFn: async (): Promise<DiscoverGang[]> => {
       const { data: memberships, error: memberError } = await supabase
         .from('gang_members')
         .select('gang_id')
@@ -118,7 +118,30 @@ export function useDiscoverGangs(search?: string) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data ?? [];
+
+      const gangs = data ?? [];
+      if (gangs.length === 0) return [];
+
+      const gangIds = gangs.map((g) => g.id);
+      const { data: memberRows, error: countError } = await supabase
+        .from('gang_members')
+        .select('gang_id')
+        .in('gang_id', gangIds);
+      if (countError) throw countError;
+
+      const counts: Record<string, number> = {};
+      for (const row of memberRows ?? []) {
+        counts[row.gang_id] = (counts[row.gang_id] ?? 0) + 1;
+      }
+
+      return gangs.map((g) => {
+        const member_count = counts[g.id] ?? 0;
+        return {
+          ...g,
+          member_count,
+          is_full: member_count >= MAX_GANG_MEMBERS,
+        };
+      });
     },
   });
 }
@@ -149,6 +172,8 @@ export function useCreateGang() {
   });
 }
 
+export const MAX_GANG_MEMBERS = 25;
+
 export interface GangInvitePreview {
   id: string;
   name: string;
@@ -158,6 +183,13 @@ export interface GangInvitePreview {
   privacy: GangPrivacy;
   member_count: number;
   already_member: boolean;
+  max_members: number;
+  is_full: boolean;
+}
+
+export interface DiscoverGang extends Gang {
+  member_count: number;
+  is_full: boolean;
 }
 
 /** Preview a gang from an invite link (works for invite-only gangs). */
@@ -173,7 +205,26 @@ export function useGangInvitePreview(inviteCode: string) {
         p_invite_code: code,
       });
       if (error) throw error;
-      return data as unknown as GangInvitePreview;
+      const preview = data as unknown as Partial<GangInvitePreview> & {
+        id: string;
+        name: string;
+        member_count: number;
+        already_member: boolean;
+      };
+      const memberCount = preview.member_count ?? 0;
+      const maxMembers = preview.max_members ?? MAX_GANG_MEMBERS;
+      return {
+        id: preview.id,
+        name: preview.name,
+        description: preview.description ?? null,
+        icon: preview.icon ?? null,
+        banner_url: preview.banner_url ?? null,
+        privacy: preview.privacy ?? 'invite_only',
+        member_count: memberCount,
+        already_member: preview.already_member,
+        max_members: maxMembers,
+        is_full: preview.is_full ?? memberCount >= maxMembers,
+      };
     },
   });
 }

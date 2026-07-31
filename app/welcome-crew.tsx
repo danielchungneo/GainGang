@@ -163,11 +163,15 @@ export default function WelcomeCrewScreen() {
                   label={
                     completeCrewSetup.isPending
                       ? 'Joining…'
-                      : preview?.name
-                        ? `Join ${preview.name}`
-                        : 'Join your Gang'
+                      : preview?.is_full
+                        ? 'Gang full'
+                        : preview?.name
+                          ? `Join ${preview.name}`
+                          : 'Join your Gang'
                   }
-                  disabled={completeCrewSetup.isPending || previewLoading}
+                  disabled={
+                    completeCrewSetup.isPending || previewLoading || !!preview?.is_full
+                  }
                   onPress={() => void finishAndGo('invite')}
                 />
               ) : (

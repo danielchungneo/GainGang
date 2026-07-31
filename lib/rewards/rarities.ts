@@ -22,13 +22,13 @@ export interface RewardRarityDef {
 
 /**
  * Loot rarity table (weights sum to 100).
- * Must stay in sync with `open_reward_crate` SQL roll bands.
+ * Must stay in sync with `roll_reward_rarity` SQL roll bands.
  */
 export const REWARD_RARITIES: Record<RewardRarity, RewardRarityDef> = {
   E: {
     rarity: 'E',
     name: 'Common',
-    weight: 45,
+    weight: 40,
     xpAmount: 25,
     badgeLevel: 5,
     ...pickRankVisual('E'),
@@ -44,7 +44,7 @@ export const REWARD_RARITIES: Record<RewardRarity, RewardRarityDef> = {
   C: {
     rarity: 'C',
     name: 'Rare',
-    weight: 15,
+    weight: 18,
     xpAmount: 100,
     badgeLevel: 25,
     ...pickRankVisual('C'),
@@ -52,7 +52,7 @@ export const REWARD_RARITIES: Record<RewardRarity, RewardRarityDef> = {
   B: {
     rarity: 'B',
     name: 'Epic',
-    weight: 9,
+    weight: 10,
     xpAmount: 200,
     badgeLevel: 35,
     ...pickRankVisual('B'),
@@ -68,7 +68,7 @@ export const REWARD_RARITIES: Record<RewardRarity, RewardRarityDef> = {
   S: {
     rarity: 'S',
     name: 'Mythic',
-    weight: 1,
+    weight: 2,
     xpAmount: 800,
     badgeLevel: 55,
     ...pickRankVisual('S'),
@@ -88,4 +88,27 @@ function pickRankVisual(tier: RankTier) {
 
 export function rarityDef(rarity: RewardRarity): RewardRarityDef {
   return REWARD_RARITIES[rarity];
+}
+
+/** Crate floor for a level-up reward. Every 10th → B, else every 5th → C, else E. */
+export function crateTierForLevel(level: number): RewardRarity {
+  if (level > 0 && level % 10 === 0) return 'B';
+  if (level > 0 && level % 5 === 0) return 'C';
+  return 'E';
+}
+
+/**
+ * Roll a loot rarity at or above `minRarity`, renormalizing the base weights
+ * among the remaining tiers. Must stay in sync with `roll_reward_rarity(text)`.
+ */
+export function rollRewardRarity(minRarity: RewardRarity = 'E'): RewardRarity {
+  const start = REWARD_RARITY_ORDER.indexOf(minRarity);
+  const eligible = REWARD_RARITY_ORDER.slice(Math.max(0, start));
+  const totalWeight = eligible.reduce((sum, rarity) => sum + rarityDef(rarity).weight, 0);
+  let roll = Math.random() * totalWeight;
+  for (const rarity of eligible) {
+    roll -= rarityDef(rarity).weight;
+    if (roll < 0) return rarity;
+  }
+  return eligible[eligible.length - 1] ?? minRarity;
 }

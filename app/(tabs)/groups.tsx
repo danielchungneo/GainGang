@@ -25,6 +25,7 @@ import { LeaderboardRow } from '@/components/ui/leaderboard-row';
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { useAuth } from '@/context/auth-context';
 import { useGangFeed } from '@/hooks/use-activities';
+import { useCosmeticCatalog } from '@/hooks/use-cosmetics';
 import { useMyGangs } from '@/hooks/use-gangs';
 import {
   useLeaderboard,
@@ -463,14 +464,20 @@ function GangLeaderboardTab({ gangId }: { gangId: string }) {
   const t = useThemeTokens();
   const { theme } = useTheme();
   const { session } = useAuth();
+  const { data: catalog } = useCosmeticCatalog();
   const [period, setPeriod] = useState<LeaderboardPeriod>('weekly');
   const [metric, setMetric] = useState<LeaderboardMetric>('reps');
   const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
   const { data: boards, isLoading } = useLeaderboard(gangId, period);
   const board = boards?.[metric] ?? [];
-  const topTotal = board[0]?.total ?? 0;
   const periodLabel =
     LEADERBOARD_PERIODS.find((p) => p.key === period)?.label ?? 'This week';
+
+  const cosmeticById = useMemo(() => {
+    const map = new Map<string, NonNullable<typeof catalog>[number]>();
+    for (const item of catalog ?? []) map.set(item.id, item);
+    return map;
+  }, [catalog]);
 
   return (
     <View className="gap-3">
@@ -537,8 +544,29 @@ function GangLeaderboardTab({ gangId }: { gangId: string }) {
               amount={row.total}
               unit={row.unit}
               level={row.level}
-              completion={topTotal > 0 ? row.total / topTotal : 0}
               isYou={row.user_id === session?.user.id}
+              bannerStyle={
+                row.equipped_banner_id
+                  ? (cosmeticById.get(row.equipped_banner_id)?.style ?? null)
+                  : null
+              }
+              avatarBorderStyle={
+                row.equipped_avatar_border_id
+                  ? (cosmeticById.get(row.equipped_avatar_border_id)?.style ??
+                    null)
+                  : null
+              }
+              levelBorderStyle={
+                row.equipped_level_border_id
+                  ? (cosmeticById.get(row.equipped_level_border_id)?.style ??
+                    null)
+                  : null
+              }
+              title={
+                row.equipped_title_id
+                  ? (cosmeticById.get(row.equipped_title_id)?.name ?? null)
+                  : null
+              }
               onPress={() =>
                 pushUserProfile(row.user_id, {
                   isSelf: row.user_id === session?.user.id,

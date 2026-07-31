@@ -178,21 +178,33 @@ export default function GangInviteScreen() {
               name={preview.name}
               description={preview.description}
               memberCount={preview.member_count}
+              maxMembers={preview.max_members}
+              isFull={preview.is_full}
             />
+
+            {preview.is_full ? (
+              <Text style={[type.bodySm, { color: t.body }]}>
+                This Gang is full ({preview.max_members} members max). Ask an admin to make room,
+                or join another crew.
+              </Text>
+            ) : null}
 
             {error ? <Text style={{ color: '#ef4444', fontSize: 13 }}>{error}</Text> : null}
 
             <TouchableOpacity
               onPress={handleJoin}
-              disabled={joinGang.isPending}
+              disabled={joinGang.isPending || preview.is_full}
               className="items-center rounded-xl py-3.5"
-              style={{ backgroundColor: t.accent, opacity: joinGang.isPending ? 0.7 : 1 }}
+              style={{
+                backgroundColor: t.accent,
+                opacity: joinGang.isPending || preview.is_full ? 0.5 : 1,
+              }}
             >
               {joinGang.isPending ? (
                 <ActivityIndicator color={t.accentOnPrimary} />
               ) : (
                 <Text style={{ color: t.accentOnPrimary, fontFamily: fontFamily.bodySemi }}>
-                  Join {preview.name}
+                  {preview.is_full ? 'Gang full' : `Join ${preview.name}`}
                 </Text>
               )}
             </TouchableOpacity>
@@ -221,13 +233,18 @@ function GangPreviewCard({
   name,
   description,
   memberCount,
+  maxMembers,
+  isFull,
 }: {
   bannerUrl: string | null;
   name: string;
   description: string | null;
   memberCount: number;
+  maxMembers?: number;
+  isFull?: boolean;
 }) {
   const t = useThemeTokens();
+  const cap = maxMembers ?? 25;
 
   return (
     <View className="gap-3">
@@ -236,8 +253,9 @@ function GangPreviewCard({
         <Text style={{ color: t.heading, fontFamily: fontFamily.bodySemi, fontSize: 20 }}>
           {name}
         </Text>
-        <Text style={[type.bodySm, { color: t.body }]}>
-          {memberCount} {memberCount === 1 ? 'member' : 'members'}
+        <Text style={[type.bodySm, { color: isFull ? '#ef4444' : t.body }]}>
+          {memberCount}/{cap} {memberCount === 1 ? 'member' : 'members'}
+          {isFull ? ' · Full' : ''}
         </Text>
       </View>
       {description ? (

@@ -6,12 +6,12 @@ import { Text, TouchableOpacity, View } from 'react-native';
 import { Avatar } from '@/components/ui/avatar';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { LevelBadge } from '@/components/ui/rank-badge';
-import { levelFromXp } from '@/types';
+import { useCosmeticCatalog } from '@/hooks/use-cosmetics';
 import { useToggleKudos } from '@/hooks/use-social';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { formatAmount, timeAgo } from '@/lib/format';
 import { pushUserProfile } from '@/lib/navigate-profile';
-import { CATEGORY_LABELS, type ActivityFeedItem } from '@/types';
+import { CATEGORY_LABELS, levelFromXp, type ActivityFeedItem } from '@/types';
 
 interface ActivityCardProps {
   activity: ActivityFeedItem;
@@ -21,10 +21,14 @@ interface ActivityCardProps {
 export function ActivityCard({ activity, gangId }: ActivityCardProps) {
   const t = useThemeTokens();
   const toggleKudos = useToggleKudos(gangId);
+  const { data: catalog } = useCosmeticCatalog();
 
   const name = activity.author?.full_name || 'Member';
   const exercises = activity.exercises ?? [];
   const primaryCategory = exercises.find((e) => e.category)?.category ?? null;
+  const levelBorderStyle =
+    catalog?.find((item) => item.id === activity.author?.equipped_level_border_id)
+      ?.style ?? null;
 
   return (
     <GlassSurface style={{ padding: 16, gap: 12 }}>
@@ -57,7 +61,11 @@ export function ActivityCard({ activity, gangId }: ActivityCardProps) {
               </Text>
             </TouchableOpacity>
             {activity.author?.xp != null ? (
-              <LevelBadge level={levelFromXp(activity.author.xp)} size={18} />
+              <LevelBadge
+                level={levelFromXp(activity.author.xp)}
+                size={18}
+                borderStyle={levelBorderStyle}
+              />
             ) : null}
           </View>
           <Text style={{ color: t.body }} className="text-xs">

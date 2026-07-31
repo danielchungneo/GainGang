@@ -95,15 +95,25 @@ export default function JoinGangScreen() {
                       {gang.description}
                     </Text>
                   ) : null}
+                  <Text
+                    style={{ color: gang.is_full ? '#ef4444' : t.body }}
+                    className="text-xs mt-0.5"
+                  >
+                    {gang.member_count}/25 members
+                    {gang.is_full ? ' · Full' : ''}
+                  </Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => handleJoinPublic(gang.id)}
-                  disabled={joinPublic.isPending}
+                  disabled={joinPublic.isPending || gang.is_full}
                   className="rounded-lg px-4 py-2"
-                  style={{ backgroundColor: t.accent }}
+                  style={{
+                    backgroundColor: t.accent,
+                    opacity: gang.is_full ? 0.45 : 1,
+                  }}
                 >
                   <Text style={{ color: t.accentOnPrimary }} className="text-sm font-semibold">
-                    Join
+                    {gang.is_full ? 'Full' : 'Join'}
                   </Text>
                 </TouchableOpacity>
               </GlassSurface>

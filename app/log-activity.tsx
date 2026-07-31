@@ -14,7 +14,7 @@ import { GlassSurface } from '@/components/ui/glass-surface';
 import { AmountInput } from '@/components/ui/amount-input';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
-import { LevelUpOverlay } from '@/components/level-up-overlay';
+import { LevelUpWithRewardClaim } from '@/components/level-up-with-reward-claim';
 import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { GoalProgressPreview } from '@/components/goal-progress-preview';
 import { CameraRepCountButton } from '@/components/rep-counter/camera-rep-count-button';
@@ -576,7 +576,7 @@ export default function LogActivityScreen() {
       ) : null}
 
       {levelUp && !celebration && !streakContinue ? (
-        <LevelUpOverlay
+        <LevelUpWithRewardClaim
           key={levelUpKey}
           visible
           fromLevel={levelUp.fromLevel}

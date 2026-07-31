@@ -5,7 +5,7 @@ import {
   GoalCompleteOverlay,
   type GoalCompleteExerciseTarget,
 } from '@/components/goal-complete-overlay';
-import { LevelUpOverlay } from '@/components/level-up-overlay';
+import { LevelUpWithRewardClaim } from '@/components/level-up-with-reward-claim';
 import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { DailyGoalCard as DailyGoalCardView } from '@/components/ui/daily-goal-card';
 import { useLogActivity } from '@/hooks/use-activities';
@@ -389,7 +389,7 @@ export function DailyGoalCard({
       ) : null}
 
       {renderLocalOverlays && levelUp && !celebration && !streakContinue ? (
-        <LevelUpOverlay
+        <LevelUpWithRewardClaim
           key={levelUpKey}
           visible
           fromLevel={levelUp.fromLevel}

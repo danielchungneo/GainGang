@@ -11,7 +11,7 @@ import {
 import { DailyGoalCard } from "@/components/daily-goal-card";
 import { DailyRewardClaimBanner } from "@/components/daily-reward-claim-banner";
 import { GoalCompleteOverlay } from "@/components/goal-complete-overlay";
-import { LevelUpOverlay } from "@/components/level-up-overlay";
+import { LevelUpWithRewardClaim } from "@/components/level-up-with-reward-claim";
 import { StreakContinueOverlay } from "@/components/streak-continue-overlay";
 
 import {
@@ -23,6 +23,8 @@ import {
 } from "@/components/ui";
 
 import { useAuth } from "@/context/auth-context";
+
+import { useEquippedCosmetics } from "@/hooks/use-cosmetics";
 
 import { useDailyGoalSaveCelebrations } from "@/hooks/use-daily-goal-save-celebrations";
 
@@ -48,6 +50,7 @@ export default function TodayScreen() {
   const { session } = useAuth();
 
   const { data: profile } = useProfile();
+  const equipped = useEquippedCosmetics(profile);
 
   const { data: gangs } = useMyGangs();
 
@@ -116,7 +119,11 @@ export default function TodayScreen() {
           </View>
 
           {profile ? (
-            <LevelBadge level={levelFromXp(profile.xp ?? 0)} size={52} />
+            <LevelBadge
+              level={levelFromXp(profile.xp ?? 0)}
+              size={52}
+              borderStyle={equipped.levelBorder?.style}
+            />
           ) : null}
         </View>
 
@@ -220,7 +227,7 @@ export default function TodayScreen() {
       ) : null}
 
       {levelUp && !celebration && !streakContinue ? (
-        <LevelUpOverlay
+        <LevelUpWithRewardClaim
           key={levelUpKey}
           visible
           fromLevel={levelUp.fromLevel}

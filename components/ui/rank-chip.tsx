@@ -1,10 +1,21 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { View, Text, StyleSheet } from "react-native";
 
+import { gradientColors, parseBorderStyle } from "@/lib/cosmetics";
 import { fontFamily, levelBadgeForLevel } from "@/lib/gaingang-theme";
+import type { Json } from "@/types/database";
 
-export function LevelChip({ level }: { level: number }) {
+interface LevelChipProps {
+  level: number;
+  /** Equipped level border style jsonb. */
+  borderStyle?: Json | null;
+}
+
+export function LevelChip({ level, borderStyle }: LevelChipProps) {
   const badge = levelBadgeForLevel(Math.max(1, level));
-  return (
+  const border = parseBorderStyle(borderStyle ?? null);
+
+  const chip = (
     <View
       style={[
         styles.chip,
@@ -13,6 +24,26 @@ export function LevelChip({ level }: { level: number }) {
     >
       <Text style={[styles.text, { color: badge.glow }]}>{level}</Text>
     </View>
+  );
+
+  if (!border) return chip;
+
+  return (
+    <LinearGradient
+      colors={gradientColors(border.colors)}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{
+        padding: Math.min(border.width ?? 2, 2),
+        borderRadius: 7,
+        shadowColor: border.glow ?? border.colors[0],
+        shadowOpacity: 0.5,
+        shadowRadius: 5,
+        shadowOffset: { width: 0, height: 0 },
+      }}
+    >
+      {chip}
+    </LinearGradient>
   );
 }
 

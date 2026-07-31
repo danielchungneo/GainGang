@@ -80,7 +80,7 @@ export function useGangFeed(gangId: string) {
     queryFn: async (): Promise<ActivityFeedItem[]> => {
       const { data, error } = await supabase
         .from('activities')
-        .select(`${ACTIVITY_SELECT}, author:profiles(id, full_name, username, avatar_url, xp)`)
+        .select(`${ACTIVITY_SELECT}, author:profiles(id, full_name, username, avatar_url, xp, equipped_level_border_id)`)
         .eq('gang_id', gangId)
         .order('updated_at', { ascending: false })
         .limit(50);
@@ -539,10 +539,17 @@ function invalidateActivityQueries(
   if (activity.daily_goal_id) {
     queryClient.invalidateQueries({ queryKey: ['daily-goals'] });
     queryClient.invalidateQueries({ queryKey: ['activities', 'daily-goal'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.rewardCrates(userId) });
+    queryClient.invalidateQueries({
+      queryKey: ['reward-crates', 'today', userId],
+    });
   }
   queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });
   queryClient.invalidateQueries({ queryKey: ['quests', 'mine'] });
   queryClient.invalidateQueries({ queryKey: queryKeys.profile(userId) });
+  // Level-up crates are granted when XP crosses thresholds.
+  queryClient.invalidateQueries({ queryKey: queryKeys.rewardCrates(userId) });
+  queryClient.invalidateQueries({ queryKey: ['reward-crates', 'level-up', userId] });
 }
 
 /** Adjust XP by a delta and re-derive rank from the new total. */

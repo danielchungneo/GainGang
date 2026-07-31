@@ -74,6 +74,7 @@ import Svg, {
 } from 'react-native-svg';
 
 import { LevelBadge } from '@/components/ui';
+import { useCelebrationGate } from '@/hooks/use-celebration-gate';
 
 const ORB = 118;
 const INNER_RING = ORB - 40;
@@ -432,6 +433,8 @@ export function RewardReveal({
   rewards = [],
   claimLabel = 'CLAIM REWARD',
 }: RewardRevealProps) {
+  useCelebrationGate(visible);
+
   const { width: windowWidth } = useWindowDimensions();
   const panelW = Math.min(windowWidth - 48, 340);
   const [stage, setStage] = useState({ width: windowWidth, height: 0 });

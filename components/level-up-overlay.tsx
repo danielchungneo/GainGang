@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useId, type ReactNode } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useId, useState, type ReactNode } from 'react';
 import {
   View,
   Text,
@@ -25,6 +26,7 @@ import Animated, {
 import Svg, { Defs, LinearGradient as SvgGradient, Polygon, Rect, Stop } from 'react-native-svg';
 
 import { LevelBadge } from '@/components/ui';
+import { useCelebrationGate } from '@/hooks/use-celebration-gate';
 import { fontFamily, levelBadgeForLevel } from '@/lib/gaingang-theme';
 
 const SCREEN = Dimensions.get('window');
@@ -37,6 +39,7 @@ const CARD_W_STAMP = Math.min(
   Math.max(CARD_W_BASE + 72, STAMP_FRAME_W + 100),
 );
 const CARD_H_STAMP = STAMP_FRAME_H + 100;
+const CARD_H_MAX = SCREEN.height - 140;
 const RING_SIZE = 300;
 const RING_L = SCREEN.width / 2 - RING_SIZE / 2;
 const RING_T = SCREEN.height / 2 - RING_SIZE / 2;
@@ -201,8 +204,16 @@ export interface LevelUpOverlayProps {
   fromLevel?: number;
   /** New level reached */
   toLevel?: number;
-  /** Called when the user taps the backdrop */
+  /** Called when the user taps the backdrop / continue without claiming */
   onDismiss?: () => void;
+  /**
+   * When set, shows a CLAIM REWARD CTA after the stamp that opens this
+   * sealed level-up crate. Prefer the crate for `toLevel`.
+   */
+  rewardCrateId?: string | null;
+  /** Tier label shown on the claim CTA (e.g. Uncommon). */
+  rewardCrateTierLabel?: string | null;
+  onClaimReward?: (crateId: string) => void;
 }
 
 export function LevelUpOverlay({
@@ -210,7 +221,12 @@ export function LevelUpOverlay({
   fromLevel = 12,
   toLevel = 13,
   onDismiss,
+  rewardCrateId,
+  rewardCrateTierLabel,
+  onClaimReward,
 }: LevelUpOverlayProps) {
+  useCelebrationGate(visible);
+
   const bgOpa = useSharedValue(0);
   const cardY = useSharedValue(50);
   const cardOpa = useSharedValue(0);
@@ -223,6 +239,8 @@ export function LevelUpOverlay({
   const stampSc = useSharedValue(0.1);
   const stampOpa = useSharedValue(0);
   const bodyOpa = useSharedValue(1);
+  const ctaOpa = useSharedValue(0);
+  const ctaY = useSharedValue(14);
   const r1Sc = useSharedValue(0.3);
   const r1Opa = useSharedValue(0);
   const r2Sc = useSharedValue(0.3);
@@ -232,6 +250,11 @@ export function LevelUpOverlay({
 
   const easeOut = Easing.out(Easing.cubic);
   const easeInOut = Easing.inOut(Easing.cubic);
+  const hasClaim = !!rewardCrateId && !!onClaimReward;
+
+  /** Natural height of the stamp content, so the card can grow to fit it. */
+  const [stampContentH, setStampContentH] = useState(0);
+  const [hasExpanded, setHasExpanded] = useState(false);
 
   function reset() {
     'worklet';
@@ -248,6 +271,8 @@ export function LevelUpOverlay({
     stampSc.value = 0.1;
     stampOpa.value = 0;
     bodyOpa.value = 1;
+    ctaOpa.value = 0;
+    ctaY.value = 14;
     r1Sc.value = 0.3;
     r1Opa.value = 0;
     r2Sc.value = 0.3;
@@ -302,19 +327,15 @@ export function LevelUpOverlay({
     if (!visible) return;
 
     reset();
+    setHasExpanded(false);
     const cancelHaptics = scheduleLevelUpHaptics();
     const frame = requestAnimationFrame(() => {
       requestAnimationFrame(() => play());
     });
 
-    // Expand height on the JS clock so we read the measured base after onLayout,
+    // Expand on the JS clock so we read the measured base after onLayout,
     // instead of springing from 0 (which onLayout can then lock in as ~1px).
-    const expandTimer = setTimeout(() => {
-      const base = cardHBase.value > 0 ? cardHBase.value : CARD_H_STAMP;
-      const stampHeight = Math.max(CARD_H_STAMP, base);
-      cardH.value = base;
-      cardH.value = withSpring(stampHeight, { damping: 14, stiffness: 150, mass: 0.9 });
-    }, T.stampDelay);
+    const expandTimer = setTimeout(() => setHasExpanded(true), T.stampDelay);
 
     return () => {
       cancelAnimationFrame(frame);
@@ -323,6 +344,30 @@ export function LevelUpOverlay({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
+
+  // Size the card to whatever the stamp actually needs. The claim CTA can
+  // arrive after the crate query resolves, so re-run whenever content grows.
+  useEffect(() => {
+    if (!visible || !hasExpanded) return;
+
+    const base = cardHBase.value > 0 ? cardHBase.value : CARD_H_STAMP;
+    const needed = Math.max(base, stampContentH > 0 ? stampContentH : CARD_H_STAMP);
+    if (cardH.value === 0) cardH.value = base;
+    cardH.value = withSpring(Math.min(needed, CARD_H_MAX), {
+      damping: 15,
+      stiffness: 150,
+      mass: 0.9,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, hasExpanded, stampContentH]);
+
+  useEffect(() => {
+    if (!visible || !hasExpanded || !hasClaim) return;
+
+    ctaOpa.value = withDelay(260, withTiming(1, { duration: 320, easing: easeOut }));
+    ctaY.value = withDelay(260, withSpring(0, { damping: 15, stiffness: 170, mass: 0.9 }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, hasExpanded, hasClaim]);
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: bgOpa.value,
@@ -368,6 +413,11 @@ export function LevelUpOverlay({
     transform: [{ scale: stampSc.value }],
   }));
 
+  const ctaStyle = useAnimatedStyle(() => ({
+    opacity: ctaOpa.value,
+    transform: [{ translateY: ctaY.value }],
+  }));
+
   const r1Style = useAnimatedStyle(() => ({
     transform: [{ scale: r1Sc.value }],
     opacity: r1Opa.value,
@@ -407,14 +457,11 @@ export function LevelUpOverlay({
           <Animated.View style={[StyleSheet.absoluteFill, s.ring, r3Style]} />
         </View>
 
-        <Pressable onPress={onDismiss}>
+        <View>
           <Animated.View
             style={[s.card, cardStyle]}
             onLayout={(e: LayoutChangeEvent) => {
               const h = e.nativeEvent.layout.height;
-              // Only capture natural height while unconstrained (cardH === 0).
-              // If we also write cardH here during a from-0 spring, onLayout can
-              // freeze the card at a 1–2px sliver and cancel the expand animation.
               if (h > 0 && cardHBase.value === 0 && cardH.value === 0) {
                 cardHBase.value = h;
               }
@@ -445,14 +492,50 @@ export function LevelUpOverlay({
             </View>
           </Animated.View>
 
-          <Animated.View style={[StyleSheet.absoluteFill, s.stamp, stampStyle]} pointerEvents="none">
-            <View style={s.stampContent}>
+          <Animated.View style={[StyleSheet.absoluteFill, s.stamp, stampStyle]} pointerEvents="box-none">
+            <View
+              style={s.stampContent}
+              pointerEvents="box-none"
+              onLayout={(e: LayoutChangeEvent) => {
+                const h = Math.ceil(e.nativeEvent.layout.height);
+                // The card width springs, so ignore sub-pixel layout churn.
+                if (h > 0) setStampContentH((prev) => (Math.abs(h - prev) > 1 ? h : prev));
+              }}>
               <Text style={s.stampEyebrow}>LEVEL UP</Text>
               <StampLevelFrame level={toLevel} />
+              {hasClaim ? (
+                <Animated.View style={[s.claimWrap, ctaStyle]}>
+                  {rewardCrateTierLabel ? (
+                    <Text style={s.claimTierLabel}>{rewardCrateTierLabel} crate</Text>
+                  ) : null}
+                  <Pressable
+                    onPress={() => {
+                      if (rewardCrateId) onClaimReward?.(rewardCrateId);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Claim level-up reward crate"
+                    style={({ pressed }) => ({
+                      width: '100%',
+                      opacity: pressed ? 0.88 : 1,
+                      borderRadius: 14,
+                      overflow: 'hidden',
+                    })}
+                  >
+                    <LinearGradient
+                      colors={[ACCENT, ACCENT_GLOW]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={s.claimButton}
+                    >
+                      <Text style={s.claimButtonText}>CLAIM REWARD</Text>
+                    </LinearGradient>
+                  </Pressable>
+                </Animated.View>
+              ) : null}
             </View>
           </Animated.View>
           </Animated.View>
-        </Pressable>
+        </View>
       </View>
     </Modal>
   );
@@ -558,9 +641,10 @@ const s = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 28,
+    gap: 18,
+    paddingHorizontal: 28,
+    paddingTop: 32,
+    paddingBottom: 36,
   },
 
   stampEyebrow: {
@@ -570,6 +654,42 @@ const s = StyleSheet.create({
     color: '#AEB8D0',
     textAlign: 'center',
     width: '100%',
+  },
+  claimWrap: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 2,
+  },
+  claimTierLabel: {
+    fontFamily: fontFamily.mono,
+    fontSize: 11,
+    letterSpacing: 1,
+    color: ACCENT_GLOW,
+    textAlign: 'center',
+  },
+  claimButton: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: ACCENT,
+        shadowOpacity: 0.55,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: { elevation: 6 },
+    }),
+  },
+  claimButtonText: {
+    fontFamily: fontFamily.display,
+    fontSize: 15,
+    letterSpacing: 1.8,
+    color: '#FFFFFF',
   },
   levelFrame: {
     alignItems: 'center',

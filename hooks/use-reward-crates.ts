@@ -109,8 +109,34 @@ export function useOpenRewardCrate() {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.todaysRewardCrate(userId, crate.source_date),
       });
-      // XP from loot lands on the profile.
+      // XP + cosmetics from loot land on the profile / inventory.
       void queryClient.invalidateQueries({ queryKey: queryKeys.profile(userId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.ownedCosmetics(userId) });
+      void queryClient.invalidateQueries({
+        queryKey: ['reward-crates', 'level-up', userId],
+      });
+    },
+  });
+}
+
+/** Sealed level-up crate for a specific level, if one exists. */
+export function useLevelUpRewardCrate(level?: number) {
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
+  return useQuery({
+    queryKey: ['reward-crates', 'level-up', userId, level] as const,
+    enabled: !!userId && !!level && level > 0,
+    queryFn: async (): Promise<UserRewardCrate | null> => {
+      const { data, error } = await supabase
+        .from('user_reward_crates')
+        .select('*')
+        .eq('user_id', userId!)
+        .eq('source', 'level_up')
+        .eq('source_level', level!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
     },
   });
 }

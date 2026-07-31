@@ -21,6 +21,8 @@ export type {
   RewardCrateStatus,
   RewardCrateSource,
   RewardCrateTier,
+  CosmeticKind,
+  CosmeticSource,
 } from './database';
 
 import type {
@@ -29,6 +31,7 @@ import type {
   ExerciseUnit,
   ExerciseRequiredEquipment,
   Rank,
+  CosmeticKind,
 } from './database';
 
 /**
@@ -55,6 +58,27 @@ export type Follow = Tables<'follows'>;
 export type AppNotification = Tables<'notifications'>;
 export type PushToken = Tables<'push_tokens'>;
 export type UserRewardCrate = Tables<'user_reward_crates'>;
+export type CosmeticItem = Tables<'cosmetic_items'>;
+export type UserCosmetic = Tables<'user_cosmetics'>;
+
+/** Owned cosmetic joined with catalog row. */
+export interface OwnedCosmetic extends UserCosmetic {
+  item: CosmeticItem;
+}
+
+export type EquippedCosmeticSlots = {
+  title: CosmeticItem | null;
+  avatarBorder: CosmeticItem | null;
+  levelBorder: CosmeticItem | null;
+  banner: CosmeticItem | null;
+};
+
+export const COSMETIC_KIND_LABELS: Record<CosmeticKind, string> = {
+  title: 'Titles',
+  avatar_border: 'Avatar Borders',
+  level_border: 'Level Borders',
+  banner: 'Banners',
+};
 
 /** Relationship between the signed-in viewer and another profile. */
 export interface FollowStatus {
@@ -121,7 +145,10 @@ export interface WeeklyPlanWithGoals extends WeeklyPlan {
 
 /** An activity enriched for the social feed. */
 export interface ActivityFeedItem extends Activity {
-  author: Pick<Profile, 'id' | 'full_name' | 'username' | 'avatar_url' | 'xp'>;
+  author: Pick<
+    Profile,
+    'id' | 'full_name' | 'username' | 'avatar_url' | 'xp' | 'equipped_level_border_id'
+  >;
   exercises: ActivityExercise[];
   kudos_count: number;
   comment_count: number;
@@ -156,6 +183,11 @@ export interface LeaderboardEntry {
   avatar_url: string | null;
   xp: number;
   level: number;
+  /** Equipped cosmetic ids, if any. */
+  equipped_banner_id: string | null;
+  equipped_title_id: string | null;
+  equipped_avatar_border_id: string | null;
+  equipped_level_border_id: string | null;
   /** Unit this row was ranked on (`reps` or `miles`). */
   unit: Extract<ExerciseUnit, 'reps' | 'miles'>;
   total: number;

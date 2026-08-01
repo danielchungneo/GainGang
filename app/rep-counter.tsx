@@ -6,6 +6,7 @@ import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } fr
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExerciseSetupGuide } from '@/components/rep-counter/exercise-setup-guide';
+import { ChallengeRepCounterSession } from '@/components/rep-counter/challenge-rep-counter-session';
 import { WorkoutRepCounterSession } from '@/components/rep-counter/workout-rep-counter-session';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import {
@@ -62,15 +63,29 @@ export default function RepCounterScreen() {
     dailyGoalId?: string;
     cycles?: string;
     excludeCompletedExercises?: string;
+    weeklyChallengeId?: string;
+    challengeMode?: string;
+    timeLimitSeconds?: string;
   }>();
   const t = useThemeTokens();
   const nativeSupported = isRepCounterNativeSupported();
   const modeParam = Array.isArray(params.mode) ? params.mode[0] : params.mode;
   const isOnboarding = modeParam === 'onboarding';
   const isWorkout = modeParam === 'workout';
+  const isChallenge = modeParam === 'challenge';
   const workoutDailyGoalId = Array.isArray(params.dailyGoalId)
     ? params.dailyGoalId[0]
     : params.dailyGoalId;
+  const challengeIdRaw = Array.isArray(params.weeklyChallengeId)
+    ? params.weeklyChallengeId[0]
+    : params.weeklyChallengeId;
+  const challengeModeRaw = Array.isArray(params.challengeMode)
+    ? params.challengeMode[0]
+    : params.challengeMode;
+  const timeLimitRaw = Array.isArray(params.timeLimitSeconds)
+    ? params.timeLimitSeconds[0]
+    : params.timeLimitSeconds;
+  const timeLimitSeconds = timeLimitRaw ? Number(timeLimitRaw) : NaN;
   const workoutCyclesRaw = Array.isArray(params.cycles) ? params.cycles[0] : params.cycles;
   const workoutCycles = workoutCyclesRaw ? Number(workoutCyclesRaw) : NaN;
   const excludeCompletedExercisesRaw = Array.isArray(params.excludeCompletedExercises)
@@ -205,6 +220,34 @@ export default function RepCounterScreen() {
           remaining.length > 0 ? serializeRepCounterQueue(remaining) : '',
       },
     });
+  }
+
+  if (isChallenge && challengeIdRaw) {
+    const challengeMode =
+      challengeModeRaw === 'max_hold' || challengeModeRaw === 'timed_reps'
+        ? challengeModeRaw
+        : 'timed_reps';
+    const unitParam = Array.isArray(params.unit) ? params.unit[0] : params.unit;
+    const unit = unitParam === 'seconds' ? 'seconds' : 'reps';
+    return (
+      <ChallengeRepCounterSession
+        weeklyChallengeId={challengeIdRaw}
+        exerciseId={
+          (Array.isArray(params.exerciseId) ? params.exerciseId[0] : params.exerciseId) ?? ''
+        }
+        exerciseName={
+          (Array.isArray(params.exerciseName) ? params.exerciseName[0] : params.exerciseName) ??
+          ''
+        }
+        unit={unit}
+        mode={challengeMode}
+        timeLimitSeconds={
+          Number.isFinite(timeLimitSeconds) && timeLimitSeconds > 0
+            ? Math.round(timeLimitSeconds)
+            : null
+        }
+      />
+    );
   }
 
   if (isWorkout && workoutDailyGoalId && Number.isFinite(workoutCycles) && workoutCycles > 0) {

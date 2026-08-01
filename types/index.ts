@@ -209,7 +209,7 @@ export interface ScheduleDay {
 export const WEEKLY_SCHEDULE: readonly ScheduleDay[] = [
   { day: 1, category: 'chest', label: 'Chest', focus: 'Push-based movements targeting the chest' },
   { day: 2, category: 'legs', label: 'Legs', focus: 'Lower body strength and explosiveness' },
-  { day: 3, category: 'cardio', label: 'Cardio', focus: 'Distance-based travel (run, walk, bike)' },
+  { day: 3, category: 'cardio', label: 'Cardio', focus: 'Bodyweight cardio (jumping jacks and more)' },
   { day: 4, category: 'back', label: 'Back', focus: 'Pull-based movements targeting the back' },
   { day: 5, category: 'core', label: 'Core', focus: 'Full trunk stability and abdominal strength' },
 ] as const;

@@ -149,6 +149,30 @@ function checkCoreBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
   return { ok: false, message: 'Keep your torso and knees in frame' };
 }
 
+/** Crunches also need one ankle so the bent-leg angle can be measured. */
+function checkCrunchBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
+  const leftIndices = [
+    PoseLandmarkIndex.LEFT_SHOULDER,
+    PoseLandmarkIndex.LEFT_HIP,
+    PoseLandmarkIndex.LEFT_KNEE,
+    PoseLandmarkIndex.LEFT_ANKLE,
+  ];
+  const rightIndices = [
+    PoseLandmarkIndex.RIGHT_SHOULDER,
+    PoseLandmarkIndex.RIGHT_HIP,
+    PoseLandmarkIndex.RIGHT_KNEE,
+    PoseLandmarkIndex.RIGHT_ANKLE,
+  ];
+
+  const left = checkIndicesInFrame(landmarks, leftIndices, '');
+  if (left.ok) return left;
+
+  const right = checkIndicesInFrame(landmarks, rightIndices, '');
+  if (right.ok) return right;
+
+  return { ok: false, message: 'Keep your torso, knees, and feet in frame' };
+}
+
 /** Side-profile plank: one torso/knee chain + any one arm (can be opposite side). */
 function checkPlankBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
   const leftBody = checkIndicesInFrame(
@@ -225,8 +249,9 @@ export function checkBodyInFrame(
     case 'plank':
       return checkPlankBodyInFrame(landmarks);
     case 'situp':
-    case 'crunch':
       return checkCoreBodyInFrame(landmarks);
+    case 'crunch':
+      return checkCrunchBodyInFrame(landmarks);
   }
 }
 
@@ -237,7 +262,10 @@ function defaultFrameMessage(exerciseType: CameraExerciseType): string {
   if (exerciseType === 'pushup') {
     return 'Keep your upper body in frame';
   }
-  if (exerciseType === 'situp' || exerciseType === 'crunch') {
+  if (exerciseType === 'crunch') {
+    return 'Keep your torso, knees, and feet in frame';
+  }
+  if (exerciseType === 'situp') {
     return 'Keep your torso and knees in frame';
   }
   if (exerciseType === 'plank') {

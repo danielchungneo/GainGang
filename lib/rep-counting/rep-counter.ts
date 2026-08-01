@@ -41,8 +41,14 @@ export interface ExerciseConfig {
 const CORE_VISIBILITY_MIN = 0.4;
 /** Knee must sit this far above hip/shoulder (normalized image y). */
 const KNEE_ABOVE_MARGIN = 0.05;
-/** Thigh should be closer to vertical than horizontal while in tabletop. */
-const CRUNCH_THIGH_VERTICAL_RATIO = 0.85;
+/**
+ * Crunch tabletop: knee and ankle must clear the hip by this much
+ * (normalized image y — larger = stricter lift).
+ */
+const CRUNCH_LEG_ABOVE_HIP_MARGIN = 0.12;
+/** Crunch legs sit in the air with the knee bent near a right angle. */
+const CRUNCH_KNEE_ANGLE_TARGET = 90;
+const CRUNCH_KNEE_ANGLE_TOLERANCE = 45;
 /**
  * Max horizontal gap between wrist and its shoulder (normalized image x).
  * Generous enough for front/side angles without requiring a full body line.
@@ -301,21 +307,62 @@ function hipAngle(landmarks: Landmark[]): number | null {
 }
 
 /**
- * Torso curl only: how far hip→shoulder lifts off horizontal.
- * Bringing knees to the head barely changes this; lifting the shoulders does.
+ * Image y grows downward — smaller y means higher on screen.
+ * Both knee and ankle must sit clearly above the hip.
  */
-function crunchTorsoElevation(landmarks: Landmark[]): number | null {
-  const chain = getCoreChain(landmarks, pickBestCoreSide(landmarks));
-  if (avgVisibility(chain.shoulder, chain.hip, chain.knee) < CORE_VISIBILITY_MIN) return null;
-  if (!isTabletopThigh(chain.hip, chain.knee)) return null;
-  return elevationFromHorizontal(chain.hip, chain.shoulder);
+function isCrunchLegAboveHip(landmarks: Landmark[], side: 'left' | 'right'): boolean {
+  const hip =
+    side === 'left' ? landmarks[PoseLandmarkIndex.LEFT_HIP] : landmarks[PoseLandmarkIndex.RIGHT_HIP];
+  const knee =
+    side === 'left' ? landmarks[PoseLandmarkIndex.LEFT_KNEE] : landmarks[PoseLandmarkIndex.RIGHT_KNEE];
+  const ankle =
+    side === 'left'
+      ? landmarks[PoseLandmarkIndex.LEFT_ANKLE]
+      : landmarks[PoseLandmarkIndex.RIGHT_ANKLE];
+
+  if (avgVisibility(hip, knee, ankle) < CORE_VISIBILITY_MIN) return false;
+  return (
+    knee.y < hip.y - CRUNCH_LEG_ABOVE_HIP_MARGIN &&
+    ankle.y < hip.y - CRUNCH_LEG_ABOVE_HIP_MARGIN
+  );
 }
 
-function isTabletopThigh(hip: Landmark, knee: Landmark): boolean {
-  const rise = hip.y - knee.y;
-  if (rise < KNEE_ABOVE_MARGIN) return false;
-  const run = Math.abs(knee.x - hip.x);
-  return rise >= run * CRUNCH_THIGH_VERTICAL_RATIO;
+/** Legs held in the air with a bent knee — hip→knee→ankle near a right angle. */
+function isCrunchLegBent(landmarks: Landmark[], side: 'left' | 'right'): boolean {
+  const hip =
+    side === 'left' ? landmarks[PoseLandmarkIndex.LEFT_HIP] : landmarks[PoseLandmarkIndex.RIGHT_HIP];
+  const knee =
+    side === 'left' ? landmarks[PoseLandmarkIndex.LEFT_KNEE] : landmarks[PoseLandmarkIndex.RIGHT_KNEE];
+  const ankle =
+    side === 'left'
+      ? landmarks[PoseLandmarkIndex.LEFT_ANKLE]
+      : landmarks[PoseLandmarkIndex.RIGHT_ANKLE];
+
+  if (avgVisibility(hip, knee, ankle) < CORE_VISIBILITY_MIN) return false;
+  const angle = calculateAngle(hip, knee, ankle);
+  return Math.abs(angle - CRUNCH_KNEE_ANGLE_TARGET) <= CRUNCH_KNEE_ANGLE_TOLERANCE;
+}
+
+/** A side counts only when knee+ankle stay well above the hip and the leg stays bent. */
+function isCrunchSideValid(landmarks: Landmark[], side: 'left' | 'right'): boolean {
+  const chain = getCoreChain(landmarks, side);
+  if (avgVisibility(chain.shoulder, chain.hip, chain.knee) < CORE_VISIBILITY_MIN) return false;
+  return isCrunchLegAboveHip(landmarks, side) && isCrunchLegBent(landmarks, side);
+}
+
+/**
+ * Torso curl: how far hip→shoulder lifts off horizontal.
+ * Only measured when the visible side keeps knee+ankle well above the hip and bent ~90°.
+ */
+function crunchTorsoElevation(landmarks: Landmark[]): number | null {
+  const validSides = (['left', 'right'] as const).filter((side) =>
+    isCrunchSideValid(landmarks, side),
+  );
+
+  if (validSides.length === 0) return null;
+  const side = validSides.length === 1 ? validSides[0] : pickBestCoreSide(landmarks);
+  const chain = getCoreChain(landmarks, side);
+  return elevationFromHorizontal(chain.hip, chain.shoulder);
 }
 
 /** Image y grows downward — smaller y means higher on screen. */
@@ -327,28 +374,37 @@ function kneesAboveHipAndShoulder(chain: CoreChain): boolean {
 }
 
 /**
- * Ready when any visible side has tabletop legs (knee above hip, thigh mostly
- * vertical). Do not require knee above shoulder — that breaks mid-crunch as
- * the torso lifts. Feet-on-floor sit-ups fail the vertical-thigh check.
+ * Ready when either visible side holds knee and ankle well above the hip
+ * with the leg bent near 90°. Crunches are filmed in profile, so one leg
+ * is enough.
  */
 function isCrunchReady(landmarks: Landmark[]): ReadyCheckResult {
   const sides: Array<'left' | 'right'> = ['left', 'right'];
   let hasVisibleChain = false;
+  let hasLegUp = false;
 
   for (const side of sides) {
     const chain = getCoreChain(landmarks, side);
     if (avgVisibility(chain.shoulder, chain.hip, chain.knee) < CORE_VISIBILITY_MIN) continue;
     hasVisibleChain = true;
-    if (isTabletopThigh(chain.hip, chain.knee)) {
+    if (isCrunchLegAboveHip(landmarks, side)) hasLegUp = true;
+    if (isCrunchSideValid(landmarks, side)) {
       return { ok: true, message: '' };
     }
   }
 
+  if (!hasVisibleChain) {
+    return {
+      ok: false,
+      message: 'Turn sideways — keep one shoulder, hip, knee, and foot visible',
+    };
+  }
+
   return {
     ok: false,
-    message: hasVisibleChain
-      ? 'Hold tabletop — knees above hips, thighs vertical'
-      : 'Turn sideways — keep one shoulder, hip, and knee visible',
+    message: hasLegUp
+      ? 'Bend your knee to about 90° with your feet in the air'
+      : 'Lift your knees and feet well above your hips',
   };
 }
 
@@ -437,12 +493,13 @@ export const EXERCISE_CONFIGS: Record<CameraExerciseType, ExerciseConfig> = {
     isReady: isSitupReady,
     latchReady: true,
   },
-  // Tracks torso lift off the floor (not knee tucks). Larger elevation = curled.
+  // Tracks torso lift off the floor. Larger elevation = curled.
+  // Legs must stay up and bent ~90° via isCrunchReady / crunchTorsoElevation.
   crunch: {
     type: 'crunch',
     getAngle: crunchTorsoElevation,
-    upThreshold: 8,
-    downThreshold: 5,
+    upThreshold: 6,
+    downThreshold: 4,
     minFramesInPhase: 3,
     countTransition: 'down-to-up',
     initialPhase: 'down',
@@ -634,7 +691,7 @@ export class RepCounter {
 /**
  * Push-up/squat/lunge: large angle = up, small = down (upThreshold > downThreshold).
  * Sit-up/pull-up: small angle = flexed/up, large = open/down (upThreshold < downThreshold).
- * Crunch: elevation degrees use the same core-style comparison.
+ * Crunch: elevation degrees — larger = curled (same comparison as push-up).
  */
 function resolveTargetPhase(angle: number, config: ExerciseConfig): RepPhase {
   const { upThreshold, downThreshold } = config;
@@ -654,7 +711,8 @@ function resolveTargetPhase(angle: number, config: ExerciseConfig): RepPhase {
 function defaultRepFrameMessage(type: CameraExerciseType): string {
   if (type === 'pullup') return 'Keep your shoulders and hips in frame';
   if (type === 'pushup') return 'Keep your upper body in frame';
-  if (type === 'situp' || type === 'crunch') return 'Keep your torso and knees in frame';
+  if (type === 'crunch') return 'Keep your torso, knees, and feet in frame';
+  if (type === 'situp') return 'Keep your torso and knees in frame';
   if (type === 'plank') return 'Keep shoulder, hip, knee, and one arm in frame';
   return 'Step back — keep your full body in frame';
 }

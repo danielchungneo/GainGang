@@ -82,7 +82,8 @@ export const SETUP_GUIDES: Record<CameraExerciseType, ExerciseSetupInfo> = {
     cameraHint: 'side',
     tips: [
       'Film from the side — crunches need a profile view.',
-      'Hold tabletop: legs up, knees bent ~90°, then keep them there.',
+      'Keep your torso, knees, and feet in frame.',
+      'Hold your knees and feet well above your hips, bent about 90°.',
       'Curl your shoulders/torso toward your knees — don’t pull your knees in.',
       'Lower your shoulders back down to finish the rep.',
     ],

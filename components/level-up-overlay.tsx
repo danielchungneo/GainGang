@@ -207,8 +207,8 @@ export interface LevelUpOverlayProps {
   /** Called when the user taps the backdrop / continue without claiming */
   onDismiss?: () => void;
   /**
-   * When set, shows a CLAIM REWARD CTA after the stamp that opens this
-   * sealed level-up crate. Prefer the crate for `toLevel`.
+   * When set, shows a CLAIM REWARD CTA after the stamp for this sealed
+   * level-up crate (crate stays sealed in inventory). Prefer `toLevel`.
    */
   rewardCrateId?: string | null;
   /** Tier label shown on the claim CTA (e.g. Uncommon). */

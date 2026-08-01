@@ -9,7 +9,6 @@ import {
 } from "react-native";
 
 import { DailyGoalCard } from "@/components/daily-goal-card";
-import { DailyRewardClaimBanner } from "@/components/daily-reward-claim-banner";
 import { GoalCompleteOverlay } from "@/components/goal-complete-overlay";
 import { LevelUpWithRewardClaim } from "@/components/level-up-with-reward-claim";
 import { StreakContinueOverlay } from "@/components/streak-continue-overlay";
@@ -126,10 +125,6 @@ export default function TodayScreen() {
             />
           ) : null}
         </View>
-
-        {dailyGoalsList.length > 0 ? (
-          <DailyRewardClaimBanner goals={dailyGoalsList} />
-        ) : null}
 
         {/* {profile ? (
           <XPBar

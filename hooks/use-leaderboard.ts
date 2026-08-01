@@ -7,12 +7,11 @@ import { levelFromXp } from '@/types';
 
 export type LeaderboardPeriod = 'daily' | 'weekly' | 'all';
 
-/** Rank boards that compare like-for-like volume (not seconds / holds). */
-export type LeaderboardMetric = 'reps' | 'miles';
+/** Rank board that compares like-for-like volume (not seconds / holds). */
+export type LeaderboardMetric = 'reps';
 
 export interface LeaderboardBoards {
   reps: LeaderboardEntry[];
-  miles: LeaderboardEntry[];
 }
 
 interface MemberProfile {
@@ -47,14 +46,9 @@ function periodStart(period: LeaderboardPeriod): string | null {
   return null;
 }
 
-function emptyTotals(): Record<LeaderboardMetric, number> {
-  return { reps: 0, miles: 0 };
-}
-
 function rankBoard(
   members: { user_id: string; profile: MemberProfile | null }[],
-  totals: Map<string, Record<LeaderboardMetric, number>>,
-  metric: LeaderboardMetric,
+  totals: Map<string, number>,
 ): LeaderboardEntry[] {
   const rows: LeaderboardEntry[] = members.map((m) => {
     const p = m.profile;
@@ -70,8 +64,8 @@ function rankBoard(
       equipped_title_id: p?.equipped_title_id ?? null,
       equipped_avatar_border_id: p?.equipped_avatar_border_id ?? null,
       equipped_level_border_id: p?.equipped_level_border_id ?? null,
-      unit: metric,
-      total: totals.get(m.user_id)?.[metric] ?? 0,
+      unit: 'reps',
+      total: totals.get(m.user_id) ?? 0,
       position: 0,
     };
   });
@@ -83,7 +77,7 @@ function rankBoard(
   return rows;
 }
 
-/** Ranks gang members by reps and by distance separately over the chosen period. */
+/** Ranks gang members by reps over the chosen period. */
 export function useLeaderboard(gangId: string, period: LeaderboardPeriod = 'weekly') {
   return useQuery({
     queryKey: queryKeys.leaderboard(gangId, period),
@@ -106,15 +100,15 @@ export function useLeaderboard(gangId: string, period: LeaderboardPeriod = 'week
       const { data: acts, error: aErr } = await activityQuery;
       if (aErr) throw aErr;
 
-      const totals = new Map<string, Record<LeaderboardMetric, number>>();
+      const totals = new Map<string, number>();
       for (const a of acts ?? []) {
-        const userTotals = totals.get(a.user_id) ?? emptyTotals();
+        let userTotal = totals.get(a.user_id) ?? 0;
         for (const ex of (a.exercises as ExerciseAmount[] | undefined) ?? []) {
-          if (ex.unit === 'reps' || ex.unit === 'miles') {
-            userTotals[ex.unit] += Number(ex.amount);
+          if (ex.unit === 'reps') {
+            userTotal += Number(ex.amount);
           }
         }
-        totals.set(a.user_id, userTotals);
+        totals.set(a.user_id, userTotal);
       }
 
       const memberRows = (members ?? []).map((m) => ({
@@ -123,8 +117,7 @@ export function useLeaderboard(gangId: string, period: LeaderboardPeriod = 'week
       }));
 
       return {
-        reps: rankBoard(memberRows, totals, 'reps'),
-        miles: rankBoard(memberRows, totals, 'miles'),
+        reps: rankBoard(memberRows, totals),
       };
     },
   });

@@ -18,7 +18,7 @@ export interface LeaderboardRowProps {
   name: string;
   avatarUrl?: string | null;
   amount: number;
-  unit: Extract<ExerciseUnit, 'reps' | 'miles'>;
+  unit: Extract<ExerciseUnit, 'reps'>;
   level: number;
   isYou?: boolean;
   onPress?: () => void;

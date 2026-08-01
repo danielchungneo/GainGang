@@ -29,7 +29,6 @@ import { useCosmeticCatalog } from '@/hooks/use-cosmetics';
 import { useMyGangs } from '@/hooks/use-gangs';
 import {
   useLeaderboard,
-  type LeaderboardMetric,
   type LeaderboardPeriod,
 } from '@/hooks/use-leaderboard';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
@@ -449,11 +448,6 @@ function GangActivityTab({
   );
 }
 
-const LEADERBOARD_METRICS: { key: LeaderboardMetric; label: string }[] = [
-  { key: 'reps', label: 'Reps' },
-  { key: 'miles', label: 'Distance' },
-];
-
 const LEADERBOARD_PERIODS: { key: LeaderboardPeriod; label: string }[] = [
   { key: 'daily', label: 'Today' },
   { key: 'weekly', label: 'This week' },
@@ -466,10 +460,9 @@ function GangLeaderboardTab({ gangId }: { gangId: string }) {
   const { session } = useAuth();
   const { data: catalog } = useCosmeticCatalog();
   const [period, setPeriod] = useState<LeaderboardPeriod>('weekly');
-  const [metric, setMetric] = useState<LeaderboardMetric>('reps');
   const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
   const { data: boards, isLoading } = useLeaderboard(gangId, period);
-  const board = boards?.[metric] ?? [];
+  const board = boards?.reps ?? [];
   const periodLabel =
     LEADERBOARD_PERIODS.find((p) => p.key === period)?.label ?? 'This week';
 
@@ -501,27 +494,6 @@ function GangLeaderboardTab({ gangId }: { gangId: string }) {
           </Text>
           <Ionicons name="chevron-down" size={14} color={t.body} />
         </TouchableOpacity>
-
-        <View
-          className="flex-1 flex-row rounded-xl p-1"
-          style={{ backgroundColor: t.buttonBg, borderWidth: 1, borderColor: t.buttonBorder }}
-        >
-          {LEADERBOARD_METRICS.map(({ key, label }) => (
-            <TouchableOpacity
-              key={key}
-              onPress={() => setMetric(key)}
-              className="flex-1 items-center rounded-lg py-2"
-              style={{ backgroundColor: metric === key ? t.accent : 'transparent' }}
-            >
-              <Text
-                style={{ color: metric === key ? t.accentOnPrimary : t.body }}
-                className="text-xs font-semibold"
-              >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
       </View>
 
       {isLoading ? (

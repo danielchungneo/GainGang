@@ -188,8 +188,8 @@ export interface LeaderboardEntry {
   equipped_title_id: string | null;
   equipped_avatar_border_id: string | null;
   equipped_level_border_id: string | null;
-  /** Unit this row was ranked on (`reps` or `miles`). */
-  unit: Extract<ExerciseUnit, 'reps' | 'miles'>;
+  /** Unit this row was ranked on (reps only). */
+  unit: Extract<ExerciseUnit, 'reps'>;
   total: number;
   position: number;
 }

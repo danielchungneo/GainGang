@@ -115,10 +115,16 @@ export function GangOptionsDrawer({
       await deleteGang.mutateAsync(gangId);
       onClose();
     } catch (e) {
-      Alert.alert(
-        'Could not delete gang',
-        e instanceof Error ? e.message : 'Something went wrong. Try again.',
-      );
+      const message =
+        e instanceof Error
+          ? e.message
+          : typeof e === 'object' &&
+              e &&
+              'message' in e &&
+              typeof (e as { message: unknown }).message === 'string'
+            ? (e as { message: string }).message
+            : 'Something went wrong. Try again.';
+      Alert.alert('Could not delete gang', message);
     } finally {
       setIsDeleting(false);
     }

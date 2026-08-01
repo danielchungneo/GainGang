@@ -363,7 +363,7 @@ export function useDeleteGang() {
       } catch {
         // Still delete the gang if storage cleanup fails.
       }
-      const { error } = await supabase.from('gangs').delete().eq('id', gangId);
+      const { error } = await supabase.rpc('delete_gang', { p_gang_id: gangId });
       if (error) throw error;
     },
     onSuccess: (_data, gangId) => {

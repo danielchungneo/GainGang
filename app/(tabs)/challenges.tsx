@@ -228,7 +228,7 @@ export default function ChallengesScreen() {
             <GradientTabSelect
               tabs={[
                 { key: 'world', label: 'World' },
-                { key: 'my_gangs', label: 'My gangs' },
+                { key: 'my_gangs', label: 'My Gangs' },
               ]}
               selected={scopeTab}
               onSelect={(key) => {
@@ -254,7 +254,7 @@ export default function ChallengesScreen() {
                 }}
               >
                 <Text style={{ fontFamily: fontFamily.bodySemi, color: t.heading }}>
-                  {selectedGang ? selectedGang.name : 'All my gangs'}
+                  {selectedGang ? selectedGang.name : 'All'}
                 </Text>
                 <Ionicons name="chevron-down" size={16} color={t.body} />
               </TouchableOpacity>

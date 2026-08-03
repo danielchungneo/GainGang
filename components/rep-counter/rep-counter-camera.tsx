@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Linking,
   Platform,
@@ -47,6 +47,13 @@ interface RepCounterCameraProps {
   targetReps?: number;
   /** Stronger permission-denied UX with retry + Settings. */
   requirePermission?: boolean;
+  /** Replaces the default rep badge in the bottom HUD (e.g. challenge timer). */
+  renderBottomHud?: (state: {
+    repCount: number;
+    compact: boolean;
+    badgeAnimatedStyle: ReturnType<typeof useAnimatedStyle>;
+    valueAnimatedStyle: ReturnType<typeof useAnimatedStyle>;
+  }) => ReactNode;
 }
 
 export function RepCounterCamera({
@@ -55,6 +62,7 @@ export function RepCounterCamera({
   onSnapshot,
   targetReps,
   requirePermission = false,
+  renderBottomHud,
 }: RepCounterCameraProps) {
   // Prefer multi-cam front devices so zoom can reach the wider FOV (iPhone
   // Camera app selfie "zoom out" / ~0.5x). Still returns a single-lens front cam if that's all there is.
@@ -382,26 +390,35 @@ export function RepCounterCamera({
             </View>
 
             <View style={[hud.hudBottom, compact ? hud.hudBottomCompact : null]}>
-              <Animated.View
-                style={[
-                  hud.metricBadge,
-                  compact ? hud.metricBadgeCompact : null,
-                  repBadgeAnimatedStyle,
-                ]}
-              >
-                <Text style={[hud.metricLabel, compact ? hud.metricLabelCompact : null]}>
-                  {targetReps ? 'Goal' : 'Reps'}
-                </Text>
-                <Animated.Text
+              {renderBottomHud ? (
+                renderBottomHud({
+                  repCount,
+                  compact,
+                  badgeAnimatedStyle: repBadgeAnimatedStyle,
+                  valueAnimatedStyle: repValueAnimatedStyle,
+                })
+              ) : (
+                <Animated.View
                   style={[
-                    hud.metricValue,
-                    compact ? hud.metricValueCompact : null,
-                    repValueAnimatedStyle,
+                    hud.metricBadge,
+                    compact ? hud.metricBadgeCompact : null,
+                    repBadgeAnimatedStyle,
                   ]}
                 >
-                  {targetReps ? `${repCount}/${targetReps}` : repCount}
-                </Animated.Text>
-              </Animated.View>
+                  <Text style={[hud.metricLabel, compact ? hud.metricLabelCompact : null]}>
+                    {targetReps ? 'Goal' : 'Reps'}
+                  </Text>
+                  <Animated.Text
+                    style={[
+                      hud.metricValue,
+                      compact ? hud.metricValueCompact : null,
+                      repValueAnimatedStyle,
+                    ]}
+                  >
+                    {targetReps ? `${repCount}/${targetReps}` : repCount}
+                  </Animated.Text>
+                </Animated.View>
+              )}
             </View>
           </>
         );

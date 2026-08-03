@@ -23,6 +23,8 @@ export type {
   RewardCrateTier,
   CosmeticKind,
   CosmeticSource,
+  ChallengeMode,
+  WeeklyChallengeStatus,
 } from './database';
 
 import type {
@@ -60,6 +62,17 @@ export type PushToken = Tables<'push_tokens'>;
 export type UserRewardCrate = Tables<'user_reward_crates'>;
 export type CosmeticItem = Tables<'cosmetic_items'>;
 export type UserCosmetic = Tables<'user_cosmetics'>;
+export type ChallengeType = Tables<'challenge_types'>;
+export type WeeklyChallenge = Tables<'weekly_challenges'>;
+export type ChallengeEntry = Tables<'challenge_entries'>;
+
+/** Active weekly challenge joined with its type + exercise + your entry. */
+export interface WeeklyChallengeCurrent extends WeeklyChallenge {
+  challenge_type: ChallengeType & {
+    exercise: Pick<Exercise, 'id' | 'name' | 'unit' | 'category'>;
+  };
+  my_entry: ChallengeEntry | null;
+}
 
 /** Owned cosmetic joined with catalog row. */
 export interface OwnedCosmetic extends UserCosmetic {
@@ -188,8 +201,8 @@ export interface LeaderboardEntry {
   equipped_title_id: string | null;
   equipped_avatar_border_id: string | null;
   equipped_level_border_id: string | null;
-  /** Unit this row was ranked on (reps only). */
-  unit: Extract<ExerciseUnit, 'reps'>;
+  /** Unit this row was ranked on. */
+  unit: Extract<ExerciseUnit, 'reps' | 'seconds'>;
   total: number;
   position: number;
 }

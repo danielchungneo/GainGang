@@ -34,6 +34,14 @@ export const queryKeys = {
     ['activities', 'daily-goal', dailyGoalId, userId] as const,
   comments: (activityId: string) => ['comments', activityId] as const,
   leaderboard: (gangId: string, period: string) => ['leaderboard', gangId, period] as const,
+  currentWeeklyChallenge: () => ['challenges', 'current'] as const,
+  challengeLeaderboard: (
+    challengeId: string,
+    scope: string,
+    gangId?: string,
+  ) => ['challenges', 'leaderboard', challengeId, scope, gangId ?? ''] as const,
+  myChallengeEntry: (challengeId?: string, userId?: string) =>
+    ['challenges', 'entry', challengeId, userId] as const,
   achievements: () => ['achievements'] as const,
   userAchievements: (userId?: string) => ['achievements', 'user', userId] as const,
   notifications: (userId?: string) => ['notifications', userId] as const,

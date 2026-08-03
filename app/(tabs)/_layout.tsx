@@ -15,6 +15,8 @@ import {
   useNeedsPostAuthNotifications,
 } from "@/hooks/use-onboarding";
 
+import { useNeedsWeeklyChallengeAttempt } from "@/hooks/use-challenges";
+
 import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 
 import { useUnopenedCrateCount } from "@/hooks/use-reward-crates";
@@ -31,6 +33,7 @@ export default function TabLayout() {
   const { needsEquipmentPrompt, isLoading: equipmentLoading } = useNeedsEquipmentPrompt();
   const unreadAlerts = useUnreadNotificationCount();
   const unopenedCrates = useUnopenedCrateCount();
+  const needsChallengeAttempt = useNeedsWeeklyChallengeAttempt();
   const profileAttention = unreadAlerts + unopenedCrates;
 
   const c = theme.colors;
@@ -57,6 +60,17 @@ export default function TabLayout() {
   if (needsFocusLockIntro) return <Redirect href="/welcome-focus-lock" />;
 
   if (needsEquipmentPrompt) return <Redirect href="/welcome-equipment" />;
+
+  const challengeBadgeStyle = {
+    backgroundColor: status.danger,
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700" as const,
+    minWidth: 16,
+    height: 16,
+    lineHeight: 14,
+    borderRadius: 8,
+  };
 
   return (
     <Tabs
@@ -115,6 +129,21 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="challenges"
+        options={{
+          title: "Challenges",
+
+          tabBarBadge: needsChallengeAttempt ? "" : undefined,
+
+          tabBarBadgeStyle: challengeBadgeStyle,
+
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="trophy" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
@@ -126,16 +155,7 @@ export default function TabLayout() {
                 : profileAttention
               : undefined,
 
-          tabBarBadgeStyle: {
-            backgroundColor: status.danger,
-            color: "#FFFFFF",
-            fontSize: 10,
-            fontWeight: "700",
-            minWidth: 16,
-            height: 16,
-            lineHeight: 14,
-            borderRadius: 8,
-          },
+          tabBarBadgeStyle: challengeBadgeStyle,
 
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />

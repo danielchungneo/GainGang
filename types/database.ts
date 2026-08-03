@@ -39,7 +39,14 @@ export type NotificationType =
   | 'follow';
 
 export type PushPlatform = 'ios' | 'android' | 'web' | 'unknown';
-export type XpAwardKind = 'activity_log' | 'personal_goal' | 'gang_goal' | 'crate_reward';
+export type XpAwardKind =
+  | 'activity_log'
+  | 'personal_goal'
+  | 'gang_goal'
+  | 'crate_reward'
+  | 'challenge_attempt';
+export type ChallengeMode = 'timed_reps' | 'max_hold';
+export type WeeklyChallengeStatus = 'active' | 'completed';
 export type RewardCrateStatus = 'sealed' | 'opened';
 export type RewardCrateSource = 'daily_completion' | 'level_up';
 export type RewardCrateTier = 'aura' | 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
@@ -350,6 +357,7 @@ export type Database = {
           daily_goal_exercise_id: string | null;
           quest_id: string | null;
           reward_crate_id: string | null;
+          weekly_challenge_id: string | null;
           xp_amount: number;
           created_at: string;
         };
@@ -361,11 +369,111 @@ export type Database = {
           daily_goal_exercise_id?: string | null;
           quest_id?: string | null;
           reward_crate_id?: string | null;
+          weekly_challenge_id?: string | null;
           xp_amount: number;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['xp_awards']['Insert']>;
         Relationships: [];
+      };
+      challenge_types: {
+        Row: {
+          id: string;
+          exercise_id: string;
+          slug: string;
+          name: string;
+          description: string;
+          mode: ChallengeMode;
+          time_limit_seconds: number | null;
+          unit: Extract<ExerciseUnit, 'reps' | 'seconds'>;
+          sort_order: number;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          exercise_id: string;
+          slug: string;
+          name: string;
+          description: string;
+          mode: ChallengeMode;
+          time_limit_seconds?: number | null;
+          unit: Extract<ExerciseUnit, 'reps' | 'seconds'>;
+          sort_order?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['challenge_types']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'challenge_types_exercise_id_fkey';
+            columns: ['exercise_id'];
+            referencedRelation: 'exercises';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      weekly_challenges: {
+        Row: {
+          id: string;
+          challenge_type_id: string;
+          starts_on: string;
+          ends_on: string;
+          status: WeeklyChallengeStatus;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          challenge_type_id: string;
+          starts_on: string;
+          ends_on: string;
+          status?: WeeklyChallengeStatus;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['weekly_challenges']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'weekly_challenges_challenge_type_id_fkey';
+            columns: ['challenge_type_id'];
+            referencedRelation: 'challenge_types';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      challenge_entries: {
+        Row: {
+          id: string;
+          weekly_challenge_id: string;
+          user_id: string;
+          best_score: number;
+          attempt_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          weekly_challenge_id: string;
+          user_id: string;
+          best_score: number;
+          attempt_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['challenge_entries']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'challenge_entries_weekly_challenge_id_fkey';
+            columns: ['weekly_challenge_id'];
+            referencedRelation: 'weekly_challenges';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'challenge_entries_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       app_settings: {
         Row: {
@@ -843,6 +951,14 @@ export type Database = {
       };
       rollover_weekly_plans: {
         Args: { p_force?: boolean };
+        Returns: Json;
+      };
+      rollover_weekly_challenges: {
+        Args: { p_force?: boolean };
+        Returns: Json;
+      };
+      submit_challenge_attempt: {
+        Args: { p_weekly_challenge_id: string; p_score: number };
         Returns: Json;
       };
       shares_gang: {

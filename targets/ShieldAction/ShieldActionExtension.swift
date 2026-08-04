@@ -15,7 +15,7 @@ class ShieldActionExtension: ShieldActionDelegate {
   // can localize without forking. Defaults preserve the original English
   // copy and the icon attachment.
   private let notificationTitle = "GainGang"
-  private let notificationBody = "Tap to open GainGang and finish today's exercises."
+  private let notificationBody = "Tap to open GainGang and earn screen time."
   private let notificationAttachIcon = false
 
   override func handle(action: ShieldAction, for application: ApplicationToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {

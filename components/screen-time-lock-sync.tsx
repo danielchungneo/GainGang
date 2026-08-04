@@ -8,9 +8,9 @@ import { useScreenTimeLock } from '@/hooks/use-screen-time-lock';
 
 const PENDING_UNLOCK_NOTIFICATION_ID = 'expo.appblocker.pendingUnlock.local';
 
-function openTodayTab() {
+function openEarnScreenTime() {
   try {
-    router.push('/(tabs)');
+    router.push('/earn-screen-time');
   } catch {
     // Navigation may not be ready yet on cold start; ignore.
   }
@@ -20,10 +20,15 @@ function isFocusLockNotification(response: Notifications.NotificationResponse): 
   const request = response.notification.request;
   if (request.identifier === PENDING_UNLOCK_NOTIFICATION_ID) return true;
   const data = request.content.data as Record<string, unknown> | undefined;
-  return data?.gaingangFocusLock === true || data?.link === '/(tabs)' || data?.link === '/unlock';
+  return (
+    data?.gaingangFocusLock === true ||
+    data?.link === '/(tabs)' ||
+    data?.link === '/unlock' ||
+    data?.link === '/earn-screen-time'
+  );
 }
 
-/** Keeps Focus lock shields in sync and routes shield-button taps into the app. */
+/** Keeps Focus lock shields in sync and routes shield-button taps into the earn flow. */
 export function ScreenTimeLockSync() {
   const { showUnlockCelebration, dismissUnlockCelebration } = useScreenTimeLock();
 
@@ -35,10 +40,10 @@ export function ScreenTimeLockSync() {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const blocker = require('expo-app-blocker') as typeof import('expo-app-blocker');
       if (blocker.checkAndClearPendingUnlock()) {
-        requestAnimationFrame(() => openTodayTab());
+        requestAnimationFrame(() => openEarnScreenTime());
       }
       unlockSub = blocker.addPendingUnlockListener(() => {
-        openTodayTab();
+        openEarnScreenTime();
       });
     } catch {
       // Native module unavailable (Expo Go / missing rebuild).
@@ -46,7 +51,7 @@ export function ScreenTimeLockSync() {
 
     const notifSub = Notifications.addNotificationResponseReceivedListener((response) => {
       if (!isFocusLockNotification(response)) return;
-      openTodayTab();
+      openEarnScreenTime();
     });
 
     return () => {

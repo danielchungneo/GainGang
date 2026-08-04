@@ -33,9 +33,13 @@ import { useProfile } from "@/hooks/use-profile";
 
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 
+import { useScreenTimeLock } from "@/hooks/use-screen-time-lock";
+
 import { useMyTodaysDailyGoals } from "@/hooks/use-weekly-plans";
 
 import { useThemeTokens } from "@/hooks/use-theme-tokens";
+
+import { formatRemainingBudget } from "@/lib/earn-screen-time";
 
 import { fontFamily, spacing, type, useTheme } from "@/lib/gaingang-theme";
 
@@ -56,6 +60,13 @@ export default function TodayScreen() {
   const { data: dailyGoals, isLoading, refetch } = useMyTodaysDailyGoals();
 
   const { isRefreshing, onRefresh } = usePullToRefresh(refetch);
+
+  const {
+    status: focusLockStatus,
+    temporaryUnlockActive,
+    temporaryUnlockRemainingSeconds,
+    lockNow,
+  } = useScreenTimeLock();
 
   const {
     streakContinue,
@@ -183,6 +194,53 @@ export default function TodayScreen() {
           </GlassSurface>
         ) : (
           <View className="gap-3">
+            {focusLockStatus === 'locked' || focusLockStatus === 'temporarily_unlocked' ? (
+              <GlassSurface style={{ padding: 16, gap: 10 }}>
+                <View className="flex-row items-center justify-between gap-3">
+                  <Text style={{ fontFamily: fontFamily.bodySemi, fontSize: 16, color: t.heading, flex: 1 }}>
+                    {temporaryUnlockActive ? 'Screen time earned' : 'Focus lock is on'}
+                  </Text>
+                  {temporaryUnlockActive ? (
+                    <Text
+                      style={{
+                        fontFamily: fontFamily.bodySemi,
+                        fontSize: 22,
+                        color: t.accent,
+                        fontVariant: ['tabular-nums'],
+                      }}
+                    >
+                      {formatRemainingBudget(temporaryUnlockRemainingSeconds)}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={[type.bodySm, { color: t.body }]}>
+                  {temporaryUnlockActive
+                    ? 'Time left until apps lock again. Finish today’s goals for the full day, or lock now.'
+                    : 'Do a short set to unlock restricted apps for a while, or finish all goals to unlock for the day.'}
+                </Text>
+                {!temporaryUnlockActive ? (
+                  <Button
+                    label="EARN SCREEN TIME"
+                    onPress={() => router.push('/earn-screen-time')}
+                  />
+                ) : (
+                  <View className="gap-2">
+                    <Button
+                      label="VIEW TIMER"
+                      variant="secondary"
+                      onPress={() => router.push('/earn-screen-time')}
+                    />
+                    <Button
+                      label="LOCK APPS NOW"
+                      onPress={() => {
+                        void lockNow();
+                      }}
+                    />
+                  </View>
+                )}
+              </GlassSurface>
+            ) : null}
+
             <Text style={[type.label, { color: theme.colors.textMuted }]}>
               Today&apos;s goals
             </Text>

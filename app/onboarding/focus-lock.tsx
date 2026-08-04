@@ -28,8 +28,13 @@ const FOCUS_POINTS = [
     body: 'Choose social apps that stay locked until today’s exercises are done.',
   },
   {
+    icon: 'timer-outline' as const,
+    title: 'Earn slices mid-day',
+    body: 'Do a short set anytime — like 10 push-ups — to unlock apps for about 15 minutes.',
+  },
+  {
     icon: 'checkmark-circle-outline' as const,
-    title: 'Earn your unlock',
+    title: 'Unlock the full day',
     body: 'Finish your daily goals and Focus lock lifts automatically for the rest of the day.',
   },
 ];

@@ -33,7 +33,9 @@ function statusCopy(status: ReturnType<typeof useScreenTimeLock>['status']): str
     case 'needs_apps':
       return 'On — pick the apps you want locked until goals are complete.';
     case 'locked':
-      return 'Locked — selected apps stay blocked until you finish today’s goals.';
+      return 'Locked — earn short unlocks mid-day, or finish today’s goals for the full day.';
+    case 'temporarily_unlocked':
+      return 'Temporarily unlocked — earned screen time is active. Finish goals for the full day.';
     case 'unlocked_today':
       return 'Unlocked for today — apps lock again after midnight on your next workout day.';
     default:
@@ -182,9 +184,10 @@ export default function SettingsScreenTimeScreen() {
                 </View>
                 <Text style={[type.bodySm, { color: t.body }]}>
                   Choose social apps (or categories). They stay locked until
-                  every exercise on today’s goals is complete. The shield button
-                  sends a notification — tap that notification to open GainGang
-                  (iOS cannot open apps directly from Screen Time shields).
+                  every exercise on today’s goals is complete. Mid-day, do a
+                  short earn set (like 10 push-ups) for a slice of screen time.
+                  The shield button sends a notification — tap it to open Earn
+                  screen time (iOS cannot open apps directly from shields).
                 </Text>
                 <ScreenTimeAppPicker
                   initialSelection={prefs.selectionData}

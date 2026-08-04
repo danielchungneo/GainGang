@@ -32,8 +32,8 @@ const appBlockerPlugin = [
       appGroup,
       shield: {
         title: 'Finish your gains',
-        subtitle: "Complete today's exercises to unlock {appName}.",
-        primaryButtonLabel: 'Continue in GainGang',
+        subtitle: 'Earn screen time with a quick set, or finish today’s goals to unlock {appName}.',
+        primaryButtonLabel: 'Earn screen time',
         secondaryButtonLabel: null,
         primaryButtonColor: '#4D8CFF',
         titleColor: '#E8EDF7',
@@ -47,7 +47,7 @@ const appBlockerPlugin = [
       },
       notification: {
         title: 'GainGang',
-        body: "Tap to open GainGang and finish today's exercises.",
+        body: 'Tap to open GainGang and earn screen time.',
         attachIcon: false,
       },
     },

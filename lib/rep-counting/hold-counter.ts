@@ -28,8 +28,9 @@ const MAX_HIP_SAG = 0.3;
 /**
  * Max how far hips may sit above shoulders (pike / butt-up).
  * Smaller y = higher on screen — blocks a high-hip “tent” pose.
+ * Lenient enough for a slight natural hip lift without failing form.
  */
-const MAX_HIP_PIKE = 0.03;
+const MAX_HIP_PIKE = 0.1;
 /**
  * Support (wrist/elbow) must be at least this far below the shoulder.
  * Slightly negative so a chin tuck that pulls estimated shoulders downward

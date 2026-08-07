@@ -1,6 +1,6 @@
 import { checkBodyInFrame } from '@/lib/rep-counting/body-in-frame';
 import { PoseLandmarkIndex } from '@/lib/rep-counting/pose-landmarks';
-import type { CameraExerciseType, Landmark, RepPhase, RepCounterSnapshot } from '@/lib/rep-counting/types';
+import type { CameraExerciseType, Landmark, RepCounterSnapshot, RepPhase } from '@/lib/rep-counting/types';
 import {
   calculateAngle,
   elevationFromHorizontal,
@@ -42,10 +42,16 @@ const CORE_VISIBILITY_MIN = 0.4;
 /** Knee must sit this far above hip/shoulder (normalized image y). */
 const KNEE_ABOVE_MARGIN = 0.05;
 /**
+ * Squats: shoulder must sit this far above the knee (normalized image y).
+ * Image y grows downward — smaller y = higher on screen.
+ */
+const SHOULDER_ABOVE_KNEE_MARGIN = 0.02;
+/**
  * Crunch tabletop: knee and ankle must clear the hip by this much
  * (normalized image y — larger = stricter lift).
+ * Lenient enough that feet can dip a little during the curl.
  */
-const CRUNCH_LEG_ABOVE_HIP_MARGIN = 0.12;
+const CRUNCH_LEG_ABOVE_HIP_MARGIN = 0.05;
 /** Crunch legs sit in the air with the knee bent near a right angle. */
 const CRUNCH_KNEE_ANGLE_TARGET = 90;
 const CRUNCH_KNEE_ANGLE_TOLERANCE = 45;
@@ -409,6 +415,35 @@ function isCrunchReady(landmarks: Landmark[]): ReadyCheckResult {
 }
 
 /**
+ * Squats: shoulders must stay above the knees (rejects sitting / kneeling).
+ * Checked continuously — not latched.
+ */
+function isSquatReady(landmarks: Landmark[]): ReadyCheckResult {
+  const side = pickSide(
+    landmarks[PoseLandmarkIndex.LEFT_KNEE],
+    landmarks[PoseLandmarkIndex.RIGHT_KNEE],
+  );
+  const shoulder =
+    side === 'left'
+      ? landmarks[PoseLandmarkIndex.LEFT_SHOULDER]
+      : landmarks[PoseLandmarkIndex.RIGHT_SHOULDER];
+  const knee =
+    side === 'left'
+      ? landmarks[PoseLandmarkIndex.LEFT_KNEE]
+      : landmarks[PoseLandmarkIndex.RIGHT_KNEE];
+
+  if (avgVisibility(shoulder, knee) < CORE_VISIBILITY_MIN) {
+    return { ok: false, message: 'Keep your shoulders and knees in frame' };
+  }
+
+  if (shoulder.y >= knee.y - SHOULDER_ABOVE_KNEE_MARGIN) {
+    return { ok: false, message: 'Keep your shoulders above your knees' };
+  }
+
+  return { ok: true, message: '' };
+}
+
+/**
  * Sit-up setup gate: knees must sit above both hips and shoulders before
  * counting arms. Latched afterward so curling up doesn't disarm the gate.
  */
@@ -471,6 +506,7 @@ export const EXERCISE_CONFIGS: Record<CameraExerciseType, ExerciseConfig> = {
     minFramesInPhase: 3,
     countTransition: 'down-to-up',
     initialPhase: 'up',
+    isReady: isSquatReady,
   },
   lunge: {
     type: 'lunge',
@@ -714,6 +750,7 @@ function defaultRepFrameMessage(type: CameraExerciseType): string {
   if (type === 'crunch') return 'Keep your torso, knees, and feet in frame';
   if (type === 'situp') return 'Keep your torso and knees in frame';
   if (type === 'plank') return 'Keep shoulder, hip, knee, and one arm in frame';
+  if (type === 'squat') return 'Keep your torso and legs in frame';
   return 'Step back — keep your full body in frame';
 }
 

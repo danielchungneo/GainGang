@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
+import { useAwardAchievements } from '@/hooks/use-award-achievements';
 import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
 import type { AppNotification, ExerciseUnit, GangMemberWithProfile } from '@/types';
@@ -87,6 +88,7 @@ export function useExerciseContributions({
 
 export function useSendGangPoke(gangId: string) {
   const queryClient = useQueryClient();
+  const awardAchievements = useAwardAchievements();
 
   return useMutation({
     mutationFn: async (input: {
@@ -102,6 +104,7 @@ export function useSendGangPoke(gangId: string) {
       return data as AppNotification;
     },
     onSuccess: (_data, variables) => {
+      void awardAchievements();
       queryClient.invalidateQueries({
         queryKey: queryKeys.exerciseContributions(gangId, variables.dailyGoalExerciseId),
       });

@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import {
   View,
@@ -124,10 +125,20 @@ export interface GoalCompleteOverlayProps {
   questKind?: string;
   description?: string;
   xpEarned?: number;
+  /**
+   * `day` plays the full-day clear celebration (claim uncommon crate).
+   * `goal` is the single club daily-goal finish.
+   */
+  variant?: 'goal' | 'day';
   /** All exercises in the daily goal — each gets an animated progress bar. */
   exercises?: GoalCompleteExerciseTarget[];
   /** @deprecated Prefer `exercises` for multi-exercise daily goals. */
   yourTarget?: { from: number; target: number };
+  /** Sealed daily crate id — enables CLAIM REWARD on day-clear. */
+  rewardCrateId?: string | null;
+  /** Tier label on the claim CTA (e.g. Uncommon). */
+  rewardCrateTierLabel?: string | null;
+  onClaimReward?: (crateId: string) => void;
   onDismiss?: () => void;
 }
 
@@ -169,8 +180,13 @@ function SvgGradientFill({
   );
 }
 
+/** Round animated mid-fill values so labels never show long float noise. */
 function formatBarValue(amount: number, unit: ExerciseUnit): string {
-  return formatAmount(amount, unit);
+  if (unit === 'miles') {
+    const rounded = Math.round(amount * 10) / 10;
+    return formatAmount(rounded, unit);
+  }
+  return formatAmount(Math.round(amount), unit);
 }
 
 interface AnimatedExerciseBarProps {
@@ -268,14 +284,22 @@ function AnimatedExerciseBar({ exercise, delay, duration, onFinished }: Animated
 export function GoalCompleteOverlay({
   visible,
   questTitle = 'The Iron Oath',
-  questKind = 'Daily Goal',
+  questKind,
   description,
   xpEarned = 50,
+  variant = 'goal',
   exercises: exercisesProp,
   yourTarget,
+  rewardCrateId,
+  rewardCrateTierLabel,
+  onClaimReward,
   onDismiss,
 }: GoalCompleteOverlayProps) {
   useCelebrationGate(visible);
+
+  const isDayClear = variant === 'day';
+  const resolvedQuestKind = questKind ?? (isDayClear ? 'Day Clear' : 'Daily Goal');
+  const hasClaim = isDayClear && !!onClaimReward;
 
   const exercises: GoalCompleteExerciseTarget[] =
     exercisesProp ??
@@ -297,6 +321,8 @@ export function GoalCompleteOverlay({
   const r3Opa = useSharedValue(0);
   const xpY = useSharedValue(18);
   const xpOpa = useSharedValue(0);
+  const ctaOpa = useSharedValue(0);
+  const ctaY = useSharedValue(14);
 
   const [celebrationShown, setCelebrationShown] = useState(false);
   const hasPlayed = useRef(false);
@@ -307,9 +333,11 @@ export function GoalCompleteOverlay({
 
   const descText =
     description ??
-    (exercises.length === 1
-      ? `${formatBarValue(exercises[0].target, exercises[0].unit)} are yours.`
-      : `All ${exercises.length} exercises complete.`);
+    (isDayClear
+      ? 'Every required exercise for today is cleared.'
+      : exercises.length === 1
+        ? `${formatBarValue(exercises[0].target, exercises[0].unit)} are yours.`
+        : `All ${exercises.length} exercises complete.`);
 
   function playCelebration() {
     cancelCelebrationHapticsRef.current?.();
@@ -364,6 +392,8 @@ export function GoalCompleteOverlay({
     r3Opa.value = 0;
     xpY.value = 18;
     xpOpa.value = 0;
+    ctaOpa.value = 0;
+    ctaY.value = 14;
     finishedBars.current = 0;
     setCelebrationShown(false);
   }
@@ -399,6 +429,14 @@ export function GoalCompleteOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, exercises]);
 
+  useEffect(() => {
+    if (!visible || !celebrationShown || !hasClaim) return;
+
+    ctaOpa.value = withDelay(260, withTiming(1, { duration: 320, easing: easeOut }));
+    ctaY.value = withDelay(260, withSpring(0, { damping: 15, stiffness: 170, mass: 0.9 }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, celebrationShown, hasClaim]);
+
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: bgOpa.value,
   }));
@@ -432,6 +470,16 @@ export function GoalCompleteOverlay({
     opacity: xpOpa.value,
   }));
 
+  const ctaStyle = useAnimatedStyle(() => ({
+    opacity: ctaOpa.value,
+    transform: [{ translateY: ctaY.value }],
+  }));
+
+  const stampTitle = isDayClear ? 'Day Complete' : 'Goal Complete';
+  const stampSub = isDayClear
+    ? 'ALL DAILY EXERCISES — FULFILLED'
+    : `${questTitle.toUpperCase()} — FULFILLED`;
+
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onDismiss} statusBarTranslucent>
       <View style={s.container}>
@@ -445,9 +493,9 @@ export function GoalCompleteOverlay({
           <Animated.View style={[StyleSheet.absoluteFill, s.ring, r3Style]} />
         </View>
 
-        <Animated.View style={[s.card, cardStyle]}>
+        <Animated.View style={[s.card, isDayClear && s.cardDayClear, cardStyle]}>
           <View style={s.header}>
-            <Text style={s.questKind}>⚔ {questKind.toUpperCase()}</Text>
+            <Text style={s.questKind}>⚔ {resolvedQuestKind.toUpperCase()}</Text>
             <View style={s.statusRow}>
               <View style={[s.dot, celebrationShown && s.dotComplete]} />
               <Text style={[s.statusText, celebrationShown && s.statusComplete]}>
@@ -471,9 +519,11 @@ export function GoalCompleteOverlay({
             ))}
           </ScrollView>
 
-          <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
+          {!hasClaim ? <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} /> : null}
 
-          <Animated.View style={[StyleSheet.absoluteFill, s.stamp, stampStyle]} pointerEvents="none">
+          <Animated.View
+            style={[StyleSheet.absoluteFill, s.stamp, stampStyle]}
+            pointerEvents={hasClaim ? 'box-none' : 'none'}>
             <SvgGradientFill
               colors={['#4D8CFF', '#9D4EDD']}
               start={{ x: 0, y: 0 }}
@@ -481,8 +531,35 @@ export function GoalCompleteOverlay({
               style={s.checkCircle}>
               <Text style={s.checkMark}>✓</Text>
             </SvgGradientFill>
-            <Text style={s.completeTitle}>Goal Complete</Text>
-            <Text style={s.completeSub}>{questTitle.toUpperCase()} — FULFILLED</Text>
+            <Text style={s.completeTitle}>{stampTitle}</Text>
+            <Text style={s.completeSub}>{stampSub}</Text>
+            {hasClaim ? (
+              <Animated.View style={[s.claimWrap, ctaStyle]}>
+                {rewardCrateTierLabel ? (
+                  <Text style={s.claimTierLabel}>{rewardCrateTierLabel} crate</Text>
+                ) : null}
+                <Pressable
+                  onPress={() => {
+                    onClaimReward?.(rewardCrateId ?? '');
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Claim daily reward crate"
+                  style={({ pressed }) => ({
+                    width: '100%',
+                    opacity: pressed ? 0.88 : 1,
+                    borderRadius: 14,
+                    overflow: 'hidden',
+                  })}>
+                  <LinearGradient
+                    colors={['#0F766E', '#2DD4BF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={s.claimButton}>
+                    <Text style={s.claimButtonText}>CLAIM REWARD</Text>
+                  </LinearGradient>
+                </Pressable>
+              </Animated.View>
+            ) : null}
           </Animated.View>
         </Animated.View>
 
@@ -544,6 +621,9 @@ const s = StyleSheet.create({
       },
       android: { elevation: 12 },
     }),
+  },
+  cardDayClear: {
+    minHeight: Math.min(SCREEN.height * 0.52, 420),
   },
   header: {
     flexDirection: 'row',
@@ -660,6 +740,36 @@ const s = StyleSheet.create({
     fontSize: 11,
     color: '#7D8AA8',
     letterSpacing: 2,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  claimWrap: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 18,
+    paddingHorizontal: 28,
+  },
+  claimTierLabel: {
+    fontFamily: fontFamily.mono,
+    fontSize: 11,
+    letterSpacing: 1,
+    color: '#2DD4BF',
+    textAlign: 'center',
+  },
+  claimButton: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+  },
+  claimButtonText: {
+    fontFamily: fontFamily.display,
+    fontSize: 16,
+    color: '#FFFFFF',
+    letterSpacing: 1.5,
   },
   xpPill: {
     position: 'absolute',

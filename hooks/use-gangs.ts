@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
+import { useAwardAchievements } from '@/hooks/use-award-achievements';
 import { removeGangBannerImage } from '@/lib/gang-banner-upload';
 import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
@@ -155,6 +156,7 @@ export interface CreateGangInput {
 export function useCreateGang() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
+  const awardAchievements = useAwardAchievements();
   return useMutation({
     mutationFn: async (input: CreateGangInput): Promise<Gang> => {
       const { data, error } = await supabase.rpc('create_gang', {
@@ -167,6 +169,7 @@ export function useCreateGang() {
       return data as Gang;
     },
     onSuccess: () => {
+      void awardAchievements();
       queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
     },
   });
@@ -232,6 +235,7 @@ export function useGangInvitePreview(inviteCode: string) {
 export function useJoinGang() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
+  const awardAchievements = useAwardAchievements();
   return useMutation({
     mutationFn: async (inviteCode: string): Promise<Gang> => {
       const { data, error } = await supabase.rpc('join_gang', { p_invite_code: inviteCode });
@@ -239,6 +243,7 @@ export function useJoinGang() {
       return data as Gang;
     },
     onSuccess: () => {
+      void awardAchievements();
       queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
     },
   });
@@ -247,6 +252,7 @@ export function useJoinGang() {
 export function useJoinPublicGang() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
+  const awardAchievements = useAwardAchievements();
   return useMutation({
     mutationFn: async (gangId: string): Promise<Gang> => {
       const { data, error } = await supabase.rpc('join_public_gang', { p_gang_id: gangId });
@@ -254,6 +260,7 @@ export function useJoinPublicGang() {
       return data as Gang;
     },
     onSuccess: () => {
+      void awardAchievements();
       queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
     },
   });

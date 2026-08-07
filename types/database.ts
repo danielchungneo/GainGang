@@ -19,13 +19,22 @@ export type QuestType = 'daily' | 'weekly';
 export type QuestStatus = 'active' | 'completed' | 'failed';
 export type WeeklyPlanStatus = 'active' | 'completed' | 'failed';
 export type AchievementCategory =
+  | 'goal'
   | 'quest'
   | 'streak'
   | 'reps'
+  | 'time'
   | 'social'
   | 'gang'
+  | 'reward'
   | 'rare'
   | 'general';
+export type AchievementTier =
+  | 'bronze'
+  | 'silver'
+  | 'gold'
+  | 'platinum'
+  | 'legendary';
 export type NotificationType =
   | 'kudos'
   | 'comment'
@@ -638,6 +647,7 @@ export type Database = {
           category: AchievementCategory;
           threshold: number | null;
           is_secret: boolean;
+          tier: AchievementTier;
         };
         Insert: {
           id?: string;
@@ -648,6 +658,7 @@ export type Database = {
           category?: AchievementCategory;
           threshold?: number | null;
           is_secret?: boolean;
+          tier?: AchievementTier;
         };
         Update: Partial<Database['public']['Tables']['achievements']['Insert']>;
         Relationships: [];
@@ -1017,6 +1028,10 @@ export type Database = {
           p_daily_goal_exercise_id: string;
         };
         Returns: Database['public']['Tables']['notifications']['Row'];
+      };
+      check_and_award_achievements: {
+        Args: Record<string, never>;
+        Returns: Database['public']['Tables']['achievements']['Row'][];
       };
       register_push_token: {
         Args: {

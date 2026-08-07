@@ -12,6 +12,7 @@ import "react-native-reanimated";
 
 // Temporarily disabled for this release — re-enable once min store versions are set.
 // import { ForceStoreUpdateModal } from "@/components/force-store-update-modal";
+import { AchievementUnlockHost } from "@/components/achievement-unlock-host";
 import { OtaUpdateModal } from "@/components/ota-update-modal";
 
 import { ScreenTimeLockSync } from "@/components/screen-time-lock-sync";
@@ -43,6 +44,7 @@ function RootNavigator() {
       {/* <ForceStoreUpdateModal /> */}
       <OtaUpdateModal />
       <ScreenTimeLockSync />
+      <AchievementUnlockHost />
       <Stack
         screenOptions={{
           contentStyle: { backgroundColor: theme.colors.bg },

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
+import { useAwardAchievements } from '@/hooks/use-award-achievements';
 import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
 import type { FollowCounts, FollowStatus } from '@/types';
@@ -75,6 +76,7 @@ export function useToggleFollow(targetUserId?: string) {
   const queryClient = useQueryClient();
   const viewerId = session?.user.id;
   const statusKey = queryKeys.followStatus(viewerId, targetUserId);
+  const awardAchievements = useAwardAchievements();
 
   return useMutation({
     mutationFn: async ({ isFollowing }: { isFollowing: boolean }) => {
@@ -88,12 +90,14 @@ export function useToggleFollow(targetUserId?: string) {
           .eq('follower_id', viewerId)
           .eq('following_id', targetUserId);
         if (error) throw error;
+        return { followed: false };
       } else {
         const { error } = await supabase.from('follows').insert({
           follower_id: viewerId,
           following_id: targetUserId,
         });
         if (error) throw error;
+        return { followed: true };
       }
     },
     onMutate: async ({ isFollowing }) => {
@@ -138,6 +142,9 @@ export function useToggleFollow(targetUserId?: string) {
       if (ctx?.previousTargetCounts) {
         queryClient.setQueryData(queryKeys.followCounts(targetUserId), ctx.previousTargetCounts);
       }
+    },
+    onSuccess: (result) => {
+      if (result?.followed) void awardAchievements();
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: statusKey });

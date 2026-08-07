@@ -16,6 +16,7 @@ export type {
   QuestStatus,
   WeeklyPlanStatus,
   AchievementCategory,
+  AchievementTier,
   NotificationType,
   PushPlatform,
   RewardCrateStatus,

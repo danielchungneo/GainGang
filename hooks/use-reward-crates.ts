@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
+import { useAwardAchievements } from '@/hooks/use-award-achievements';
 import { todayISO } from '@/lib/format';
 import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
@@ -95,6 +96,7 @@ export function useOpenRewardCrate() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user.id;
+  const awardAchievements = useAwardAchievements();
 
   return useMutation({
     mutationFn: async (crateId: string): Promise<UserRewardCrate> => {
@@ -115,6 +117,7 @@ export function useOpenRewardCrate() {
       void queryClient.invalidateQueries({
         queryKey: ['reward-crates', 'level-up', userId],
       });
+      void awardAchievements();
     },
   });
 }

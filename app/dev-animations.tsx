@@ -5,21 +5,27 @@ import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
 import { LevelUpOverlay } from '@/components/level-up-overlay';
+import { AchievementUnlockOverlay } from '@/components/achievement-unlock-overlay';
 import { RewardReveal } from '@/components/reward-reveal';
 import { ScreenTimeUnlockOverlay } from '@/components/screen-time-unlock-overlay';
 import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { GlassSurface, ScreenBackground } from '@/components/ui';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { enqueueAchievementUnlocks } from '@/lib/achievements';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
 import { rarityDef, type RewardRarity } from '@/lib/rewards';
+import type { Achievement, AchievementTier } from '@/types';
 
 type AnimationId =
   | 'level-up'
   | 'level-up-claim'
   | 'goal-complete'
+  | 'day-complete'
   | 'streak-continue'
   | 'streak-first'
   | 'focus-unlock'
+  | 'achievement-unlock'
+  | 'achievement-unlock-queue'
   | 'reward-reveal-e'
   | 'reward-reveal-d'
   | 'reward-reveal-c'
@@ -54,6 +60,12 @@ const ANIMATIONS: AnimationDef[] = [
     icon: 'checkmark-circle',
   },
   {
+    id: 'day-complete',
+    title: 'Day Complete + Claim',
+    description: 'All daily exercises cleared → uncommon crate claim',
+    icon: 'trophy',
+  },
+  {
     id: 'streak-continue',
     title: 'Streak Continue',
     description: 'Flame stamp for an ongoing streak',
@@ -70,6 +82,18 @@ const ANIMATIONS: AnimationDef[] = [
     title: 'Focus Unlock',
     description: 'Focus lock lifts after goals clear',
     icon: 'lock-open',
+  },
+  {
+    id: 'achievement-unlock',
+    title: 'Achievement Unlock',
+    description: 'Badge stamp with tier metal frame',
+    icon: 'ribbon',
+  },
+  {
+    id: 'achievement-unlock-queue',
+    title: 'Achievement Unlock ×3',
+    description: 'Queues three via root host — dismiss to advance',
+    icon: 'layers',
   },
   {
     id: 'reward-reveal-e',
@@ -133,6 +157,54 @@ function isRevealId(id: AnimationId): id is keyof typeof REVEAL_TIERS {
   return id.startsWith('reward-reveal-');
 }
 
+const DEV_ACHIEVEMENT: Achievement = {
+  id: 'dev-achievement',
+  key: 'streak_7',
+  title: 'Week Warrior',
+  description: 'Reach a 7-day streak',
+  icon: 'flame',
+  category: 'streak',
+  threshold: 7,
+  is_secret: false,
+  tier: 'silver' satisfies AchievementTier,
+};
+
+const DEV_ACHIEVEMENT_QUEUE: Achievement[] = [
+  {
+    id: 'dev-achievement-q1',
+    key: 'reps_100',
+    title: 'Century Club',
+    description: 'Log 100 total reps',
+    icon: 'barbell',
+    category: 'reps',
+    threshold: 100,
+    is_secret: false,
+    tier: 'bronze' satisfies AchievementTier,
+  },
+  {
+    id: 'dev-achievement-q2',
+    key: 'streak_7',
+    title: 'Week Warrior',
+    description: 'Reach a 7-day streak',
+    icon: 'flame',
+    category: 'streak',
+    threshold: 7,
+    is_secret: false,
+    tier: 'silver' satisfies AchievementTier,
+  },
+  {
+    id: 'dev-achievement-q3',
+    key: 'reps_1k',
+    title: 'Thousand Club',
+    description: 'Log 1,000 total reps',
+    icon: 'trophy',
+    category: 'reps',
+    threshold: 1000,
+    is_secret: false,
+    tier: 'gold' satisfies AchievementTier,
+  },
+];
+
 /**
  * Dev-only playground for celebrating overlays and reward reveals.
  * Reachable from Settings → Animations when `__DEV__` is true.
@@ -145,6 +217,10 @@ export default function DevAnimationsScreen() {
   const dismiss = useCallback(() => setActive(null), []);
 
   function play(id: AnimationId) {
+    if (id === 'achievement-unlock-queue') {
+      enqueueAchievementUnlocks(DEV_ACHIEVEMENT_QUEUE);
+      return;
+    }
     setPlayKey((k) => k + 1);
     setActive(id);
   }
@@ -298,6 +374,24 @@ export default function DevAnimationsScreen() {
         onDismiss={dismiss}
       />
 
+      <GoalCompleteOverlay
+        key={`day-${playKey}`}
+        visible={active === 'day-complete'}
+        variant="day"
+        questTitle="Friday"
+        questKind="Day Clear"
+        xpEarned={180}
+        exercises={[
+          { name: 'Push-ups', unit: 'reps', from: 0, target: 40 },
+          { name: 'Squats', unit: 'reps', from: 0, target: 50 },
+          { name: 'Plank', unit: 'seconds', from: 0, target: 60 },
+        ]}
+        rewardCrateId="dev-preview-daily-crate"
+        rewardCrateTierLabel="Uncommon"
+        onClaimReward={dismiss}
+        onDismiss={dismiss}
+      />
+
       <StreakContinueOverlay
         key={`streak-${playKey}`}
         visible={active === 'streak-continue'}
@@ -317,6 +411,13 @@ export default function DevAnimationsScreen() {
       <ScreenTimeUnlockOverlay
         key={`focus-${playKey}`}
         visible={active === 'focus-unlock'}
+        onDismiss={dismiss}
+      />
+
+      <AchievementUnlockOverlay
+        key={`achievement-${playKey}`}
+        visible={active === 'achievement-unlock'}
+        achievement={DEV_ACHIEVEMENT}
         onDismiss={dismiss}
       />
 

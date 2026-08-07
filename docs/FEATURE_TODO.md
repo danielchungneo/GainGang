@@ -85,10 +85,10 @@ Living checklist of planned product features. Mark items done as they ship; add 
 
 ### Achievements
 
-- [ ] Define achievement catalog (streaks, volume, social, firsts, etc.)
-- [ ] Track progress and unlock conditions
-- [ ] Achievement unlock UI / badge display on profile
-- [ ] Optional notifications when an achievement unlocks
+- [x] Define achievement catalog (streaks, volume, social, firsts, etc.)
+- [x] Track progress and unlock conditions
+- [x] Achievement unlock UI / badge display on profile
+- [x] Optional notifications when an achievement unlocks
 
 ### Video tips — phone placement on the floor
 

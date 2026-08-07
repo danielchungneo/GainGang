@@ -1,25 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
 
+import { AchievementDetailModal } from '@/components/achievement-detail-modal';
 import { ProfileActivitiesFeed } from '@/components/profile-activities-feed';
 import { ProfileStreakCalendar } from '@/components/profile-streak-calendar';
 import {
+  AchievementBadge,
   Avatar,
   GlassSurface,
   ImageViewerModal,
@@ -28,10 +21,15 @@ import {
   StreakPill,
 } from '@/components/ui';
 import { useUserActivities } from '@/hooks/use-activities';
+import {
+  useAchievements,
+  type AchievementWithProgress,
+} from '@/hooks/use-achievements';
 import { useEquippedCosmetics } from '@/hooks/use-cosmetics';
 import { useFollowCounts, useFollowStatus, useToggleFollow } from '@/hooks/use-follows';
 import { useProfile } from '@/hooks/use-profile';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { resolveAchievementTier, collapseAchievementLines, sortAchievementsByRarity } from '@/lib/achievements';
 import { fontFamily, type } from '@/lib/gaingang-theme';
 import { rarityDef } from '@/lib/rewards';
 import { levelProgress } from '@/types';
@@ -47,13 +45,20 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
   const t = useThemeTokens();
   const [activeView, setActiveView] = useState<ProfileView>('streak');
   const [isAvatarViewerOpen, setIsAvatarViewerOpen] = useState(false);
+  const [godModeBadgeCount, setGodModeBadgeCount] = useState<number | null>(null);
 
   const { data: profile, isLoading } = useProfile(userId);
   const { data: activities } = useUserActivities(userId);
+  const { data: achievements, isLoading: loadingAchievements } = useAchievements(userId);
   const equipped = useEquippedCosmetics(profile);
   const { data: followCounts } = useFollowCounts(userId);
   const { data: followStatus } = useFollowStatus(isOwnProfile ? undefined : userId);
   const toggleFollow = useToggleFollow(userId);
+
+  const earnedBadgeCount = useMemo(
+    () => (achievements ?? []).filter((a) => a.earned).length,
+    [achievements],
+  );
 
   const progress = levelProgress(profile?.xp ?? 0);
   const totalActivities = activities?.length ?? 0;
@@ -272,19 +277,29 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
           label="Streak"
           value={`${profile.current_streak}`}
           isActive={activeView === 'streak'}
-          onPress={() => setActiveView('streak')}
+          onPress={() => {
+            if (activeView === 'badges') setGodModeBadgeCount(null);
+            setActiveView('streak');
+          }}
         />
         <StatTile
           icon="footsteps"
           label="Activities"
           value={totalActivities.toLocaleString()}
           isActive={activeView === 'activities'}
-          onPress={() => setActiveView('activities')}
+          onPress={() => {
+            if (activeView === 'badges') setGodModeBadgeCount(null);
+            setActiveView('activities');
+          }}
         />
         <StatTile
           icon="trophy"
           label="Badges"
-          value="—"
+          value={
+            loadingAchievements
+              ? '—'
+              : String(godModeBadgeCount ?? earnedBadgeCount)
+          }
           isActive={activeView === 'badges'}
           onPress={() => setActiveView('badges')}
         />
@@ -305,7 +320,13 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
         />
       ) : null}
 
-      {activeView === 'badges' ? <BadgesComingSoon /> : null}
+      {activeView === 'badges' ? (
+        <ProfileAchievementsGrid
+          achievements={achievements ?? []}
+          isLoading={loadingAchievements}
+          onGodModeEarnedCountChange={isOwnProfile ? setGodModeBadgeCount : undefined}
+        />
+      ) : null}
 
       {!isOwnProfile ? (
         <ImageViewerModal
@@ -360,167 +381,165 @@ function StatTile({
   );
 }
 
-function BadgesComingSoon() {
+function ProfileAchievementsGrid({
+  achievements,
+  isLoading,
+  onGodModeEarnedCountChange,
+}: {
+  achievements: AchievementWithProgress[];
+  isLoading: boolean;
+  onGodModeEarnedCountChange?: (count: number | null) => void;
+}) {
   const t = useThemeTokens();
-  const float = useSharedValue(0);
-  const glow = useSharedValue(0.35);
+  const [selected, setSelected] = useState<AchievementWithProgress | null>(null);
+  const [godMode, setGodMode] = useState(false);
 
-  useEffect(() => {
-    float.value = withRepeat(
-      withSequence(
-        withTiming(-6, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
-      ),
-      -1,
-      false,
+  const displayAchievements = useMemo(() => {
+    const source = godMode
+      ? achievements.map((a) => ({
+          ...a,
+          earned: true,
+          earned_at: a.earned_at ?? new Date().toISOString(),
+        }))
+      : achievements;
+    return sortAchievementsByRarity(collapseAchievementLines(source));
+  }, [achievements, godMode]);
+
+  if (isLoading) {
+    return <ActivityIndicator color={t.accent} style={{ marginTop: 24 }} />;
+  }
+
+  if (achievements.length === 0) {
+    return (
+      <GlassSurface style={{ padding: 24, alignItems: 'center', gap: 8 }}>
+        <Text style={{ fontFamily: fontFamily.displaySemi, fontSize: 18, color: t.heading }}>
+          No badges yet
+        </Text>
+        <Text style={[type.bodySm, { color: t.body, textAlign: 'center' }]}>
+          Hit goals, keep streaks, and hype your crew to start forging badges.
+        </Text>
+      </GlassSurface>
     );
-    glow.value = withRepeat(
-      withSequence(
-        withTiming(0.7, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0.35, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
-      ),
-      -1,
-      false,
-    );
-  }, [float, glow]);
+  }
 
-  const medalStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: float.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glow.value,
-  }));
+  function toggleGodMode() {
+    setGodMode((prev) => {
+      const next = !prev;
+      if (!next) {
+        onGodModeEarnedCountChange?.(null);
+        return false;
+      }
+      const preview = sortAchievementsByRarity(
+        collapseAchievementLines(achievements.map((a) => ({ ...a, earned: true }))),
+      );
+      onGodModeEarnedCountChange?.(preview.length);
+      return true;
+    });
+  }
 
   return (
-    <GlassSurface
-      style={{
-        padding: 28,
-        gap: 18,
-        alignItems: 'center',
-        overflow: 'hidden',
-      }}
-    >
-      <LinearGradient
-        colors={[`${t.accent}33`, 'transparent', `${t.accent}18`]}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-        }}
-      />
-
-      <View style={{ height: 88, width: 88, alignItems: 'center', justifyContent: 'center' }}>
-        <Animated.View
-          style={[
-            {
-              position: 'absolute',
-              width: 78,
-              height: 78,
-              borderRadius: 39,
-              backgroundColor: t.accent,
-            },
-            glowStyle,
-          ]}
-        />
-        <Animated.View
-          style={[
-            {
-              width: 72,
-              height: 72,
-              borderRadius: 36,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: t.buttonBg,
-              borderWidth: 1,
-              borderColor: `${t.accent}66`,
-            },
-            medalStyle,
-          ]}
-        >
-          <Ionicons name="trophy" size={34} color="#f59e0b" />
-        </Animated.View>
-      </View>
-
-      <View
-        style={{
-          paddingHorizontal: 10,
-          paddingVertical: 4,
-          borderRadius: 999,
-          backgroundColor: `${t.accent}22`,
-          borderWidth: 1,
-          borderColor: `${t.accent}55`,
-        }}
-      >
-        <Text
+    <>
+      <GlassSurface style={{ padding: 16, gap: 12 }}>
+        <View
           style={{
-            fontFamily: fontFamily.bodySemi,
-            fontSize: 11,
-            letterSpacing: 1.4,
-            textTransform: 'uppercase',
-            color: t.accent,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
           }}
         >
-          Coming soon
-        </Text>
-      </View>
-
-      <View style={{ gap: 8, alignItems: 'center' }}>
-        <Text
-          style={{
-            fontFamily: fontFamily.displaySemi,
-            fontSize: 22,
-            color: t.heading,
-            textAlign: 'center',
-          }}
-        >
-          Badges are forging
-        </Text>
-        <Text
-          style={[
-            type.bodySm,
-            { color: t.body, textAlign: 'center', lineHeight: 20, maxWidth: 280 },
-          ]}
-        >
-          Streaks, social flexes, and rare unlocks are on the way. Keep logging — your trophy case
-          is almost ready.
-        </Text>
-      </View>
-
-      <View className="w-full flex-row gap-2" style={{ marginTop: 4 }}>
-        {(['Streaks', 'Social', 'Rare'] as const).map((label) => (
-          <View
-            key={label}
+          <Text
             style={{
+              fontFamily: fontFamily.mono,
+              fontSize: 11,
+              letterSpacing: 1.6,
+              color: t.body,
+              textTransform: 'uppercase',
               flex: 1,
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: 'center',
-              backgroundColor: `${t.heading}08`,
-              borderWidth: 1,
-              borderColor: `${t.heading}14`,
-              gap: 4,
             }}
           >
-            <Ionicons
-              name={
-                label === 'Streaks'
-                  ? 'flame-outline'
-                  : label === 'Social'
-                    ? 'people-outline'
-                    : 'diamond-outline'
-              }
-              size={16}
-              color={t.body}
-            />
-            <Text style={[type.dataSm, { color: t.body }]}>{label}</Text>
-          </View>
-        ))}
-      </View>
-    </GlassSurface>
+            Trophy case
+          </Text>
+          {__DEV__ && onGodModeEarnedCountChange ? (
+            <TouchableOpacity
+              onPress={toggleGodMode}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: godMode }}
+              accessibilityLabel="Toggle god mode — show all achievements unlocked"
+              hitSlop={8}
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: godMode ? '#F5A524' : `${t.heading}22`,
+                backgroundColor: godMode ? 'rgba(245,165,36,0.18)' : `${t.heading}08`,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fontFamily.bodySemi,
+                  fontSize: 11,
+                  letterSpacing: 0.8,
+                  color: godMode ? '#F5A524' : t.body,
+                }}
+              >
+                GOD MODE
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {godMode ? (
+          <Text style={[type.bodySm, { color: '#F5A524' }]}>
+            God mode on — highest tier of each line unlocked (preview only).
+          </Text>
+        ) : null}
+
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+          }}
+        >
+          {displayAchievements.map((achievement) => {
+            const tier = resolveAchievementTier({
+              key: achievement.key,
+              tier: achievement.tier,
+              threshold: achievement.threshold,
+            });
+            return (
+              <View
+                key={achievement.id}
+                style={{
+                  width: '33.333%',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                  paddingHorizontal: 4,
+                }}
+              >
+                <AchievementBadge
+                  icon={achievement.icon}
+                  tier={tier}
+                  earned={achievement.earned}
+                  size={64}
+                  showLabel
+                  title={achievement.title}
+                  onPress={() => setSelected(achievement)}
+                />
+              </View>
+            );
+          })}
+        </View>
+      </GlassSurface>
+
+      <AchievementDetailModal
+        visible={!!selected}
+        achievement={selected}
+        earned={selected?.earned ?? false}
+        earnedAt={selected?.earned_at}
+        onClose={() => setSelected(null)}
+      />
+    </>
   );
 }

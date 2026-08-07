@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
+import { useAwardAchievements } from '@/hooks/use-award-achievements';
 import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
 import type {
@@ -216,6 +217,7 @@ export function useSubmitChallengeAttempt() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user.id;
+  const awardAchievements = useAwardAchievements();
 
   return useMutation({
     mutationFn: async ({
@@ -233,6 +235,7 @@ export function useSubmitChallengeAttempt() {
       return data as unknown as SubmitChallengeAttemptResult;
     },
     onSuccess: (_result, vars) => {
+      void awardAchievements();
       void queryClient.invalidateQueries({ queryKey: queryKeys.currentWeeklyChallenge() });
       void queryClient.invalidateQueries({
         queryKey: ['challenges', 'leaderboard', vars.weeklyChallengeId],

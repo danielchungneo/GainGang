@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { useAuth } from '@/context/auth-context';
+import { useAwardAchievements } from '@/hooks/use-award-achievements';
 import { queryKeys } from '@/lib/query-keys';
 import { parseCrateContents, type CrateReward } from '@/lib/rewards';
 import { supabase } from '@/lib/supabase';
@@ -99,6 +100,7 @@ export function useOpenStarterCosmeticCrate() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user.id;
+  const awardAchievements = useAwardAchievements();
 
   return useMutation({
     mutationFn: async (
@@ -120,6 +122,7 @@ export function useOpenStarterCosmeticCrate() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.ownedCosmetics(userId),
       });
+      void awardAchievements();
     },
   });
 }

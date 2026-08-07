@@ -132,7 +132,9 @@ export function RepCounterCamera({
             ? 'Keep your torso and knees in frame'
             : exerciseType === 'plank'
               ? 'Get into plank position'
-              : 'Step back — keep your full body in frame',
+              : exerciseType === 'squat'
+                ? 'Keep your torso and legs in frame'
+                : 'Step back — keep your full body in frame',
     );
   }, [exerciseType]);
 
@@ -200,7 +202,9 @@ export function RepCounterCamera({
                   ? 'Keep your torso and knees in frame'
                   : type === 'plank'
                     ? 'Get into plank position'
-                    : 'Step back — keep your full body in frame',
+                    : type === 'squat'
+                      ? 'Keep your torso and legs in frame'
+                      : 'Step back — keep your full body in frame',
           );
           return;
         }

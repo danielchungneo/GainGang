@@ -10,10 +10,10 @@ export interface AchievementWithProgress extends Achievement {
   earned_at: string | null;
 }
 
-/** Full achievement catalog with the signed-in user's earned status. */
-export function useAchievements() {
+/** Full achievement catalog with a user's earned status (defaults to signed-in user). */
+export function useAchievements(targetUserId?: string) {
   const { session } = useAuth();
-  const userId = session?.user.id;
+  const userId = targetUserId ?? session?.user.id;
 
   return useQuery({
     queryKey: queryKeys.userAchievements(userId),

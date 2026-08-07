@@ -4,7 +4,7 @@ import { useAuth } from '@/context/auth-context';
 import { rankForXp } from '@/types';
 import { queryKeys } from '@/lib/query-keys';
 import { todayISO } from '@/lib/format';
-import { refreshPersonalStreak } from '@/lib/streaks';
+import { refreshPersonalStreak, computeStreakStats } from '@/lib/streaks';
 import { supabase } from '@/lib/supabase';
 import type {
   Activity,
@@ -454,6 +454,8 @@ async function findOrCreateParentActivity(
   if (lookupError) throw lookupError;
   if (existing) return existing;
 
+  const streakAtLog = await streakAsOfActivityDate(userId, activityDate);
+
   const { data, error } = await supabase
     .from('activities')
     .insert({
@@ -462,6 +464,7 @@ async function findOrCreateParentActivity(
       quest_id: input.questId ?? null,
       daily_goal_id: dailyGoalId,
       activity_date: activityDate,
+      streak_at_log: streakAtLog,
       notes: input.notes && !input.dailyGoalExerciseId ? input.notes : null,
       photo_url: input.photoUrl ?? null,
     })
@@ -469,6 +472,23 @@ async function findOrCreateParentActivity(
     .single();
   if (error) throw error;
   return data;
+}
+
+/** Personal streak as of `activityDate`, including that day. */
+async function streakAsOfActivityDate(userId: string, activityDate: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('activities')
+    .select('activity_date')
+    .eq('user_id', userId)
+    .not('activity_date', 'is', null);
+  if (error) throw error;
+
+  const dates = (data ?? [])
+    .map((row) => row.activity_date)
+    .filter((d): d is string => !!d);
+  if (!dates.includes(activityDate)) dates.push(activityDate);
+
+  return computeStreakStats(dates, activityDate).currentStreak;
 }
 
 async function upsertActivityExercise(

@@ -12,12 +12,14 @@ import {
 
 import { GlassSurface, KeyboardAwareScrollView, ScreenBackground } from '@/components/ui';
 import { AmountInput } from '@/components/ui/amount-input';
+import { DayCompleteWithRewardClaim } from '@/components/day-complete-with-reward-claim';
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
 import { LevelUpWithRewardClaim } from '@/components/level-up-with-reward-claim';
 import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { CameraRepCountButton } from '@/components/rep-counter/camera-rep-count-button';
 import { useDailyGoalActivities, useLogActivity, useUpdateActivity } from '@/hooks/use-activities';
-import { useDailyGoal } from '@/hooks/use-weekly-plans';
+import { useAwardAchievements } from '@/hooks/use-award-achievements';
+import { useDailyGoal, useMyTodaysDailyGoals } from '@/hooks/use-weekly-plans';
 import { useProfile } from '@/hooks/use-profile';
 import { useAuth } from '@/context/auth-context';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
@@ -64,7 +66,9 @@ export default function LogDailyGoalScreen() {
   const userId = session?.user.id;
   const logActivity = useLogActivity();
   const updateActivity = useUpdateActivity();
+  const awardAchievements = useAwardAchievements();
   const { data: profile } = useProfile();
+  const { data: todaysGoals } = useMyTodaysDailyGoals();
 
   const { data: dailyGoal, isLoading: loadingGoal } = useDailyGoal(dailyGoalId);
   const { data: existingActivities, isLoading: loadingActivities } =
@@ -216,7 +220,7 @@ export default function LogDailyGoalScreen() {
             gangId: gangId ?? dailyGoal.gang_id,
             exerciseId: ex.exercise_id,
             exerciseName: ex.exercise_name,
-            category: dailyGoal.day_category ?? undefined,
+            category: ex.category,
             unit: ex.unit,
             amount: amt,
             notes: formState[ex.id].notes.trim() || undefined,
@@ -233,7 +237,7 @@ export default function LogDailyGoalScreen() {
             dailyGoalExerciseId: ex.id,
             exerciseId: ex.exercise_id,
             exerciseName: ex.exercise_name,
-            category: dailyGoal.day_category ?? undefined,
+            category: ex.category,
             unit: ex.unit,
             amount: amt,
             notes: formState[ex.id].notes.trim() || undefined,
@@ -248,7 +252,7 @@ export default function LogDailyGoalScreen() {
           sourceExercise: ex,
           delta,
           goalDate: dailyGoal.goal_date,
-          category: dailyGoal.day_category ?? undefined,
+          category: ex.category,
           logActivity,
         });
 
@@ -270,8 +274,11 @@ export default function LogDailyGoalScreen() {
         totalsBefore,
         totalsAfter,
         xpAwarded: totalXp,
+        todaysGoals: todaysGoals ?? undefined,
         ...profileSnapshot,
       });
+
+      void awardAchievements();
 
       if (nextStreak) {
         if (nextCelebration) setPendingCelebration(nextCelebration);
@@ -283,11 +290,7 @@ export default function LogDailyGoalScreen() {
 
       if (nextCelebration) {
         if (levelUpInfo) setPendingLevelUp(levelUpInfo);
-        setCelebration({
-          title: nextCelebration.title,
-          xpEarned: nextCelebration.xpEarned,
-          exercises: nextCelebration.exercises,
-        });
+        setCelebration(nextCelebration);
         setCelebrationKey((k) => k + 1);
         return;
       }
@@ -531,7 +534,27 @@ export default function LogDailyGoalScreen() {
         />
       ) : null}
 
-      {celebration && !streakContinue ? (
+      {celebration && !streakContinue && celebration.kind === 'day' ? (
+        <DayCompleteWithRewardClaim
+          key={celebrationKey}
+          visible
+          questTitle={celebration.title}
+          xpEarned={celebration.xpEarned}
+          exercises={celebration.exercises}
+          onDismiss={() => {
+            setCelebration(null);
+            if (pendingLevelUp) {
+              setLevelUp(pendingLevelUp);
+              setPendingLevelUp(null);
+              setLevelUpKey((k) => k + 1);
+              return;
+            }
+            router.back();
+          }}
+        />
+      ) : null}
+
+      {celebration && !streakContinue && celebration.kind !== 'day' ? (
         <GoalCompleteOverlay
           key={celebrationKey}
           visible

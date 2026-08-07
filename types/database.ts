@@ -19,13 +19,22 @@ export type QuestType = 'daily' | 'weekly';
 export type QuestStatus = 'active' | 'completed' | 'failed';
 export type WeeklyPlanStatus = 'active' | 'completed' | 'failed';
 export type AchievementCategory =
+  | 'goal'
   | 'quest'
   | 'streak'
   | 'reps'
+  | 'time'
   | 'social'
   | 'gang'
+  | 'reward'
   | 'rare'
   | 'general';
+export type AchievementTier =
+  | 'bronze'
+  | 'silver'
+  | 'gold'
+  | 'platinum'
+  | 'legendary';
 export type NotificationType =
   | 'kudos'
   | 'comment'
@@ -247,6 +256,8 @@ export type Database = {
           quest_id: string | null;
           daily_goal_id: string | null;
           activity_date: string | null;
+          /** Personal streak as of activity_date when first logged; null for legacy rows. */
+          streak_at_log: number | null;
           notes: string | null;
           photo_url: string | null;
           created_at: string;
@@ -259,6 +270,7 @@ export type Database = {
           quest_id?: string | null;
           daily_goal_id?: string | null;
           activity_date?: string | null;
+          streak_at_log?: number | null;
           notes?: string | null;
           photo_url?: string | null;
           updated_at?: string;
@@ -638,6 +650,7 @@ export type Database = {
           category: AchievementCategory;
           threshold: number | null;
           is_secret: boolean;
+          tier: AchievementTier;
         };
         Insert: {
           id?: string;
@@ -648,6 +661,7 @@ export type Database = {
           category?: AchievementCategory;
           threshold?: number | null;
           is_secret?: boolean;
+          tier?: AchievementTier;
         };
         Update: Partial<Database['public']['Tables']['achievements']['Insert']>;
         Relationships: [];
@@ -1017,6 +1031,10 @@ export type Database = {
           p_daily_goal_exercise_id: string;
         };
         Returns: Database['public']['Tables']['notifications']['Row'];
+      };
+      check_and_award_achievements: {
+        Args: Record<string, never>;
+        Returns: Database['public']['Tables']['achievements']['Row'][];
       };
       register_push_token: {
         Args: {

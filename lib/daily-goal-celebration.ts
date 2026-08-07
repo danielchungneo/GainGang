@@ -2,10 +2,14 @@ import type { GoalCompleteExerciseTarget } from '@/components/goal-complete-over
 import { formatGoalDate, todayISO } from '@/lib/format';
 import { getLevelUpInfo, type DailyGoalExerciseWithProgress, type DailyGoalWithProgress } from '@/types';
 
+export type DailyGoalCelebrationKind = 'goal' | 'day';
+
 export interface DailyGoalCelebrationPayload {
   title: string;
   xpEarned: number;
   exercises: GoalCompleteExerciseTarget[];
+  /** `day` when this save clears every required exercise across today's goals. */
+  kind: DailyGoalCelebrationKind;
 }
 
 export interface StreakContinuePayload {
@@ -23,6 +27,11 @@ export interface DailyGoalSaveCelebrationInput {
   currentStreak?: number;
   /** Profile last_active_on before this save (YYYY-MM-DD). */
   lastActiveOn?: string | null;
+  /**
+   * All of today's gang daily goals. Used to detect day-clear (uncommon crate)
+   * vs a single club goal finish. Falls back to `goal` alone when omitted.
+   */
+  todaysGoals?: DailyGoalWithProgress[];
 }
 
 /** Whether an exercise counts toward personal daily-goal completion from logged totals. */
@@ -42,6 +51,14 @@ export function buildDailyGoalTotalsAfter(
   return goal.exercises.map((ex) => updates[ex.id] ?? ex.user_total);
 }
 
+function isGoalCompleteWithTotals(
+  goal: DailyGoalWithProgress,
+  totals: number[],
+): boolean {
+  if (goal.exercises.length === 0) return false;
+  return goal.exercises.every((ex, i) => isDailyGoalExerciseMet(ex, totals[i]));
+}
+
 export function isDailyGoalNewlyComplete(input: {
   goal: DailyGoalWithProgress;
   totalsBefore: number[];
@@ -49,14 +66,57 @@ export function isDailyGoalNewlyComplete(input: {
 }): boolean {
   const { goal, totalsBefore, totalsAfter } = input;
 
-  const allCompleteBefore = goal.exercises.every((ex, i) =>
-    isDailyGoalExerciseMet(ex, totalsBefore[i]),
-  );
-  const allCompleteAfter = goal.exercises.every((ex, i) =>
-    isDailyGoalExerciseMet(ex, totalsAfter[i]),
-  );
+  const allCompleteBefore = isGoalCompleteWithTotals(goal, totalsBefore);
+  const allCompleteAfter = isGoalCompleteWithTotals(goal, totalsAfter);
 
   return allCompleteAfter && !allCompleteBefore;
+}
+
+/** Goals used for day-clear checks — prefer the full today list when provided. */
+function resolveTodaysGoalsForCelebration(input: {
+  goal: DailyGoalWithProgress;
+  todaysGoals?: DailyGoalWithProgress[];
+}): DailyGoalWithProgress[] {
+  const siblings = input.todaysGoals ?? [];
+  if (siblings.length === 0) return [input.goal];
+
+  const hasSavedGoal = siblings.some((g) => g.id === input.goal.id);
+  return hasSavedGoal ? siblings : [...siblings, input.goal];
+}
+
+/**
+ * True when this save flips the user from "still has required work today"
+ * to "every required exercise across today's goals is cleared."
+ */
+export function isDayNewlyComplete(input: {
+  goal: DailyGoalWithProgress;
+  totalsBefore: number[];
+  totalsAfter: number[];
+  todaysGoals?: DailyGoalWithProgress[];
+}): boolean {
+  const goals = resolveTodaysGoalsForCelebration(input);
+
+  const completeBefore = goals.every((g) => {
+    if (g.id === input.goal.id) {
+      return isGoalCompleteWithTotals(g, input.totalsBefore);
+    }
+    return isGoalCompleteWithTotals(
+      g,
+      g.exercises.map((ex) => ex.user_total),
+    );
+  });
+
+  const completeAfter = goals.every((g) => {
+    if (g.id === input.goal.id) {
+      return isGoalCompleteWithTotals(g, input.totalsAfter);
+    }
+    return isGoalCompleteWithTotals(
+      g,
+      g.exercises.map((ex) => ex.user_total),
+    );
+  });
+
+  return completeAfter && !completeBefore;
 }
 
 export function buildDailyGoalCelebration(
@@ -72,9 +132,17 @@ export function buildDailyGoalCelebration(
     return null;
   }
 
+  const dayComplete = isDayNewlyComplete({
+    goal: input.goal,
+    totalsBefore: input.totalsBefore,
+    totalsAfter: input.totalsAfter,
+    todaysGoals: input.todaysGoals,
+  });
+
   return {
     title: formatGoalDate(input.goal.goal_date),
     xpEarned: input.xpAwarded,
+    kind: dayComplete ? 'day' : 'goal',
     exercises: input.goal.exercises.map((ex, i) => ({
       name: ex.exercise_name,
       unit: ex.unit,

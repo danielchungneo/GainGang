@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { DailyGoalCard } from "@/components/daily-goal-card";
+import { DayCompleteWithRewardClaim } from "@/components/day-complete-with-reward-claim";
 import { GoalCompleteOverlay } from "@/components/goal-complete-overlay";
 import { LevelUpWithRewardClaim } from "@/components/level-up-with-reward-claim";
 import { StreakContinueOverlay } from "@/components/streak-continue-overlay";
@@ -41,6 +42,10 @@ import { fontFamily, spacing, type, useTheme } from "@/lib/gaingang-theme";
 
 import { levelFromXp } from "@/types";
 
+import { useCallback } from "react";
+
+import type { DailyGoalSaveCelebrationInput } from "@/lib/daily-goal-celebration";
+
 export default function TodayScreen() {
   const t = useThemeTokens();
 
@@ -64,19 +69,29 @@ export default function TodayScreen() {
     celebrationKey,
     levelUp,
     levelUpKey,
-    handleActivitySaved,
+    handleActivitySaved: handleActivitySavedBase,
     dismissStreakContinue,
     dismissCelebration,
     dismissLevelUp,
   } = useDailyGoalSaveCelebrations();
+
+  const dailyGoalsList = dailyGoals ?? [];
+
+  const handleActivitySaved = useCallback(
+    (input: DailyGoalSaveCelebrationInput) => {
+      handleActivitySavedBase({
+        ...input,
+        todaysGoals: dailyGoalsList,
+      });
+    },
+    [dailyGoalsList, handleActivitySavedBase],
+  );
 
   const firstName =
     profile?.full_name?.split(" ")[0] ||
     (session?.user.user_metadata?.full_name as string | undefined)?.split(
       " ",
     )[0];
-
-  const dailyGoalsList = dailyGoals ?? [];
 
   return (
     <ScreenBackground>
@@ -209,7 +224,18 @@ export default function TodayScreen() {
         />
       ) : null}
 
-      {celebration && !streakContinue ? (
+      {celebration && !streakContinue && celebration.kind === 'day' ? (
+        <DayCompleteWithRewardClaim
+          key={celebrationKey}
+          visible
+          questTitle={celebration.title}
+          xpEarned={celebration.xpEarned}
+          exercises={celebration.exercises}
+          onDismiss={dismissCelebration}
+        />
+      ) : null}
+
+      {celebration && !streakContinue && celebration.kind !== 'day' ? (
         <GoalCompleteOverlay
           key={celebrationKey}
           visible

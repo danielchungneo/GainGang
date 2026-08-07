@@ -4,6 +4,8 @@ export { ProgressBar } from './progress-bar';
 export type { ProgressBarProps } from './progress-bar';
 export { LevelBadge, RankBadge, levelColor } from './rank-badge';
 export type { LevelBadgeProps, RankBadgeProps } from './rank-badge';
+export { AchievementBadge } from './achievement-badge';
+export type { AchievementBadgeProps } from './achievement-badge';
 export { LevelChip, RankChip } from './rank-chip';
 export { GoalCard } from './goal-card';
 export type { GoalCardProps } from './goal-card';

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
+import { useAwardAchievements } from '@/hooks/use-award-achievements';
 import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
 import type { CommentWithAuthor } from '@/types';
@@ -11,6 +12,7 @@ export function useToggleKudos(gangId?: string) {
   const { session } = useAuth();
   const userId = session?.user.id;
   const feedKey = gangId ? queryKeys.feed(gangId) : undefined;
+  const awardAchievements = useAwardAchievements();
 
   return useMutation({
     mutationFn: async ({ activityId, hasKudos }: { activityId: string; hasKudos: boolean }) => {
@@ -22,9 +24,11 @@ export function useToggleKudos(gangId?: string) {
           .eq('activity_id', activityId)
           .eq('user_id', userId);
         if (error) throw error;
+        return { gave: false };
       } else {
         const { error } = await supabase.from('kudos').insert({ activity_id: activityId, user_id: userId });
         if (error) throw error;
+        return { gave: true };
       }
     },
     onMutate: async ({ activityId, hasKudos }) => {
@@ -44,6 +48,9 @@ export function useToggleKudos(gangId?: string) {
     },
     onError: (_e, _v, ctx) => {
       if (feedKey && ctx?.previous) queryClient.setQueryData(feedKey, ctx.previous);
+    },
+    onSuccess: (result) => {
+      if (result?.gave) void awardAchievements();
     },
     onSettled: (_data, _error, variables) => {
       if (feedKey) queryClient.invalidateQueries({ queryKey: feedKey });
@@ -78,6 +85,7 @@ export function useAddComment(gangId?: string) {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user.id;
+  const awardAchievements = useAwardAchievements();
   return useMutation({
     mutationFn: async ({ activityId, body }: { activityId: string; body: string }) => {
       if (!userId) throw new Error('Not authenticated');
@@ -87,6 +95,7 @@ export function useAddComment(gangId?: string) {
       if (error) throw error;
     },
     onSuccess: (_d, { activityId }) => {
+      void awardAchievements();
       queryClient.invalidateQueries({ queryKey: queryKeys.comments(activityId) });
       queryClient.invalidateQueries({ queryKey: ['activity', activityId] });
       queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });

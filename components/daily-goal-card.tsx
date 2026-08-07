@@ -5,10 +5,12 @@ import {
   GoalCompleteOverlay,
   type GoalCompleteExerciseTarget,
 } from '@/components/goal-complete-overlay';
+import { DayCompleteWithRewardClaim } from '@/components/day-complete-with-reward-claim';
 import { LevelUpWithRewardClaim } from '@/components/level-up-with-reward-claim';
 import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { DailyGoalCard as DailyGoalCardView } from '@/components/ui/daily-goal-card';
 import { useLogActivity } from '@/hooks/use-activities';
+import { useAwardAchievements } from '@/hooks/use-award-achievements';
 import { useAuth } from '@/context/auth-context';
 import { useProfile } from '@/hooks/use-profile';
 import { equipmentLabel } from '@/lib/equipment';
@@ -16,6 +18,7 @@ import { formatGoalDate, timeLeftUntilDateEnd } from '@/lib/format';
 import {
   buildDailyGoalTotalsAfter,
   resolvePostSaveCelebration,
+  type DailyGoalCelebrationKind,
   type DailyGoalSaveCelebrationInput,
   type StreakContinuePayload,
 } from '@/lib/daily-goal-celebration';
@@ -45,6 +48,13 @@ interface DailyGoalCardProps {
   onActivitySaved?: (input: DailyGoalSaveCelebrationInput) => void;
 }
 
+interface LocalCelebrationState {
+  title: string;
+  xpEarned: number;
+  exercises: GoalCompleteExerciseTarget[];
+  kind: DailyGoalCelebrationKind;
+}
+
 /** Daily goal card wired to weekly plan data from the API. */
 export function DailyGoalCard({
   goal,
@@ -55,6 +65,7 @@ export function DailyGoalCard({
   const { session } = useAuth();
   const userId = session?.user.id;
   const logActivity = useLogActivity();
+  const awardAchievements = useAwardAchievements();
   const { data: profile } = useProfile();
   const goalRef = useRef(goal);
   goalRef.current = goal;
@@ -63,21 +74,13 @@ export function DailyGoalCard({
   onActivitySavedRef.current = onActivitySaved;
 
   const [savingExerciseId, setSavingExerciseId] = useState<string | null>(null);
-  const [celebration, setCelebration] = useState<{
-    title: string;
-    xpEarned: number;
-    exercises: GoalCompleteExerciseTarget[];
-  } | null>(null);
+  const [celebration, setCelebration] = useState<LocalCelebrationState | null>(null);
   const [celebrationKey, setCelebrationKey] = useState(0);
   const [streakContinue, setStreakContinue] = useState<StreakContinuePayload | null>(null);
   const [streakKey, setStreakKey] = useState(0);
   const [levelUp, setLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(null);
   const [levelUpKey, setLevelUpKey] = useState(0);
-  const [pendingCelebration, setPendingCelebration] = useState<{
-    title: string;
-    xpEarned: number;
-    exercises: GoalCompleteExerciseTarget[];
-  } | null>(null);
+  const [pendingCelebration, setPendingCelebration] = useState<LocalCelebrationState | null>(null);
   const [pendingLevelUp, setPendingLevelUp] = useState<{ fromLevel: number; toLevel: number } | null>(
     null,
   );
@@ -90,6 +93,8 @@ export function DailyGoalCard({
         parentHandler(input);
         return;
       }
+
+      void awardAchievements();
 
       const { celebration: nextCelebration, levelUp: nextLevelUp, streakContinue: nextStreak } =
         resolvePostSaveCelebration(input);
@@ -114,7 +119,7 @@ export function DailyGoalCard({
         setLevelUpKey((k) => k + 1);
       }
     },
-    [],
+    [awardAchievements],
   );
 
   const handlePendingReps = useCallback(async () => {
@@ -369,7 +374,25 @@ export function DailyGoalCard({
         />
       ) : null}
 
-      {renderLocalOverlays && celebration && !streakContinue ? (
+      {renderLocalOverlays && celebration && !streakContinue && celebration.kind === 'day' ? (
+        <DayCompleteWithRewardClaim
+          key={celebrationKey}
+          visible
+          questTitle={celebration.title}
+          xpEarned={celebration.xpEarned}
+          exercises={celebration.exercises}
+          onDismiss={() => {
+            setCelebration(null);
+            if (pendingLevelUp) {
+              setLevelUp(pendingLevelUp);
+              setPendingLevelUp(null);
+              setLevelUpKey((k) => k + 1);
+            }
+          }}
+        />
+      ) : null}
+
+      {renderLocalOverlays && celebration && !streakContinue && celebration.kind !== 'day' ? (
         <GoalCompleteOverlay
           key={celebrationKey}
           visible

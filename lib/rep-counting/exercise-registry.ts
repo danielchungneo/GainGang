@@ -52,7 +52,8 @@ export const SETUP_GUIDES: Record<CameraExerciseType, ExerciseSetupInfo> = {
     title: 'Squats',
     cameraHint: 'front-or-side',
     tips: [
-      'Frame your hips, knees, and ankles in view.',
+      'Frame your torso, hips, knees, and ankles — arms optional.',
+      'Keep your shoulders above your knees throughout the rep.',
       'Front or side angle both work — stay consistent.',
       'Hit depth each rep before standing back up.',
     ],

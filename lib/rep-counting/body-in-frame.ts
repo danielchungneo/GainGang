@@ -108,7 +108,36 @@ function checkPullupBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
   return { ok: true, message: '' };
 }
 
+/** Squats: torso + lower body only — arms are optional. */
+function getSquatBodyIndices(side: 'left' | 'right'): number[] {
+  if (side === 'left') {
+    return [
+      PoseLandmarkIndex.LEFT_SHOULDER,
+      PoseLandmarkIndex.LEFT_HIP,
+      PoseLandmarkIndex.LEFT_KNEE,
+      PoseLandmarkIndex.LEFT_ANKLE,
+    ];
+  }
+
+  return [
+    PoseLandmarkIndex.RIGHT_SHOULDER,
+    PoseLandmarkIndex.RIGHT_HIP,
+    PoseLandmarkIndex.RIGHT_KNEE,
+    PoseLandmarkIndex.RIGHT_ANKLE,
+  ];
+}
+
 function checkSquatBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
+  const side = pickSide(landmarks[PoseLandmarkIndex.LEFT_KNEE], landmarks[PoseLandmarkIndex.RIGHT_KNEE]);
+  return checkIndicesInFrame(
+    landmarks,
+    getSquatBodyIndices(side),
+    'Keep your torso and legs in frame',
+  );
+}
+
+/** Lunges still need a full side chain including the arm for stride visibility. */
+function checkLungeBodyInFrame(landmarks: Landmark[]): BodyInFrameResult {
   const side = pickSide(landmarks[PoseLandmarkIndex.LEFT_KNEE], landmarks[PoseLandmarkIndex.RIGHT_KNEE]);
   const chain = checkIndicesInFrame(
     landmarks,
@@ -244,8 +273,9 @@ export function checkBodyInFrame(
     case 'pullup':
       return checkPullupBodyInFrame(landmarks);
     case 'squat':
-    case 'lunge':
       return checkSquatBodyInFrame(landmarks);
+    case 'lunge':
+      return checkLungeBodyInFrame(landmarks);
     case 'plank':
       return checkPlankBodyInFrame(landmarks);
     case 'situp':
@@ -270,6 +300,9 @@ function defaultFrameMessage(exerciseType: CameraExerciseType): string {
   }
   if (exerciseType === 'plank') {
     return 'Keep shoulder, hip, knee, and one arm in frame';
+  }
+  if (exerciseType === 'squat') {
+    return 'Keep your torso and legs in frame';
   }
   return 'Step back — keep your full body in frame';
 }

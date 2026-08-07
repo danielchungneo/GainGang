@@ -21,15 +21,17 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DayCompleteWithRewardClaim } from '@/components/day-complete-with-reward-claim';
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
 import { LevelUpWithRewardClaim } from '@/components/level-up-with-reward-claim';
 import { ExerciseSetupGuide } from '@/components/rep-counter/exercise-setup-guide';
 import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
 import { useAuth } from '@/context/auth-context';
 import { useLogActivity } from '@/hooks/use-activities';
+import { useAwardAchievements } from '@/hooks/use-award-achievements';
 import { useProfile } from '@/hooks/use-profile';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
-import { useDailyGoal } from '@/hooks/use-weekly-plans';
+import { useDailyGoal, useMyTodaysDailyGoals } from '@/hooks/use-weekly-plans';
 import {
   buildDailyGoalTotalsAfter,
   resolvePostSaveCelebration,
@@ -104,7 +106,9 @@ export function WorkoutRepCounterSession({
   const { session } = useAuth();
   const userId = session?.user.id;
   const logActivity = useLogActivity();
+  const awardAchievements = useAwardAchievements();
   const { data: profile } = useProfile();
+  const { data: todaysGoals } = useMyTodaysDailyGoals();
   const { data: goal, isLoading, isError, refetch } = useDailyGoal(dailyGoalId);
   const nativeSupported = isRepCounterNativeSupported();
 
@@ -251,8 +255,11 @@ export function WorkoutRepCounterSession({
       totalsBefore: totalsBeforeRef.current,
       totalsAfter,
       xpAwarded: totalXpRef.current,
+      todaysGoals: todaysGoals ?? undefined,
       ...profileSnapshotRef.current,
     });
+
+    void awardAchievements();
 
     setStep('done');
 
@@ -273,7 +280,7 @@ export function WorkoutRepCounterSession({
     }
 
     router.back();
-  }, [bootstrapSession]);
+  }, [awardAchievements, bootstrapSession, todaysGoals]);
 
   const persistSegment = useCallback(
     async (amount: number) => {
@@ -784,7 +791,25 @@ export function WorkoutRepCounterSession({
         />
       ) : null}
 
-      {celebration && !streakContinue ? (
+      {celebration && !streakContinue && celebration.kind === 'day' ? (
+        <DayCompleteWithRewardClaim
+          visible
+          questTitle={celebration.title}
+          xpEarned={celebration.xpEarned}
+          exercises={celebration.exercises}
+          onDismiss={() => {
+            setCelebration(null);
+            if (pendingLevelUp) {
+              setLevelUp(pendingLevelUp);
+              setPendingLevelUp(null);
+              return;
+            }
+            router.back();
+          }}
+        />
+      ) : null}
+
+      {celebration && !streakContinue && celebration.kind !== 'day' ? (
         <GoalCompleteOverlay
           visible
           questTitle={celebration.title}

@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 
 import { GoalCard as GoalCardView } from '@/components/ui/goal-card';
 import { formatAmount, dayGoalLabel, timeLeftStatus } from '@/lib/format';
-import { CATEGORY_LABELS, type QuestWithProgress } from '@/types';
+import type { QuestWithProgress } from '@/types';
 
 interface GoalCardProps {
   goal: QuestWithProgress;
@@ -12,10 +12,9 @@ interface GoalCardProps {
 function goalDescription(goal: QuestWithProgress): string {
   const gangPart = `${formatAmount(goal.gang_target, goal.unit)} as a Gang`;
   const yoursPart = `${formatAmount(goal.individual_target, goal.unit)} are yours`;
-  const categoryPart = goal.day_category ? CATEGORY_LABELS[goal.day_category] : null;
   const exercisePart = goal.exercise_name ?? null;
 
-  return [exercisePart, categoryPart, `${gangPart}. ${yoursPart}.`].filter(Boolean).join(' · ');
+  return [exercisePart, `${gangPart}. ${yoursPart}.`].filter(Boolean).join(' · ');
 }
 
 /** Goal card wired to live quest/goal data from the API. */
@@ -48,7 +47,6 @@ export function GoalCard({ goal, loggable = true }: GoalCardProps) {
                 params: {
                   gangId: goal.gang_id,
                   questId: goal.id,
-                  category: goal.day_category ?? '',
                   exerciseId: goal.exercise_id ?? '',
                   exerciseName: goal.exercise_name ?? '',
                   unit: goal.unit,

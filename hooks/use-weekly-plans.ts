@@ -46,7 +46,6 @@ const DAILY_GOAL_EXERCISE_SELECT = `
 export interface CreateWeeklyPlanDayInput {
   dayOfWeek: number;
   title: string;
-  dayCategory?: ExerciseCategory;
   exercises: { exerciseId: string; individualTarget: number }[];
 }
 
@@ -275,7 +274,7 @@ export function useCreateWeeklyPlan() {
       const days = input.days.map((d) => ({
         day_of_week: d.dayOfWeek,
         title: d.title.trim(),
-        day_category: d.dayCategory ?? null,
+        day_category: null,
         exercises: d.exercises.map((e) => ({
           exercise_id: e.exerciseId,
           individual_target: e.individualTarget,
@@ -307,7 +306,7 @@ export function useUpdateWeeklyPlan() {
       const days = input.days.map((d) => ({
         day_of_week: d.dayOfWeek,
         title: d.title.trim(),
-        day_category: d.dayCategory ?? null,
+        day_category: null,
         exercises: d.exercises.map((e) => ({
           exercise_id: e.exerciseId,
           individual_target: e.individualTarget,
@@ -359,7 +358,6 @@ export function buildDaysPayload(
     return {
       dayOfWeek: wd.dayOfWeek,
       title: '',
-      dayCategory: day.category,
       exercises: validExercises,
     };
   });
@@ -471,7 +469,7 @@ async function hydrateDailyGoals(
           id: e.id,
           exercise_id: e.exercise_id,
           exercise_name: e.exercise?.name ?? 'Exercise',
-          category: e.exercise?.category ?? g.day_category ?? 'core',
+          category: e.exercise?.category ?? 'core',
           unit: e.unit,
           required_equipment: requiredEquipment,
           eligible_member_count: eligibleMemberCount,
@@ -490,7 +488,7 @@ async function hydrateDailyGoals(
       weekly_plan_id: g.weekly_plan_id,
       day_of_week: g.day_of_week,
       title: g.title,
-      day_category: g.day_category,
+      day_category: null,
       goal_date: g.goal_date,
       gang_id: gangId,
       gang_name: g.weekly_plan.gang?.name ?? undefined,

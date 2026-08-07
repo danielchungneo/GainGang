@@ -27,7 +27,7 @@ export async function saveDailyGoalExerciseAmount(input: {
     dailyGoalExerciseId: ex.id,
     exerciseId: ex.exercise_id,
     exerciseName: ex.exercise_name,
-    category: goal.day_category ?? undefined,
+    category: ex.category,
     unit: ex.unit,
     amount: userTotalAfter,
     questXpContext: {
@@ -47,7 +47,7 @@ export async function saveDailyGoalExerciseAmount(input: {
     sourceExercise: ex,
     delta: added,
     goalDate: goal.goal_date,
-    category: goal.day_category ?? undefined,
+    category: ex.category,
     logActivity,
   });
 

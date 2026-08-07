@@ -94,7 +94,7 @@ export async function fanOutDailyGoalExerciseDelta(input: {
       dailyGoalExerciseId: exercise.id,
       exerciseId: exercise.exercise_id,
       exerciseName: exercise.exercise_name,
-      category: input.category ?? goal.day_category ?? undefined,
+      category: input.category ?? exercise.category,
       unit: exercise.unit,
       amount: userTotalAfter,
       awardActivityLogXp: false,

@@ -256,6 +256,8 @@ export type Database = {
           quest_id: string | null;
           daily_goal_id: string | null;
           activity_date: string | null;
+          /** Personal streak as of activity_date when first logged; null for legacy rows. */
+          streak_at_log: number | null;
           notes: string | null;
           photo_url: string | null;
           created_at: string;
@@ -268,6 +270,7 @@ export type Database = {
           quest_id?: string | null;
           daily_goal_id?: string | null;
           activity_date?: string | null;
+          streak_at_log?: number | null;
           notes?: string | null;
           photo_url?: string | null;
           updated_at?: string;

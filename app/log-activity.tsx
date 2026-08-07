@@ -40,7 +40,6 @@ import { supportsCameraTracking } from '@/lib/rep-counting/exercise-registry';
 import {
   CATEGORY_LABELS,
   WEEKLY_SCHEDULE,
-  todaysCategory,
   type Exercise,
   type ExerciseCategory,
   type ExerciseUnit,
@@ -59,7 +58,6 @@ export default function LogActivityScreen() {
   const params = useLocalSearchParams<{
     gangId?: string;
     questId?: string;
-    category?: string;
     exerciseId?: string;
     exerciseName?: string;
     unit?: string;
@@ -80,9 +78,7 @@ export default function LogActivityScreen() {
   const isEditing = lockedToQuest && !!questActivity;
 
   const [gangId, setGangId] = useState<string | undefined>(params.gangId);
-  const [category, setCategory] = useState<ExerciseCategory>(
-    (params.category as ExerciseCategory) || todaysCategory(),
-  );
+  const [category, setCategory] = useState<ExerciseCategory>('chest');
   const [exerciseId, setExerciseId] = useState<string | undefined>(
     params.exerciseId || undefined,
   );

@@ -212,7 +212,7 @@ export interface LeaderboardEntry {
 // Static reference data (mirrors the SQL CHECK constraints; maps over enums).
 // ---------------------------------------------------------------------------
 
-/** The fixed 5-day weekly schedule (doc §3.4). */
+/** Exercise categories (used to filter the exercise catalog). */
 export interface ScheduleDay {
   day: number;
   category: ExerciseCategory;
@@ -252,14 +252,6 @@ export const CATEGORY_LABELS: Record<ExerciseCategory, string> = {
   cardio: 'Cardio',
   back: 'Back',
   core: 'Core',
-};
-
-export const CATEGORY_ICONS: Record<ExerciseCategory, string> = {
-  chest: 'fitness',
-  legs: 'walk',
-  cardio: 'bicycle',
-  back: 'barbell',
-  core: 'body',
 };
 
 export const UNIT_LABELS: Record<ExerciseUnit, { short: string; long: string }> = {
@@ -376,21 +368,6 @@ export function rankProgress(xp: number): { current: Rank; next: Rank | null; ra
   const ceil = RANK_THRESHOLDS[next];
   const ratio = Math.min(1, Math.max(0, (xp - floor) / (ceil - floor)));
   return { current, next, ratio, toNext: Math.max(0, ceil - xp) };
-}
-
-/** Today's scheduled category (Mon=Day1 … Fri=Day5, weekend rolls to Core). */
-export function todaysCategory(date = new Date()): ExerciseCategory {
-  const dow = date.getDay(); // 0 Sun … 6 Sat
-  const map: Record<number, ExerciseCategory> = {
-    1: 'chest',
-    2: 'legs',
-    3: 'cardio',
-    4: 'back',
-    5: 'core',
-    6: 'core',
-    0: 'core',
-  };
-  return map[dow];
 }
 
 /** ISO day-of-week: 1 = Monday … 7 = Sunday. */

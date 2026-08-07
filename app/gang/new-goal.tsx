@@ -64,7 +64,7 @@ function buildDaysFromPlan(plan: WeeklyPlanWithGoals): Record<number, DayDraft> 
   const days = buildInitialDays();
   for (const goal of plan.daily_goals) {
     days[goal.day_of_week] = {
-      category: goal.day_category ?? days[goal.day_of_week].category,
+      category: goal.exercises[0]?.category ?? days[goal.day_of_week].category,
       exercises: goal.exercises.map((e) => ({
         exerciseId: e.exercise_id,
         name: e.exercise_name,

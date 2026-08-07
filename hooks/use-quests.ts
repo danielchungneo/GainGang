@@ -4,7 +4,6 @@ import { useAuth } from '@/context/auth-context';
 import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
 import type {
-  ExerciseCategory,
   ExerciseUnit,
   Quest,
   QuestType,
@@ -86,7 +85,6 @@ export interface CreateQuestInput {
   gangId: string;
   type: QuestType;
   title: string;
-  dayCategory?: ExerciseCategory;
   exerciseId?: string;
   unit: ExerciseUnit;
   gangTarget: number;
@@ -105,7 +103,7 @@ export function useCreateQuest() {
           gang_id: input.gangId,
           type: input.type,
           title: input.title,
-          day_category: input.dayCategory ?? null,
+          day_category: null,
           exercise_id: input.exerciseId ?? null,
           unit: input.unit,
           gang_target: input.gangTarget,

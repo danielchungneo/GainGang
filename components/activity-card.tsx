@@ -154,6 +154,17 @@ export function ActivityCard({ activity, gangId }: ActivityCardProps) {
             {activity.comment_count}
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() =>
+            router.push({ pathname: '/activity/share', params: { id: activity.id } })
+          }
+          className="flex-row items-center gap-1.5"
+          accessibilityRole="button"
+          accessibilityLabel="Share activity"
+        >
+          <Ionicons name="share-outline" size={20} color={t.body} />
+        </TouchableOpacity>
       </View>
 
       {activity.latest_comment ? (

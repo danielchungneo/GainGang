@@ -117,6 +117,11 @@ function RootNavigator() {
 
         <Stack.Screen name="activity/[id]" options={{ headerShown: false }} />
 
+        <Stack.Screen
+          name="activity/share"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+
         <Stack.Screen name="profile/[userId]" options={{ headerShown: false }} />
 
         <Stack.Screen name="settings" options={{ headerShown: false }} />

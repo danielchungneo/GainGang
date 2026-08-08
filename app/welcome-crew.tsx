@@ -100,7 +100,7 @@ export default function WelcomeCrewScreen() {
     <ScreenBackground>
       <View style={styles.root}>
         <View style={styles.header}>
-          <Text style={[type.heading, { color: t.heading, fontSize: 28 }]}>Join your crew</Text>
+          <Text style={[type.heading, { color: t.heading, fontSize: 28 }]}>Join your gang</Text>
           <Text style={[type.body, { color: t.body, marginTop: spacing.sm, lineHeight: 22 }]}>
             {hasInvite
               ? 'You were invited to a Gang. Join it to start working out together.'
@@ -130,7 +130,7 @@ export default function WelcomeCrewScreen() {
                   <Text
                     style={[type.bodySm, { color: t.body, textAlign: 'center', lineHeight: 20 }]}
                   >
-                    Accept your invite to unlock shared daily goals with your crew.
+                    Accept your invite to unlock shared daily goals with your gang.
                   </Text>
                 )}
               </>

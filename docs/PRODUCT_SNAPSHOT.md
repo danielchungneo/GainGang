@@ -9,7 +9,7 @@
 
 ## 1. What GainGang is
 
-**GainGang** is a social calisthenics app: train with a crew (**Gangs**), hit shared **daily goals**, verify effort with the **camera**, earn **XP / levels / cosmetics**, and optionally use **Focus lock** so distraction apps stay blocked until today’s work is done.
+**GainGang** is a social calisthenics app: train with a **Gang**, hit shared **daily goals**, verify effort with the **camera**, earn **XP / levels / cosmetics**, and optionally use **Focus lock** so distraction apps stay blocked until today’s work is done.
 
 **One-line pitch (in product):**  
 *“The social workout app that turns daily goals into a team game.”*
@@ -18,7 +18,7 @@
 *“Calisthenics. Community. Quest.”* · *“Calisthenics. Community. Goal.”*
 
 **Who it’s for**  
-Friends and small crews doing bodyweight training who want **group accountability** more than a solo tracker. Fitness levels: Beginner / Intermediate / Advanced. Optional equipment (pull-up bar, weights) gates which plan exercises apply to you.
+Friends and small gangs doing bodyweight training who want **group accountability** more than a solo tracker. Fitness levels: Beginner / Intermediate / Advanced. Optional equipment (pull-up bar, weights) gates which plan exercises apply to you.
 
 **Explicit inspirations**
 | Inspiration | What GainGang borrows |
@@ -31,7 +31,7 @@ Friends and small crews doing bodyweight training who want **group accountabilit
 ## 2. Product feeling & brand
 
 ### Tone of voice
-Warm crew energy with light RPG flavor — motivational without becoming pure parody.
+Warm gang energy with light RPG flavor — motivational without becoming pure parody.
 
 Examples from the UI:
 - *“Let's gain, {firstName}”* (Today)
@@ -57,7 +57,7 @@ Examples from the UI:
 ## 3. Core user journey
 
 ```
-Pre-auth tour → Auth → Notifications + Join/Create crew
+Pre-auth tour → Auth → Notifications + Join/Create gang
   → (Focus lock intro / equipment prompts as needed)
   → Tabs: Today | Gangs | Challenges | Profile
 ```
@@ -269,11 +269,11 @@ Prompts grounded in what already exists — not a roadmap, just fertile ground:
 
 ### Platform & trust
 - HealthKit / wearables as *secondary* proof, not replacement for camera culture  
-- Moderation, privacy controls, under-13 / school crew scenarios  
-- Monetization that doesn’t gut the crew fantasy  
+- Moderation, privacy controls, under-13 / school gang scenarios  
+- Monetization that doesn’t gut the gang fantasy  
 
 ### Meta questions (good for workshops)
-1. Is GainGang primarily a **crew accountability product**, a **camera trainer**, or an **RPG fitness game** — and which should win when they conflict?  
+1. Is GainGang primarily a **gang accountability product**, a **camera trainer**, or an **RPG fitness game** — and which should win when they conflict?  
 2. Should cosmetics stay **purely cosmetic**, or is light power (XP boosts, streak shields) on-brand?  
 3. What’s the ideal Gang size experience (today’s cap is 25) — tight friend group or small community?  
 4. How much should weekly **global** challenges compete with **Gang-local** identity?  

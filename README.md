@@ -77,7 +77,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=
 │   ├── (tabs)/               # Authenticated tab navigator
 │   │   ├── _layout.tsx
 │   │   ├── index.tsx         # Today — daily individual + group goals
-│   │   ├── groups.tsx        # Groups — join / create crews
+│   │   ├── groups.tsx        # Groups — join / create gangs
 │   │   └── settings.tsx      # Account + sign out
 │   ├── _layout.tsx           # Root: providers + theme + stack
 │   ├── index.tsx             # Entry gate (auth → tabs, else → sign-in)

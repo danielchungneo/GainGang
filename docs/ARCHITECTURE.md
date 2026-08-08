@@ -36,7 +36,7 @@ boilerplate.)
 │   ├── (tabs)/                   # Main app tab group (authenticated)
 │   │   ├── _layout.tsx           # Bottom tab navigator
 │   │   ├── index.tsx             # Today tab (daily individual + group goals)
-│   │   ├── groups.tsx            # Groups tab (join / create crews)
+│   │   ├── groups.tsx            # Groups tab (join / create gangs)
 │   │   └── settings.tsx          # Settings tab (sign out)
 │   ├── _layout.tsx               # Root layout — providers, theme, stack
 │   ├── index.tsx                 # Entry gate (auth → tabs, else → sign-in)

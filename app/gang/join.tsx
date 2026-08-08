@@ -56,7 +56,7 @@ export default function JoinGangScreen() {
         </View>
 
         <Text style={{ color: t.body }} className="text-sm leading-5">
-          Browse public crews below. Invite-only gangs join through a link your friends text you.
+          Browse public gangs below. Invite-only gangs join through a link your friends text you.
         </Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}

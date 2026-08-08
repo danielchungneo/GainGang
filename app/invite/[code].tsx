@@ -60,7 +60,7 @@ export default function GangInviteScreen() {
         try {
           await completeCrewSetup.mutateAsync({});
         } catch {
-          // Joined successfully; crew flag can be fixed on next gate pass.
+          // Joined successfully; setup flag can be fixed on next gate pass.
         }
       }
       router.replace({ pathname: '/(tabs)/groups', params: { gangId: gang.id } });
@@ -170,7 +170,7 @@ export default function GangInviteScreen() {
         ) : (
           <GlassSurface style={{ padding: 20, gap: 16 }}>
             <Text style={[type.bodySm, { color: t.body }]}>
-              You&apos;ve been invited to join this crew. Confirm to hop in, or pass for now.
+              You&apos;ve been invited to join this gang. Confirm to hop in, or pass for now.
             </Text>
 
             <GangPreviewCard
@@ -184,8 +184,8 @@ export default function GangInviteScreen() {
 
             {preview.is_full ? (
               <Text style={[type.bodySm, { color: t.body }]}>
-                This Gang is full ({preview.max_members} members max). Ask an admin to make room,
-                or join another crew.
+                This Gang is full ({preview.max_members} members max). Ask the owner to make room,
+                or join another gang.
               </Text>
             ) : null}
 

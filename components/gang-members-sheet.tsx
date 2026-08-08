@@ -14,9 +14,14 @@ import {
 
 import { Avatar } from '@/components/ui/avatar';
 import { useAuth } from '@/context/auth-context';
-import { useGangMembers, useKickGangMember } from '@/hooks/use-gangs';
+import {
+  useGangMembers,
+  useKickGangMember,
+  useSetGangMemberRole,
+  useTransferGangOwnership,
+} from '@/hooks/use-gangs';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
-import { fontFamily, radius, spacing, status, type } from '@/lib/gaingang-theme';
+import { fontFamily, radius, spacing, type } from '@/lib/gaingang-theme';
 import { pushUserProfile } from '@/lib/navigate-profile';
 import { levelFromXp, type GangMemberWithProfile, type GangRole } from '@/types';
 
@@ -25,14 +30,22 @@ interface GangMembersSheetProps {
   gangName: string;
   visible: boolean;
   onClose: () => void;
-  /** When true, the viewer can remove other non-owner members. */
-  canKick?: boolean;
+  /** Viewer's role in this gang. */
+  viewerRole?: GangRole;
 }
 
 function roleLabel(role: GangRole): string {
   if (role === 'owner') return 'Owner';
-  if (role === 'admin') return 'Admin';
+  if (role === 'captain') return 'Captain';
   return 'Member';
+}
+
+function canKickTarget(viewerRole: GangRole | undefined, targetRole: GangRole): boolean {
+  if (!viewerRole || viewerRole === 'member') return false;
+  if (targetRole === 'owner') return false;
+  if (viewerRole === 'owner') return targetRole === 'captain' || targetRole === 'member';
+  // Captain can only kick members.
+  return targetRole === 'member';
 }
 
 export function GangMembersSheet({
@@ -40,16 +53,20 @@ export function GangMembersSheet({
   gangName,
   visible,
   onClose,
-  canKick = false,
+  viewerRole,
 }: GangMembersSheetProps) {
   const t = useThemeTokens();
   const { session } = useAuth();
   const { data: members, isLoading } = useGangMembers(gangId, { enabled: visible });
   const kickMember = useKickGangMember();
-  const [kickingUserId, setKickingUserId] = useState<string | null>(null);
+  const setMemberRole = useSetGangMemberRole();
+  const transferOwnership = useTransferGangOwnership();
+  const [busyUserId, setBusyUserId] = useState<string | null>(null);
+
+  const isOwner = viewerRole === 'owner';
 
   function confirmKick(member: GangMemberWithProfile) {
-    if (kickingUserId) return;
+    if (busyUserId) return;
     const name = member.profile.full_name || 'this member';
     Alert.alert(
       'Remove member?',
@@ -68,7 +85,7 @@ export function GangMembersSheet({
   }
 
   async function handleKick(member: GangMemberWithProfile) {
-    setKickingUserId(member.user_id);
+    setBusyUserId(member.user_id);
     try {
       await kickMember.mutateAsync({ gangId, userId: member.user_id });
     } catch (e) {
@@ -77,7 +94,98 @@ export function GangMembersSheet({
         e instanceof Error ? e.message : 'Something went wrong. Try again.',
       );
     } finally {
-      setKickingUserId(null);
+      setBusyUserId(null);
+    }
+  }
+
+  function openMemberActions(member: GangMemberWithProfile) {
+    if (busyUserId) return;
+    const name = member.profile.full_name || 'this member';
+    const buttons: {
+      text: string;
+      style?: 'cancel' | 'destructive' | 'default';
+      onPress?: () => void;
+    }[] = [];
+
+    if (isOwner && member.role === 'member') {
+      buttons.push({
+        text: 'Make captain',
+        onPress: () => {
+          void handleSetRole(member, 'captain');
+        },
+      });
+    }
+    if (isOwner && member.role === 'captain') {
+      buttons.push({
+        text: 'Remove captain',
+        onPress: () => {
+          void handleSetRole(member, 'member');
+        },
+      });
+    }
+    if (isOwner && member.role !== 'owner') {
+      buttons.push({
+        text: 'Transfer ownership',
+        onPress: () => confirmTransfer(member),
+      });
+    }
+    if (canKickTarget(viewerRole, member.role)) {
+      buttons.push({
+        text: 'Remove from gang',
+        style: 'destructive',
+        onPress: () => confirmKick(member),
+      });
+    }
+    buttons.push({ text: 'Cancel', style: 'cancel' });
+
+    if (buttons.length <= 1) return;
+    Alert.alert(name, 'Choose an action', buttons);
+  }
+
+  function confirmTransfer(member: GangMemberWithProfile) {
+    const name = member.profile.full_name || 'this member';
+    Alert.alert(
+      'Transfer ownership?',
+      `You’ll make ${name} the owner and become a member. You can leave the gang after transferring.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Transfer',
+          style: 'destructive',
+          onPress: () => {
+            void handleTransfer(member);
+          },
+        },
+      ],
+    );
+  }
+
+  async function handleSetRole(member: GangMemberWithProfile, role: 'captain' | 'member') {
+    setBusyUserId(member.user_id);
+    try {
+      await setMemberRole.mutateAsync({ gangId, userId: member.user_id, role });
+    } catch (e) {
+      Alert.alert(
+        'Could not update role',
+        e instanceof Error ? e.message : 'Something went wrong. Try again.',
+      );
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
+  async function handleTransfer(member: GangMemberWithProfile) {
+    setBusyUserId(member.user_id);
+    try {
+      await transferOwnership.mutateAsync({ gangId, newOwnerId: member.user_id });
+      onClose();
+    } catch (e) {
+      Alert.alert(
+        'Could not transfer ownership',
+        e instanceof Error ? e.message : 'Something went wrong. Try again.',
+      );
+    } finally {
+      setBusyUserId(null);
     }
   }
 
@@ -145,8 +253,11 @@ export function GangMembersSheet({
                 const name = member.profile.full_name || 'Hunter';
                 const isSelf = member.user_id === session?.user.id;
                 const level = levelFromXp(member.profile.xp ?? 0);
-                const showKick = canKick && !isSelf && member.role !== 'owner';
-                const isKicking = kickingUserId === member.user_id;
+                const showManage =
+                  !isSelf &&
+                  (canKickTarget(viewerRole, member.role) ||
+                    (isOwner && member.role !== 'owner'));
+                const isBusy = busyUserId === member.user_id;
 
                 return (
                   <View
@@ -187,27 +298,27 @@ export function GangMembersSheet({
                           {` · Lvl ${level}`}
                         </Text>
                       </View>
-                      {!showKick ? (
+                      {!showManage ? (
                         <Ionicons name="chevron-forward" size={18} color={t.body} />
                       ) : null}
                     </TouchableOpacity>
 
-                    {showKick ? (
+                    {showManage ? (
                       <TouchableOpacity
-                        onPress={() => confirmKick(member)}
-                        disabled={!!kickingUserId}
+                        onPress={() => openMemberActions(member)}
+                        disabled={!!busyUserId}
                         hitSlop={8}
                         accessibilityRole="button"
-                        accessibilityLabel={`Remove ${name} from gang`}
+                        accessibilityLabel={`Manage ${name}`}
                         style={[
-                          styles.kickButton,
-                          { borderColor: 'rgba(255, 61, 113, 0.35)' },
+                          styles.manageButton,
+                          { borderColor: t.buttonBorder },
                         ]}
                       >
-                        {isKicking ? (
-                          <ActivityIndicator color={status.danger} size="small" />
+                        {isBusy ? (
+                          <ActivityIndicator color={t.accent} size="small" />
                         ) : (
-                          <Ionicons name="person-remove-outline" size={18} color={status.danger} />
+                          <Ionicons name="ellipsis-horizontal" size={18} color={t.heading} />
                         )}
                       </TouchableOpacity>
                     ) : null}
@@ -216,6 +327,12 @@ export function GangMembersSheet({
               })}
             </ScrollView>
           )}
+
+          {isOwner ? (
+            <Text style={[type.bodySm, { color: t.body, paddingTop: 4 }]}>
+              To leave this gang, transfer ownership to someone else first.
+            </Text>
+          ) : null}
         </Pressable>
       </Pressable>
     </Modal>
@@ -261,12 +378,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  kickButton: {
+  manageButton: {
     width: 36,
     height: 36,
     borderRadius: 10,
     borderWidth: 1,
-    backgroundColor: 'rgba(255, 61, 113, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -26,8 +26,10 @@ interface GangOptionsDrawerProps {
   onClose: () => void;
   gangId?: string;
   gangName?: string;
-  /** Owner-only settings (edit gang, weekly plan, delete). */
+  /** Owner-only settings (edit gang, delete). */
   showSettings?: boolean;
+  /** Owner or captain can create/edit the weekly plan. */
+  canManageWeeklyPlan?: boolean;
   /** Non-owner members can leave the current gang. */
   canLeave?: boolean;
   /** When set, "Edit weekly plan" opens that plan; otherwise create flow. */
@@ -40,6 +42,7 @@ export function GangOptionsDrawer({
   gangId,
   gangName,
   showSettings = false,
+  canManageWeeklyPlan = false,
   canLeave = false,
   weeklyPlanId = null,
 }: GangOptionsDrawerProps) {
@@ -166,7 +169,9 @@ export function GangOptionsDrawer({
   }
 
   const canDelete = showSettings && !!gangId;
-  const showLeave = canLeave && !!gangId && !canDelete;
+  const showLeave = canLeave && !!gangId;
+  const showPlanActions = canManageWeeklyPlan && !!gangId;
+  const showOwnerOrPlan = (showSettings || showPlanActions) && !!gangId;
   const showDangerAction = canDelete || showLeave;
 
   return (
@@ -208,61 +213,65 @@ export function GangOptionsDrawer({
           </View>
 
           <View style={{ flex: 1, gap: 12 }}>
-            {showSettings && gangId ? (
+            {showOwnerOrPlan ? (
               <>
-                <TouchableOpacity
-                  onPress={goGangSettings}
-                  className="flex-row items-center gap-3 rounded-xl px-4 py-4"
-                  style={{
-                    backgroundColor: 'transparent',
-                    borderWidth: 1,
-                    borderColor: t.buttonBorder,
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit gang settings"
-                >
-                  <Ionicons name="settings-outline" size={22} color={t.accent} />
-                  <View className="flex-1">
-                    <Text style={{ color: t.heading }} className="font-semibold">
-                      Gang settings
-                    </Text>
-                    <Text style={{ color: t.body }} className="text-sm">
-                      Edit name, banner, description, and privacy
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                {showSettings ? (
+                  <TouchableOpacity
+                    onPress={goGangSettings}
+                    className="flex-row items-center gap-3 rounded-xl px-4 py-4"
+                    style={{
+                      backgroundColor: 'transparent',
+                      borderWidth: 1,
+                      borderColor: t.buttonBorder,
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit gang settings"
+                  >
+                    <Ionicons name="settings-outline" size={22} color={t.accent} />
+                    <View className="flex-1">
+                      <Text style={{ color: t.heading }} className="font-semibold">
+                        Gang settings
+                      </Text>
+                      <Text style={{ color: t.body }} className="text-sm">
+                        Edit name, banner, description, and privacy
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : null}
 
-                <TouchableOpacity
-                  onPress={goWeeklyPlan}
-                  className="flex-row items-center gap-3 rounded-xl px-4 py-4"
-                  style={{
-                    backgroundColor: 'transparent',
-                    borderWidth: 1,
-                    borderColor: t.buttonBorder,
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    weeklyPlanId ? 'Edit weekly plan' : 'Create weekly plan'
-                  }
-                >
-                  <Ionicons name="calendar-outline" size={22} color={t.accent} />
-                  <View className="flex-1">
-                    <Text style={{ color: t.heading }} className="font-semibold">
-                      {weeklyPlanId ? 'Edit weekly plan' : 'Create weekly plan'}
-                    </Text>
-                    <Text style={{ color: t.body }} className="text-sm">
-                      {weeklyPlanId
-                        ? "Update this week's exercises and targets"
-                        : 'Set exercises and targets for the week'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                {showPlanActions ? (
+                  <TouchableOpacity
+                    onPress={goWeeklyPlan}
+                    className="flex-row items-center gap-3 rounded-xl px-4 py-4"
+                    style={{
+                      backgroundColor: 'transparent',
+                      borderWidth: 1,
+                      borderColor: t.buttonBorder,
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      weeklyPlanId ? 'Edit weekly plan' : 'Create weekly plan'
+                    }
+                  >
+                    <Ionicons name="calendar-outline" size={22} color={t.accent} />
+                    <View className="flex-1">
+                      <Text style={{ color: t.heading }} className="font-semibold">
+                        {weeklyPlanId ? 'Edit weekly plan' : 'Create weekly plan'}
+                      </Text>
+                      <Text style={{ color: t.body }} className="text-sm">
+                        {weeklyPlanId
+                          ? "Update this week's exercises and targets"
+                          : 'Set exercises and targets for the week'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : null}
               </>
             ) : null}
 
             <View
               className="my-1 flex-row items-center gap-3"
-              style={{ marginTop: showSettings && gangId ? 4 : 0 }}
+              style={{ marginTop: showOwnerOrPlan ? 4 : 0 }}
             >
               <View style={{ flex: 1, height: 1, backgroundColor: t.buttonBorder }} />
               <Text
@@ -292,7 +301,7 @@ export function GangOptionsDrawer({
                   Create a gang
                 </Text>
                 <Text style={{ color: t.accentOnPrimary, opacity: 0.85 }} className="text-sm">
-                  Start your own crew and invite friends
+                  Start your own gang and invite friends
                 </Text>
               </View>
             </TouchableOpacity>
@@ -314,7 +323,7 @@ export function GangOptionsDrawer({
                   Discover gangs
                 </Text>
                 <Text style={{ color: t.body }} className="text-sm">
-                  Browse public gangs (invite links join invite-only crews)
+                  Browse public gangs (invite links join invite-only gangs)
                 </Text>
               </View>
             </TouchableOpacity>
@@ -344,7 +353,7 @@ export function GangOptionsDrawer({
                     Delete gang
                   </Text>
                   <Text style={{ color: status.danger, opacity: 0.8 }} className="text-sm">
-                    Permanently remove this crew
+                    Permanently remove this gang
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -373,7 +382,7 @@ export function GangOptionsDrawer({
                     Leave gang
                   </Text>
                   <Text style={{ color: status.danger, opacity: 0.8 }} className="text-sm">
-                    Remove yourself from this crew
+                    Remove yourself from this gang
                   </Text>
                 </View>
               </TouchableOpacity>

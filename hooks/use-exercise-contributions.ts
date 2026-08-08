@@ -2,9 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
 import { useAwardAchievements } from '@/hooks/use-award-achievements';
+import { profileHasEquipment } from '@/lib/equipment';
 import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
-import type { AppNotification, ExerciseUnit, GangMemberWithProfile } from '@/types';
+import type {
+  AppNotification,
+  ExerciseRequiredEquipment,
+  ExerciseUnit,
+  GangMemberWithProfile,
+} from '@/types';
 
 export interface ExerciseContributor {
   user_id: string;
@@ -15,6 +21,7 @@ export interface ExerciseContributor {
   unit: ExerciseUnit;
   is_complete: boolean;
   is_self: boolean;
+  is_eligible: boolean;
 }
 
 interface UseExerciseContributionsArgs {
@@ -22,6 +29,7 @@ interface UseExerciseContributionsArgs {
   exerciseId: string | null;
   individualTarget: number;
   unit: ExerciseUnit;
+  requiredEquipment?: ExerciseRequiredEquipment | null;
   enabled?: boolean;
 }
 
@@ -30,13 +38,17 @@ export function useExerciseContributions({
   exerciseId,
   individualTarget,
   unit,
+  requiredEquipment = null,
   enabled = true,
 }: UseExerciseContributionsArgs) {
   const { session } = useAuth();
   const userId = session?.user.id;
 
   return useQuery({
-    queryKey: queryKeys.exerciseContributions(gangId, exerciseId ?? undefined),
+    queryKey: [
+      ...queryKeys.exerciseContributions(gangId, exerciseId ?? undefined),
+      requiredEquipment ?? null,
+    ],
     enabled: enabled && !!gangId && !!exerciseId,
     queryFn: async (): Promise<ExerciseContributor[]> => {
       const [{ data: members, error: membersError }, { data: progress, error: progressError }] =
@@ -44,7 +56,7 @@ export function useExerciseContributions({
           supabase
             .from('gang_members')
             .select(
-              'gang_id, user_id, role, joined_at, profile:profiles(id, full_name, username, avatar_url, rank, xp)',
+              'gang_id, user_id, role, joined_at, profile:profiles(id, full_name, username, avatar_url, rank, xp, has_pull_up_bar, has_weights)',
             )
             .eq('gang_id', gangId),
           supabase
@@ -63,8 +75,14 @@ export function useExerciseContributions({
       }
 
       const contributors: ExerciseContributor[] = (members ?? []).map((row) => {
-        const profile = row.profile as unknown as GangMemberWithProfile['profile'] | null;
+        const profile = row.profile as unknown as
+          | (GangMemberWithProfile['profile'] & {
+              has_pull_up_bar?: boolean | null;
+              has_weights?: boolean | null;
+            })
+          | null;
         const total = totals.get(row.user_id) ?? 0;
+        const isEligible = profileHasEquipment(profile, requiredEquipment);
         return {
           user_id: row.user_id,
           full_name: profile?.full_name ?? 'Member',
@@ -72,12 +90,16 @@ export function useExerciseContributions({
           user_total: total,
           individual_target: individualTarget,
           unit,
-          is_complete: individualTarget > 0 ? total >= individualTarget : total > 0,
+          is_complete:
+            isEligible &&
+            (individualTarget > 0 ? total >= individualTarget : total > 0),
           is_self: row.user_id === userId,
+          is_eligible: isEligible,
         };
       });
 
       return contributors.sort((a, b) => {
+        if (a.is_eligible !== b.is_eligible) return a.is_eligible ? -1 : 1;
         if (a.is_complete !== b.is_complete) return a.is_complete ? -1 : 1;
         if (b.user_total !== a.user_total) return b.user_total - a.user_total;
         return a.full_name.localeCompare(b.full_name);

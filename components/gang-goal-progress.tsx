@@ -21,6 +21,7 @@ import {
   useExerciseContributions,
   useSendGangPoke,
 } from '@/hooks/use-exercise-contributions';
+import { equipmentLabel } from '@/lib/equipment';
 import { formatAmount } from '@/lib/format';
 import {
   fontFamily,
@@ -92,7 +93,7 @@ export function GangGoalProgress({ goal, gangId }: GangGoalProgressProps) {
                     <View style={styles.tapHintRow}>
                       <Ionicons name="people-outline" size={14} color={c.primaryGlow} />
                       <Text style={[styles.tapHint, { color: c.textDim }]}>
-                        {exercise.contributor_count}/{goal.member_count}
+                        {exercise.contributor_count}/{exercise.eligible_member_count}
                       </Text>
                     </View>
                     <View style={styles.footerChevron}>
@@ -139,11 +140,15 @@ function ExerciseContributorsModal({
     exerciseId: exercise?.id ?? null,
     individualTarget: exercise?.individual_target ?? 0,
     unit: exercise?.unit ?? 'reps',
+    requiredEquipment: exercise?.required_equipment ?? null,
     enabled: visible && !!exercise,
   });
 
-  const done = (contributors ?? []).filter((m) => m.is_complete);
-  const pending = (contributors ?? []).filter((m) => !m.is_complete);
+  const eligible = (contributors ?? []).filter((m) => m.is_eligible);
+  const ineligible = (contributors ?? []).filter((m) => !m.is_eligible);
+  const done = eligible.filter((m) => m.is_complete);
+  const pending = eligible.filter((m) => !m.is_complete);
+  const neededEquipment = equipmentLabel(exercise?.required_equipment);
 
   async function handlePoke(member: ExerciseContributor) {
     if (!exercise || member.is_self || member.is_complete) return;
@@ -174,13 +179,14 @@ function ExerciseContributorsModal({
         >
           <View style={styles.modalHeader}>
             <View style={styles.modalTitleBlock}>
-              <Text style={[styles.modalEyebrow, { color: c.primaryGlow }]}>CREW STATUS</Text>
+              <Text style={[styles.modalEyebrow, { color: c.primaryGlow }]}>GANG STATUS</Text>
               <Text style={[styles.modalTitle, { color: c.text }]} numberOfLines={1}>
                 {exercise?.exercise_name ?? 'Exercise'}
               </Text>
               {exercise ? (
                 <Text style={[styles.modalSubtitle, { color: c.textDim }]}>
                   Personal target {formatAmount(exercise.individual_target, exercise.unit)}
+                  {` · ${done.length}/${eligible.length} eligible`}
                 </Text>
               ) : null}
             </View>
@@ -211,13 +217,32 @@ function ExerciseContributorsModal({
               />
               <ContributorSection
                 title="Still needed"
-                empty="Everyone has contributed. Nice."
+                empty={
+                  eligible.length === 0
+                    ? 'No members have the required equipment.'
+                    : 'Everyone eligible has contributed. Nice.'
+                }
                 members={pending}
                 accent={status.warning}
                 onPoke={handlePoke}
                 pokingUserId={pokingUserId}
                 showPoke
               />
+              {ineligible.length > 0 ? (
+                <ContributorSection
+                  title={
+                    neededEquipment
+                      ? `No ${neededEquipment.toLowerCase()}`
+                      : 'Not eligible'
+                  }
+                  empty=""
+                  members={ineligible}
+                  accent={c.textMuted}
+                  onPoke={handlePoke}
+                  pokingUserId={pokingUserId}
+                  ineligible
+                />
+              ) : null}
             </ScrollView>
           )}
         </Pressable>
@@ -234,6 +259,7 @@ interface ContributorSectionProps {
   onPoke: (member: ExerciseContributor) => void;
   pokingUserId: string | null;
   showPoke?: boolean;
+  ineligible?: boolean;
 }
 
 function ContributorSection({
@@ -244,6 +270,7 @@ function ContributorSection({
   onPoke,
   pokingUserId,
   showPoke = false,
+  ineligible = false,
 }: ContributorSectionProps) {
   const { theme } = useTheme();
   const c = theme.colors;
@@ -254,7 +281,9 @@ function ContributorSection({
         {title} · {members.length}
       </Text>
       {members.length === 0 ? (
-        <Text style={[styles.emptySection, { color: c.textMuted }]}>{empty}</Text>
+        empty ? (
+          <Text style={[styles.emptySection, { color: c.textMuted }]}>{empty}</Text>
+        ) : null
       ) : (
         members.map((member) => (
           <View
@@ -276,12 +305,13 @@ function ContributorSection({
                   {member.is_self ? ' (you)' : ''}
                 </Text>
                 <Text style={[styles.memberProgress, { color: c.textMuted }]}>
-                  {formatAmount(member.user_total, member.unit)} /{' '}
-                  {formatAmount(member.individual_target, member.unit)}
+                  {ineligible
+                    ? 'Skipped — missing equipment'
+                    : `${formatAmount(member.user_total, member.unit)} / ${formatAmount(member.individual_target, member.unit)}`}
                 </Text>
               </View>
             </Pressable>
-            {showPoke && !member.is_self ? (
+            {showPoke && !member.is_self && !ineligible ? (
               <TouchableOpacity
                 onPress={() => onPoke(member)}
                 disabled={pokingUserId === member.user_id}
@@ -299,6 +329,8 @@ function ContributorSection({
               </TouchableOpacity>
             ) : member.is_complete ? (
               <Ionicons name="checkmark-circle" size={22} color={status.success} />
+            ) : ineligible ? (
+              <Ionicons name="ban-outline" size={20} color={c.textMuted} />
             ) : null}
           </View>
         ))

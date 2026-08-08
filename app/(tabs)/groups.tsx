@@ -65,6 +65,8 @@ export default function GroupsScreen() {
   const gangId = selectedGangId ?? gangs?.[0]?.id ?? '';
   const selectedGang = gangs?.find((g) => g.id === gangId);
   const isGangOwner = selectedGang?.role === 'owner';
+  const isGangCaptain = selectedGang?.role === 'captain';
+  const canManageWeeklyPlan = isGangOwner || isGangCaptain;
   const canInvite = !!selectedGang;
 
   const {
@@ -221,7 +223,7 @@ export default function GroupsScreen() {
             {viewTab === 'progress' ? (
               <GangProgressTab
                 gangId={gangId}
-                isGangOwner={isGangOwner}
+                canManageWeeklyPlan={canManageWeeklyPlan}
                 weeklyPlan={weeklyPlan}
                 isLoading={planLoading}
               />
@@ -242,7 +244,7 @@ export default function GroupsScreen() {
               You&apos;re not in a Gang yet
             </Text>
             <Text style={[type.bodySm, { color: t.body }]}>
-              Create your own crew or browse public gangs to start gaining together. Friends can
+              Create your own gang or browse public gangs to start gaining together. Friends can
               also text you an invite link.
             </Text>
 
@@ -280,6 +282,7 @@ export default function GroupsScreen() {
           gangId={gangId}
           gangName={selectedGang?.name}
           showSettings={isGangOwner}
+          canManageWeeklyPlan={canManageWeeklyPlan}
           canLeave={!isGangOwner && !!selectedGang}
           weeklyPlanId={weeklyPlan?.id ?? null}
         />
@@ -291,7 +294,7 @@ export default function GroupsScreen() {
           gangName={selectedGang.name}
           visible={membersOpen}
           onClose={() => setMembersOpen(false)}
-          canKick={isGangOwner}
+          viewerRole={selectedGang.role}
         />
       ) : null}
     </ScreenBackground>
@@ -300,12 +303,12 @@ export default function GroupsScreen() {
 
 function GangProgressTab({
   gangId,
-  isGangOwner,
+  canManageWeeklyPlan,
   weeklyPlan,
   isLoading,
 }: {
   gangId: string;
-  isGangOwner: boolean;
+  canManageWeeklyPlan: boolean;
   weeklyPlan: ReturnType<typeof useActiveWeeklyPlan>['data'];
   isLoading: boolean;
 }) {
@@ -340,12 +343,12 @@ function GangProgressTab({
           startsOn={weeklyPlan.starts_on}
           endsOn={weeklyPlan.ends_on}
           isAdaptive={weeklyPlan.is_adaptive}
-          canEdit={isGangOwner}
+          canEdit={canManageWeeklyPlan}
         />
-      ) : isGangOwner ? (
+      ) : canManageWeeklyPlan ? (
         <WeeklyPlanAdminActions
           gangId={gangId}
-          helperText="Publish a weekly plan so your crew knows what to hit each day."
+          helperText="Publish a weekly plan so your gang knows what to hit each day."
         />
       ) : null}
 
@@ -404,7 +407,7 @@ function GangProgressTab({
         <EmptyCard
           title={weeklyPlan ? 'No workout days this week' : 'No active weekly plan'}
           body={
-            isGangOwner
+            canManageWeeklyPlan
               ? weeklyPlan
                 ? 'Your weekly plan has no exercises yet. Tap the edit icon next to the week range to add workout days.'
                 : 'Create a weekly plan with daily goals for your gang.'

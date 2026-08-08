@@ -88,7 +88,7 @@ export function useGangMembers(gangId: string, options?: { enabled?: boolean }) 
   });
 }
 
-/** Discover public gangs to join (excludes crews the user already belongs to). */
+/** Discover public gangs to join (excludes gangs the user already belongs to). */
 export function useDiscoverGangs(search?: string) {
   const { session } = useAuth();
   const userId = session?.user.id;
@@ -137,10 +137,11 @@ export function useDiscoverGangs(search?: string) {
 
       return gangs.map((g) => {
         const member_count = counts[g.id] ?? 0;
+        const maxMembers = g.max_members;
         return {
           ...g,
           member_count,
-          is_full: member_count >= MAX_GANG_MEMBERS,
+          is_full: maxMembers != null && member_count >= maxMembers,
         };
       });
     },
@@ -186,8 +187,10 @@ export interface GangInvitePreview {
   privacy: GangPrivacy;
   member_count: number;
   already_member: boolean;
-  max_members: number;
+  max_members: number | null;
   is_full: boolean;
+  is_system?: boolean;
+  eligible_for_gang_competitions?: boolean;
 }
 
 export interface DiscoverGang extends Gang {
@@ -215,7 +218,8 @@ export function useGangInvitePreview(inviteCode: string) {
         already_member: boolean;
       };
       const memberCount = preview.member_count ?? 0;
-      const maxMembers = preview.max_members ?? MAX_GANG_MEMBERS;
+      const maxMembers =
+        preview.max_members === undefined ? MAX_GANG_MEMBERS : preview.max_members;
       return {
         id: preview.id,
         name: preview.name,
@@ -226,7 +230,11 @@ export function useGangInvitePreview(inviteCode: string) {
         member_count: memberCount,
         already_member: preview.already_member,
         max_members: maxMembers,
-        is_full: preview.is_full ?? memberCount >= maxMembers,
+        is_full:
+          preview.is_full ??
+          (maxMembers != null && memberCount >= maxMembers),
+        is_system: preview.is_system ?? false,
+        eligible_for_gang_competitions: preview.eligible_for_gang_competitions ?? true,
       };
     },
   });
@@ -304,16 +312,61 @@ export function useKickGangMember() {
       if (!session?.user.id) throw new Error('Not authenticated');
       if (userId === session.user.id) throw new Error('You cannot kick yourself');
 
-      const { data, error } = await supabase
-        .from('gang_members')
-        .delete()
-        .eq('gang_id', gangId)
-        .eq('user_id', userId)
-        .neq('role', 'owner')
-        .select('user_id');
-
+      const { error } = await supabase.rpc('kick_gang_member', {
+        p_gang_id: gangId,
+        p_user_id: userId,
+      });
       if (error) throw error;
-      if (!data?.length) throw new Error('Could not remove that member');
+    },
+    onSuccess: (_data, { gangId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.gangMembers(gangId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.gang(gangId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
+    },
+  });
+}
+
+export interface SetGangMemberRoleInput {
+  gangId: string;
+  userId: string;
+  role: 'captain' | 'member';
+}
+
+export function useSetGangMemberRole() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  return useMutation({
+    mutationFn: async ({ gangId, userId, role }: SetGangMemberRoleInput): Promise<void> => {
+      const { error } = await supabase.rpc('set_gang_member_role', {
+        p_gang_id: gangId,
+        p_user_id: userId,
+        p_role: role,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, { gangId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.gangMembers(gangId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.gang(gangId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myGangs(session?.user.id) });
+    },
+  });
+}
+
+export interface TransferGangOwnershipInput {
+  gangId: string;
+  newOwnerId: string;
+}
+
+export function useTransferGangOwnership() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  return useMutation({
+    mutationFn: async ({ gangId, newOwnerId }: TransferGangOwnershipInput): Promise<void> => {
+      const { error } = await supabase.rpc('transfer_gang_ownership', {
+        p_gang_id: gangId,
+        p_new_owner_id: newOwnerId,
+      });
+      if (error) throw error;
     },
     onSuccess: (_data, { gangId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.gangMembers(gangId) });

@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift b/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
-index 6a7f7c4..464576e 100644
+index 6a7f7c4..d94491d 100644
 --- a/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
 +++ b/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
 @@ -28,6 +28,9 @@ public class ExpoAppBlockerModule: Module {
@@ -35,7 +35,83 @@ index 6a7f7c4..464576e 100644
          self.store.shield.applications = nil
          self.store.shield.applicationCategories = nil
          self.store.shield.webDomains = nil
-@@ -631,6 +643,29 @@ public class ExpoAppBlockerModule: Module {
+@@ -577,39 +589,47 @@ public class ExpoAppBlockerModule: Module {
+       return
+     }
+ 
+-    let budget = max(1, budgetSeconds)
+-    // Step by usageStepSeconds, but coarsen so we never exceed maxUsageSteps events.
+-    let step = max(usageStepSeconds, Int(ceil(Double(budget) / Double(maxUsageSteps))))
+-    var thresholds: [Int] = []
+-    var t = step
+-    while t < budget {
+-      thresholds.append(t)
+-      t += step
+-    }
+-    thresholds.append(budget) // always include the exact budget as the final re-block
+-
+     var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
+-    for seconds in thresholds {
+-      events[DeviceActivityEvent.Name("\(usageStepEventPrefix)\(seconds)")] = DeviceActivityEvent(
+-        applications: appTokens,
+-        categories: categoryTokens,
+-        webDomains: webDomainTokens,
+-        threshold: dateComponents(fromSeconds: seconds)
+-      )
+-    }
+ 
+-    // CRITICAL: the interval must start ~now, not at midnight. DeviceActivityEvent
+-    // thresholds measure usage accumulated *within the interval, from its start*. An
+-    // all-day [00:00, 23:59] interval would count usage since midnight — so any prior
+-    // blocked-app use today would have already crossed the thresholds before monitoring
+-    // began, and the system never fires a (new) crossing → the shield never re-applies.
+-    // Starting the interval at the current time makes thresholds count from the unlock
+-    // moment. repeats:false because we re-register on every unlock.
++    // CRITICAL: interval must cover the grant and be ≥15 minutes (Apple's floor).
++    // For short grants (e.g. 1-minute test unlocks), backdate intervalStart so the
++    // window is 15 minutes long but intervalDidEnd fires at now+budget. Skip usage
++    // events in that case — a backdated interval would otherwise count prior usage
++    // and fire thresholds immediately.
+     let now = Date()
+-    let startComps = Calendar.current.dateComponents([.hour, .minute, .second], from: now)
++    let budget = max(1, budgetSeconds)
++    let minIntervalSeconds = 15 * 60
++    let endDate = now.addingTimeInterval(TimeInterval(budget))
++    let startDate: Date
++    if budget >= minIntervalSeconds {
++      startDate = now
++      // Step by usageStepSeconds, but coarsen so we never exceed maxUsageSteps events.
++      let step = max(usageStepSeconds, Int(ceil(Double(budget) / Double(maxUsageSteps))))
++      var thresholds: [Int] = []
++      var t = step
++      while t < budget {
++        thresholds.append(t)
++        t += step
++      }
++      thresholds.append(budget)
++
++      for seconds in thresholds {
++        events[DeviceActivityEvent.Name("\(usageStepEventPrefix)\(seconds)")] = DeviceActivityEvent(
++          applications: appTokens,
++          categories: categoryTokens,
++          webDomains: webDomainTokens,
++          threshold: dateComponents(fromSeconds: seconds)
++        )
++      }
++    } else {
++      startDate = endDate.addingTimeInterval(TimeInterval(-minIntervalSeconds))
++    }
++
++    let startComps = Calendar.current.dateComponents([.hour, .minute, .second], from: startDate)
++    let endComps = Calendar.current.dateComponents([.hour, .minute, .second], from: endDate)
+     let schedule = DeviceActivitySchedule(
+       intervalStart: startComps,
+-      intervalEnd: DateComponents(hour: 23, minute: 59, second: 59),
++      intervalEnd: endComps,
+       repeats: false
+     )
+ 
+@@ -631,6 +651,29 @@ public class ExpoAppBlockerModule: Module {
      activityCenter.stopMonitoring([activityName])
    }
  
@@ -65,7 +141,44 @@ index 6a7f7c4..464576e 100644
    private func isTemporarilyUnlockedInternal() -> Bool {
      return remainingUnlockSeconds() > 0
    }
-@@ -764,8 +799,30 @@ public class ExpoAppBlockerModule: Module {
+@@ -642,22 +685,29 @@ public class ExpoAppBlockerModule: Module {
+     sharedDefaults?.removeObject(forKey: unlockGrantedAtKey)
+   }
+ 
+-  /// Seconds of earned time still available: the granted budget minus the seconds of
+-  /// blocked-app usage the monitor extension has recorded. Returns 0 if there is no
+-  /// active unlock, the budget is fully consumed, or the grant is from a previous day
+-  /// (earned time does not carry across midnight). Clamped at 0.
++  /// Seconds of earned time still available. Uses the lesser of:
++  /// - usage remaining (budget − measured blocked-app usage), and
++  /// - wall-clock remaining (budget − elapsed since grant).
++  /// Wall-clock is a hard ceiling so unlocks always end even when DeviceActivity
++  /// usage thresholds never fire. Returns 0 if there is no active unlock, the
++  /// budget is spent, or the grant is from a previous day.
+   private func remainingUnlockSeconds() -> Int {
+     let budgetSeconds = (sharedDefaults?.object(forKey: temporaryUnlockKey) as? Int) ?? 0
+     if budgetSeconds <= 0 { return 0 }
+ 
+     // Daily reset: a grant made on an earlier calendar day is stale.
+-    if let grantedAt = sharedDefaults?.object(forKey: unlockGrantedAtKey) as? Date,
+-       !Calendar.current.isDate(grantedAt, inSameDayAs: Date()) {
++    guard let grantedAt = sharedDefaults?.object(forKey: unlockGrantedAtKey) as? Date else {
++      return 0
++    }
++    if !Calendar.current.isDate(grantedAt, inSameDayAs: Date()) {
+       return 0
+     }
+ 
+     let consumedSeconds = (sharedDefaults?.object(forKey: usageConsumedKey) as? Int) ?? 0
+-    return max(0, budgetSeconds - consumedSeconds)
++    let usageRemaining = max(0, budgetSeconds - consumedSeconds)
++    let elapsed = Int(Date().timeIntervalSince(grantedAt))
++    let wallRemaining = max(0, budgetSeconds - elapsed)
++    return min(usageRemaining, wallRemaining)
+   }
+ 
+   /// Build a DateComponents threshold from a total number of seconds (normalized
+@@ -764,8 +814,30 @@ public class ExpoAppBlockerModule: Module {
    }
  
    private func persistBlockConfiguration(_ config: [String: Any]) {

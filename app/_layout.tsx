@@ -132,6 +132,11 @@ function RootNavigator() {
         />
 
         <Stack.Screen
+          name="earn-screen-time"
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
           name="dev-animations"
           options={{ headerShown: false }}
         />

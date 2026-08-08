@@ -29,7 +29,32 @@ export type ScreenTimeLockStatus =
   | 'needs_permission'
   | 'needs_apps'
   | 'locked'
+  | 'temporarily_unlocked'
   | 'unlocked_today';
+
+export interface TemporaryUnlockState {
+  active: boolean;
+  /** Seconds left until hard expiry (wall-clock ceiling, also respects usage spend). */
+  remainingSeconds: number;
+  /** Epoch ms when the current grant was issued; null if none. */
+  grantedAt: number | null;
+  /** Epoch ms when the unlock hard-expires; null if none. */
+  expiresAt: number | null;
+  /** Total budget granted in seconds. */
+  budgetSeconds: number;
+}
+
+interface PersistedTempUnlockGrant {
+  grantedAt: number;
+  expiresAt: number;
+  budgetSeconds: number;
+}
+
+/** Minimum earn slice for production grants. */
+export const MIN_TEMPORARY_UNLOCK_MINUTES = 15;
+
+/** Dev-only short unlock for testing re-lock without waiting 15 minutes. */
+export const DEV_TEST_UNLOCK_MINUTES = 1;
 
 /** Extra App Group fields for midnight rest-day / relock (persisted with block config). */
 export interface FocusLockNativeExtras {
@@ -39,6 +64,7 @@ export interface FocusLockNativeExtras {
 }
 
 const STORAGE_KEY = 'gaingang.screen-time-lock';
+const TEMP_UNLOCK_GRANT_KEY = 'gaingang.screen-time-temp-unlock';
 
 const DEFAULT_PREFS: ScreenTimeLockPrefs = {
   enabled: false,
@@ -118,6 +144,7 @@ export function deriveScreenTimeLockStatus(input: {
   permissionGranted: boolean;
   goalsComplete: boolean;
   hasExercisesToday: boolean;
+  temporaryUnlockActive?: boolean;
 }): ScreenTimeLockStatus {
   if (!isScreenTimeLockSupported()) return 'unsupported';
   if (!input.prefs.enabled) return 'disabled';
@@ -132,7 +159,189 @@ export function deriveScreenTimeLockStatus(input: {
   ) {
     return 'unlocked_today';
   }
+  if (input.temporaryUnlockActive) return 'temporarily_unlocked';
   return 'locked';
+}
+
+/**
+ * Read the active unlock budget.
+ * JS-persisted grant is the source of truth for the countdown. When it expires we
+ * always force a native relock — never fall back to native remaining (which can
+ * stay at the full budget if DeviceActivity usage events never fire, making the
+ * timer appear to “restart”).
+ */
+export function getTemporaryUnlockState(): TemporaryUnlockState {
+  const empty: TemporaryUnlockState = {
+    active: false,
+    remainingSeconds: 0,
+    grantedAt: null,
+    expiresAt: null,
+    budgetSeconds: 0,
+  };
+  const native = loadNative();
+  if (!native || !isScreenTimeLockSupported()) return empty;
+
+  try {
+    const grant = readTempUnlockGrantSync();
+    const now = Date.now();
+
+    if (grant) {
+      if (grant.expiresAt <= now) {
+        // Grant over — clear local state and re-apply shields immediately.
+        void relockScreenTimeApps();
+        return empty;
+      }
+
+      const wallRemaining = Math.max(0, Math.ceil((grant.expiresAt - now) / 1000));
+      return {
+        active: true,
+        remainingSeconds: wallRemaining,
+        grantedAt: grant.grantedAt,
+        expiresAt: grant.expiresAt,
+        budgetSeconds: grant.budgetSeconds,
+      };
+    }
+
+    // No JS grant (e.g. cold start before hydrate, or already cleared). Ask native;
+    // getRemainingUnlockTime also backstop-relocks when its budget is spent.
+    const nativeRemaining = Math.max(0, Math.floor(native.getRemainingUnlockTime() ?? 0));
+    if (nativeRemaining <= 0) return empty;
+
+    return {
+      active: true,
+      remainingSeconds: nativeRemaining,
+      grantedAt: null,
+      expiresAt: now + nativeRemaining * 1000,
+      budgetSeconds: nativeRemaining,
+    };
+  } catch {
+    return empty;
+  }
+}
+
+let cachedGrant: PersistedTempUnlockGrant | null | undefined;
+
+function readTempUnlockGrantSync(): PersistedTempUnlockGrant | null {
+  if (cachedGrant !== undefined) return cachedGrant;
+  return null;
+}
+
+async function loadTempUnlockGrant(): Promise<PersistedTempUnlockGrant | null> {
+  try {
+    const raw = await AsyncStorage.getItem(TEMP_UNLOCK_GRANT_KEY);
+    if (!raw) {
+      cachedGrant = null;
+      return null;
+    }
+    const parsed = JSON.parse(raw) as Partial<PersistedTempUnlockGrant>;
+    if (
+      typeof parsed.grantedAt !== 'number' ||
+      typeof parsed.expiresAt !== 'number' ||
+      typeof parsed.budgetSeconds !== 'number'
+    ) {
+      cachedGrant = null;
+      return null;
+    }
+    cachedGrant = {
+      grantedAt: parsed.grantedAt,
+      expiresAt: parsed.expiresAt,
+      budgetSeconds: parsed.budgetSeconds,
+    };
+    return cachedGrant;
+  } catch {
+    cachedGrant = null;
+    return null;
+  }
+}
+
+async function saveTempUnlockGrant(grant: PersistedTempUnlockGrant): Promise<void> {
+  cachedGrant = grant;
+  await AsyncStorage.setItem(TEMP_UNLOCK_GRANT_KEY, JSON.stringify(grant));
+}
+
+async function clearTempUnlockGrant(): Promise<void> {
+  cachedGrant = null;
+  await AsyncStorage.removeItem(TEMP_UNLOCK_GRANT_KEY);
+}
+
+/**
+ * Grant a temporary unlock for Focus-lock apps.
+ * Requires shields to currently be active (goals incomplete). Does not stack —
+ * a new grant replaces any existing budget. Hard-expires on wall-clock after
+ * `minutes` even if usage monitoring never reports consumption.
+ *
+ * Pass `allowBelowMinimum: true` for short test grants (dev only). Native
+ * DeviceActivity schedules still cannot be shorter than 15 minutes, so
+ * background re-lock under 15m relies on the in-app timer / Lock now / foreground poll.
+ */
+export async function grantTemporaryScreenTime(
+  minutes: number,
+  options: { allowBelowMinimum?: boolean } = {},
+): Promise<{ unlocked: boolean; expiresAt: number; minutes: number }> {
+  const native = loadNative();
+  if (!native || !isScreenTimeLockSupported()) {
+    return { unlocked: false, expiresAt: 0, minutes: 0 };
+  }
+
+  const rounded = Math.max(1, Math.round(minutes));
+  const grantedMinutes = options.allowBelowMinimum
+    ? rounded
+    : Math.max(MIN_TEMPORARY_UNLOCK_MINUTES, rounded);
+  try {
+    const result = await native.temporaryUnlock(grantedMinutes);
+    const unlocked = result?.unlocked === true;
+    const budgetSeconds = grantedMinutes * 60;
+    const grantedAt = Date.now();
+    // Prefer our wall-clock expiry so short test grants end on time even if
+    // native DeviceActivity schedules are floored to 15 minutes.
+    const expiresAt = grantedAt + budgetSeconds * 1000;
+
+    if (unlocked) {
+      await saveTempUnlockGrant({
+        grantedAt,
+        expiresAt,
+        budgetSeconds,
+      });
+    }
+
+    return {
+      unlocked,
+      expiresAt,
+      minutes: grantedMinutes,
+    };
+  } catch (error) {
+    console.warn('[screen-time-lock] temporaryUnlock failed', error);
+    return { unlocked: false, expiresAt: 0, minutes: 0 };
+  }
+}
+
+/** Force re-apply shields after an earned budget is spent (or for testing). */
+export async function relockScreenTimeApps(): Promise<void> {
+  const native = loadNative();
+  await clearTempUnlockGrant();
+  if (!native || !isScreenTimeLockSupported()) return;
+  try {
+    await native.relockApps();
+    // Re-assert the stored block config so shields stay on even if a stale
+    // temporary-unlock flag previously caused applyBlocks to no-op.
+    const config = native.getBlockConfiguration?.() as
+      | { blockedItems?: unknown[]; isActive?: boolean }
+      | null
+      | undefined;
+    if (config?.blockedItems && Array.isArray(config.blockedItems) && config.blockedItems.length > 0) {
+      await native.setBlockConfiguration({
+        ...config,
+        isActive: true,
+      } as Parameters<typeof native.setBlockConfiguration>[0]);
+    }
+  } catch (error) {
+    console.warn('[screen-time-lock] relockApps failed', error);
+  }
+}
+
+/** Hydrate persisted grant cache (call on app start / before first status read). */
+export async function hydrateTemporaryUnlockGrant(): Promise<void> {
+  await loadTempUnlockGrant();
 }
 
 /**
@@ -191,7 +400,13 @@ export async function syncScreenTimeLockState(input: {
     const shouldLock =
       hasExercisesToday && next.unlockedDate !== today && !input.goalsComplete;
 
-    // UserDefaults rejects null — only include unlockedDate when it's a real date string.
+    // Poll remaining budget first — native getRemainingUnlockTime re-locks when
+    // the usage budget is spent (backstop if DeviceActivityMonitor missed it).
+    getTemporaryUnlockState();
+
+    // Persist isActive:true while goals are incomplete so midnight / relock can
+    // re-apply shields. Native applyBlocks already skips shielding while a
+    // temporary unlock budget remains.
     const config: Record<string, unknown> = {
       blockedItems: next.blockedItems,
       isActive: shouldLock,
@@ -201,7 +416,7 @@ export async function syncScreenTimeLockState(input: {
     if (next.unlockedDate) config.unlockedDate = next.unlockedDate;
 
     await native.setBlockConfiguration(
-      config as Parameters<typeof native.setBlockConfiguration>[0],
+      config as unknown as Parameters<typeof native.setBlockConfiguration>[0],
     );
   } catch (error) {
     console.warn('[screen-time-lock] sync failed', error);

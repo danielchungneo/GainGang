@@ -13,8 +13,11 @@ import {
 import {
   deriveScreenTimeLockStatus,
   getScreenTimePermissionGranted,
+  getTemporaryUnlockState,
+  hydrateTemporaryUnlockGrant,
   isScreenTimeLockSupported,
   loadScreenTimeLockPrefs,
+  relockScreenTimeApps,
   requestScreenTimePermission,
   setScreenTimeLockEnabled,
   syncScreenTimeLockState,
@@ -58,7 +61,39 @@ export function useScreenTimeLock() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showUnlockCelebration, setShowUnlockCelebration] = useState(false);
   const [pendingUnlockCelebration, setPendingUnlockCelebration] = useState(false);
+  const [temporaryUnlockActive, setTemporaryUnlockActive] = useState(false);
+  const [temporaryUnlockRemainingSeconds, setTemporaryUnlockRemainingSeconds] =
+    useState(0);
   const wasGoalsComplete = useRef<boolean | null>(null);
+
+  const refreshTemporaryUnlock = useCallback(() => {
+    if (!supported) {
+      setTemporaryUnlockActive(false);
+      setTemporaryUnlockRemainingSeconds(0);
+      return { active: false, remainingSeconds: 0, grantedAt: null, expiresAt: null, budgetSeconds: 0 };
+    }
+    const wasActive = temporaryUnlockActive;
+    const state = getTemporaryUnlockState();
+    setTemporaryUnlockActive(state.active);
+    setTemporaryUnlockRemainingSeconds(state.remainingSeconds);
+    // When a grant just expired, re-sync so shields are definitely active.
+    if (wasActive && !state.active) {
+      void syncScreenTimeLockState({
+        goalsComplete,
+        hasExercisesToday,
+        datesWithExercises,
+      }).then((result) => {
+        setPrefs(result.prefs);
+      });
+    }
+    return state;
+  }, [
+    datesWithExercises,
+    goalsComplete,
+    hasExercisesToday,
+    supported,
+    temporaryUnlockActive,
+  ]);
 
   const refreshPermission = useCallback(async () => {
     if (!supported) {
@@ -85,20 +120,30 @@ export function useScreenTimeLock() {
 
   const runSyncFromStorage = useCallback(async () => {
     if (!supported || !scheduleReady) return;
+    refreshTemporaryUnlock();
     const result = await syncScreenTimeLockState({
       goalsComplete,
       hasExercisesToday,
       datesWithExercises,
     });
     applySyncResult(result);
+    refreshTemporaryUnlock();
   }, [
     applySyncResult,
     datesWithExercises,
     goalsComplete,
     hasExercisesToday,
+    refreshTemporaryUnlock,
     scheduleReady,
     supported,
   ]);
+
+  const lockNow = useCallback(async () => {
+    if (!supported) return;
+    await relockScreenTimeApps();
+    refreshTemporaryUnlock();
+    await runSyncFromStorage();
+  }, [refreshTemporaryUnlock, runSyncFromStorage, supported]);
 
   useEffect(() => {
     if (!supported) {
@@ -108,6 +153,7 @@ export function useScreenTimeLock() {
 
     let cancelled = false;
     void (async () => {
+      await hydrateTemporaryUnlockGrant();
       const loaded = await loadScreenTimeLockPrefs();
       const granted = await getScreenTimePermissionGranted();
       if (cancelled) return;
@@ -125,13 +171,14 @@ export function useScreenTimeLock() {
         setPrefs(loaded);
         setPermissionGranted(granted);
       }
+      refreshTemporaryUnlock();
       setIsReady(true);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [supported]);
+  }, [refreshTemporaryUnlock, supported]);
 
   useEffect(() => {
     if (!supported || !isReady || !scheduleReady) return;
@@ -201,6 +248,16 @@ export function useScreenTimeLock() {
     };
   }, [pendingUnlockCelebration, showUnlockCelebration]);
 
+  // Live countdown while a temporary unlock is active (1s tick for wall-clock expiry).
+  useEffect(() => {
+    if (!supported || !isReady) return;
+    refreshTemporaryUnlock();
+    const interval = setInterval(() => {
+      refreshTemporaryUnlock();
+    }, temporaryUnlockActive ? 1_000 : 5_000);
+    return () => clearInterval(interval);
+  }, [isReady, refreshTemporaryUnlock, supported, temporaryUnlockActive]);
+
   useEffect(() => {
     if (!supported || !isReady) return;
 
@@ -240,6 +297,7 @@ export function useScreenTimeLock() {
     permissionGranted,
     goalsComplete,
     hasExercisesToday,
+    temporaryUnlockActive,
   });
 
   const enable = useCallback(async () => {
@@ -323,6 +381,10 @@ export function useScreenTimeLock() {
     permissionGranted,
     status,
     goalsComplete,
+    temporaryUnlockActive,
+    temporaryUnlockRemainingSeconds,
+    refreshTemporaryUnlock,
+    lockNow,
     showUnlockCelebration,
     dismissUnlockCelebration,
     enable,

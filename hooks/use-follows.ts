@@ -152,6 +152,7 @@ export function useToggleFollow(targetUserId?: string) {
       queryClient.invalidateQueries({ queryKey: queryKeys.followCounts(targetUserId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.profile(targetUserId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(targetUserId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.followingFeed(viewerId) });
     },
   });
 }

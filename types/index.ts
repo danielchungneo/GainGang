@@ -168,6 +168,8 @@ export interface ActivityFeedItem extends Activity {
   comment_count: number;
   /** whether the signed-in user has given kudos */
   has_kudos: boolean;
+  /** Most recent comment, when the activity has any. */
+  latest_comment?: CommentWithAuthor | null;
 }
 
 /** Flattened exercise log used by legacy quest editing screens. */

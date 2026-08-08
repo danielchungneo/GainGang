@@ -114,7 +114,7 @@ export default function SignUpScreen() {
         </>
       ) : (
         <Text style={[type.body, { color: t.body, marginBottom: spacing.xl }]}>
-          Join GainGang and start training with your crew.
+          Join GainGang and start training with your gang.
         </Text>
       )}
 

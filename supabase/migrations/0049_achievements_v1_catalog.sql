@@ -65,7 +65,7 @@ values
   ('first_poke',        'Nudge',              'Poke a gang mate',                                                            'poke',     'social', 1,     false, 'bronze'),
 
   -- Gang
-  ('join_gang',         'Crewed Up',          'Join or create a Gang',                                                       'people',   'gang',  1,      false, 'bronze'),
+  ('join_gang',         'Ganged Up',          'Join or create a Gang',                                                       'people',   'gang',  1,      false, 'bronze'),
   ('gang_goal_assist',  'Team Player',        'Contribute to a gang daily goal',                                             'pulse',    'gang',  1,      false, 'bronze'),
   ('solo_day_clear',    'One Man Army',       'Single-handedly finish a gang day''s collective targets while the Gang has at least 5 members', 'sword', 'gang', null, true, 'legendary'),
 

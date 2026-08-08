@@ -11,7 +11,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced';
 export type Rank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 export type GangPrivacy = 'public' | 'invite_only';
-export type GangRole = 'owner' | 'admin' | 'member';
+export type GangRole = 'owner' | 'captain' | 'member';
 export type ExerciseCategory = 'chest' | 'legs' | 'cardio' | 'back' | 'core';
 export type ExerciseUnit = 'reps' | 'seconds' | 'miles';
 export type ExerciseRequiredEquipment = 'pull_up_bar' | 'weights';
@@ -127,7 +127,10 @@ export type Database = {
           difficulty: Rank;
           current_streak: number;
           longest_streak: number;
-          owner_id: string;
+          owner_id: string | null;
+          is_system: boolean;
+          max_members: number | null;
+          eligible_for_gang_competitions: boolean;
           created_at: string;
         };
         Insert: {
@@ -139,7 +142,10 @@ export type Database = {
           privacy?: GangPrivacy;
           invite_code?: string;
           difficulty?: Rank;
-          owner_id: string;
+          owner_id?: string | null;
+          is_system?: boolean;
+          max_members?: number | null;
+          eligible_for_gang_competitions?: boolean;
         };
         Update: Partial<Database['public']['Tables']['gangs']['Insert']>;
         Relationships: [];
@@ -951,9 +957,38 @@ export type Database = {
         Args: { p_gang_id: string; p_user_id?: string };
         Returns: boolean;
       };
+      is_gang_captain: {
+        Args: { p_gang_id: string; p_user_id?: string };
+        Returns: boolean;
+      };
+      can_manage_weekly_plan: {
+        Args: { p_gang_id: string; p_user_id?: string };
+        Returns: boolean;
+      };
       is_gang_owner: {
         Args: { p_gang_id: string; p_user_id?: string };
         Returns: boolean;
+      };
+      kick_gang_member: {
+        Args: { p_gang_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      set_gang_member_role: {
+        Args: { p_gang_id: string; p_user_id: string; p_role: 'captain' | 'member' };
+        Returns: undefined;
+      };
+      transfer_gang_ownership: {
+        Args: { p_gang_id: string; p_new_owner_id: string };
+        Returns: undefined;
+      };
+      create_system_gang: {
+        Args: {
+          p_name: string;
+          p_description?: string | null;
+          p_icon?: string | null;
+          p_privacy?: GangPrivacy;
+        };
+        Returns: Database['public']['Tables']['gangs']['Row'];
       };
       gang_member_count_on_date: {
         Args: { p_gang_id: string; p_on_date: string; p_timezone?: string };

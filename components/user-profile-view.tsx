@@ -416,7 +416,7 @@ function ProfileAchievementsGrid({
           No badges yet
         </Text>
         <Text style={[type.bodySm, { color: t.body, textAlign: 'center' }]}>
-          Hit goals, keep streaks, and hype your crew to start forging badges.
+          Hit goals, keep streaks, and hype your gang to start forging badges.
         </Text>
       </GlassSurface>
     );

@@ -25,13 +25,13 @@ const SOCIAL_POINTS = [
   {
     icon: 'notifications-outline' as const,
     title: 'Stay motivated',
-    body: 'Get pokes, kudos, and gang updates when your crew needs you.',
+    body: 'Get pokes, kudos, and gang updates when your gang needs you.',
   },
 ];
 
 /**
  * First post-sign-in step for new accounts — enable push / social framing,
- * then continue to join/create crew.
+ * then continue to join/create a gang.
  */
 export default function WelcomeNotificationsScreen() {
   const t = useThemeTokens();

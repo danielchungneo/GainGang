@@ -23,11 +23,11 @@ Living checklist of planned product features. Mark items done as they ship; add 
 - [x] Build multi-step onboarding UI (skip / next / finish)
 - [x] Persist completion so returning users skip onboarding
   - Pre-auth tour: AsyncStorage on device
-  - Post-auth join/create crew: `profiles.onboarding_completed_at`
+  - Post-auth join/create gang: `profiles.onboarding_completed_at`
 - [x] Gate after first launch (before sign-in); deep-link friendly if mid-invite join
 - [x] Optional: request notification / camera permissions in context during onboarding
   - Camera required on push-up/squat demo step; push notifications optional on social step
-- [x] Last pre-auth step is sign up / sign in; new accounts land on notifications then join/create crew
+- [x] Last pre-auth step is sign up / sign in; new accounts land on notifications then join/create gang
 - [x] Camera demo → Great work / Collect Reward → RewardReveal animation
 - [ ] Polish onboarding copy / motion; stick-figure art for demo empty states
 - [ ] Universal Links handoff into onboarding mid-flow if needed

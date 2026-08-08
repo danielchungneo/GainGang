@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
 import { rankForXp } from '@/types';
@@ -12,6 +17,7 @@ import type {
   ActivityExerciseSnapshot,
   ActivityFeedItem,
   ActivityWithExercises,
+  CommentWithAuthor,
   ExerciseCategory,
   ExerciseUnit,
 } from '@/types';
@@ -69,6 +75,10 @@ export function estimateSessionXp(input: {
 /** @deprecated Use estimateSessionXp — real awards are idempotent via xp_awards. */
 export const computeSessionXp = estimateSessionXp;
 
+const FOLLOWING_FEED_PAGE_SIZE = 10;
+
+const ACTIVITY_FEED_SELECT = `${ACTIVITY_SELECT}, author:profiles(id, full_name, username, avatar_url, xp, equipped_level_border_id)`;
+
 /** The social feed for a single gang. */
 export function useGangFeed(gangId: string) {
   const { session } = useAuth();
@@ -80,12 +90,51 @@ export function useGangFeed(gangId: string) {
     queryFn: async (): Promise<ActivityFeedItem[]> => {
       const { data, error } = await supabase
         .from('activities')
-        .select(`${ACTIVITY_SELECT}, author:profiles(id, full_name, username, avatar_url, xp, equipped_level_border_id)`)
+        .select(ACTIVITY_FEED_SELECT)
         .eq('gang_id', gangId)
         .order('updated_at', { ascending: false })
         .limit(50);
       if (error) throw error;
       return hydrateFeed((data ?? []) as ActivityWithAuthor[], userId);
+    },
+  });
+}
+
+/** Paginated feed of activities from people the signed-in user follows. */
+export function useFollowingFeed() {
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
+  return useInfiniteQuery({
+    queryKey: queryKeys.followingFeed(userId),
+    enabled: !!userId,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }): Promise<ActivityFeedItem[]> => {
+      const { data: follows, error: followsError } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId!);
+      if (followsError) throw followsError;
+
+      const followingIds = (follows ?? []).map((row) => row.following_id);
+      const feedUserIds = [userId!, ...followingIds];
+
+      let query = supabase
+        .from('activities')
+        .select(ACTIVITY_FEED_SELECT)
+        .in('user_id', feedUserIds)
+        .order('updated_at', { ascending: false })
+        .limit(FOLLOWING_FEED_PAGE_SIZE);
+
+      if (pageParam) query = query.lt('updated_at', pageParam);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return hydrateFeed((data ?? []) as ActivityWithAuthor[], userId);
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length < FOLLOWING_FEED_PAGE_SIZE) return undefined;
+      return lastPage[lastPage.length - 1]?.updated_at ?? undefined;
     },
   });
 }
@@ -326,6 +375,7 @@ export function useDeleteActivity() {
     onSuccess: (_d, activity) => {
       if (activity.gang_id) queryClient.invalidateQueries({ queryKey: queryKeys.feed(activity.gang_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.followingFeed(userId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.profile(userId) });
     },
   });
@@ -382,6 +432,34 @@ async function attachEngagementCounts<T extends { id: string }>(
   });
 }
 
+async function loadLatestComments(
+  activityIds: string[],
+): Promise<Map<string, CommentWithAuthor>> {
+  const latest = new Map<string, CommentWithAuthor>();
+  if (activityIds.length === 0) return latest;
+
+  const chunkSize = 40;
+  for (let i = 0; i < activityIds.length; i += chunkSize) {
+    const chunk = activityIds.slice(i, i + chunkSize);
+    const { data, error } = await supabase
+      .from('comments')
+      .select('*, author:profiles(id, full_name, username, avatar_url)')
+      .in('activity_id', chunk)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    for (const row of data ?? []) {
+      if (latest.has(row.activity_id)) continue;
+      latest.set(row.activity_id, {
+        ...row,
+        author: row.author as unknown as CommentWithAuthor['author'],
+      } as CommentWithAuthor);
+    }
+  }
+
+  return latest;
+}
+
 async function hydrateFeed(
   rows: ActivityWithAuthor[],
   userId?: string,
@@ -389,6 +467,11 @@ async function hydrateFeed(
   if (rows.length === 0) return [];
   const ids = rows.map((a) => a.id);
   const withCounts = await attachEngagementCounts(rows);
+
+  const commentedIds = withCounts
+    .filter((row) => row.comment_count > 0)
+    .map((row) => row.id);
+  const latestComments = await loadLatestComments(commentedIds);
 
   let myKudos = new Set<string>();
   if (userId) {
@@ -405,6 +488,7 @@ async function hydrateFeed(
     ...a,
     exercises: a.exercises ?? [],
     has_kudos: myKudos.has(a.id),
+    latest_comment: latestComments.get(a.id) ?? null,
   }));
 }
 
@@ -565,6 +649,7 @@ function invalidateActivityQueries(
     });
   }
   queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.followingFeed(userId) });
   queryClient.invalidateQueries({ queryKey: ['quests', 'mine'] });
   queryClient.invalidateQueries({ queryKey: queryKeys.profile(userId) });
   // Level-up crates are granted when XP crosses thresholds.

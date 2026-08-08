@@ -155,6 +155,37 @@ export function ActivityCard({ activity, gangId }: ActivityCardProps) {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {activity.latest_comment ? (
+        <>
+          <View style={{ height: 1, backgroundColor: t.surfaceBorder, opacity: 0.7 }} />
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/activity/[id]', params: { id: activity.id } })}
+            accessibilityRole="button"
+            accessibilityLabel="View comments"
+            className="flex-row items-center gap-2"
+          >
+            <Avatar
+              name={
+                activity.latest_comment.author?.full_name ||
+                activity.latest_comment.author?.username ||
+                'Member'
+              }
+              uri={activity.latest_comment.author?.avatar_url}
+              size={24}
+            />
+            <Text style={{ color: t.body, flex: 1 }} className="text-sm leading-5" numberOfLines={1}>
+              <Text style={{ color: t.heading }} className="font-semibold">
+                {activity.latest_comment.author?.full_name ||
+                  activity.latest_comment.author?.username ||
+                  'Member'}
+              </Text>
+              <Text style={{ color: t.placeholder }}> · </Text>
+              {activity.latest_comment.body}
+            </Text>
+          </TouchableOpacity>
+        </>
+      ) : null}
     </GlassSurface>
   );
 }

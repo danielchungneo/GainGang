@@ -54,6 +54,7 @@ export function useToggleKudos(gangId?: string) {
     },
     onSettled: (_data, _error, variables) => {
       if (feedKey) queryClient.invalidateQueries({ queryKey: feedKey });
+      queryClient.invalidateQueries({ queryKey: queryKeys.followingFeed(userId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });
       if (variables?.activityId) {
         queryClient.invalidateQueries({ queryKey: ['activity', variables.activityId] });
@@ -99,6 +100,7 @@ export function useAddComment(gangId?: string) {
       queryClient.invalidateQueries({ queryKey: queryKeys.comments(activityId) });
       queryClient.invalidateQueries({ queryKey: ['activity', activityId] });
       queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.followingFeed(userId) });
       if (gangId) queryClient.invalidateQueries({ queryKey: queryKeys.feed(gangId) });
     },
   });

@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 
 import { ActivityIndicator, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HapticTab } from "@/components/haptic-tab";
 
@@ -23,8 +24,13 @@ import { useUnopenedCrateCount } from "@/hooks/use-reward-crates";
 
 import { status, useTheme } from "@/lib/gaingang-theme";
 
+const TAB_BAR_CONTENT_HEIGHT = 52;
+const TAB_BAR_TOP_PAD = 6;
+const TAB_BAR_BOTTOM_PAD = 4;
+
 export default function TabLayout() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const { session, isPending } = useAuth();
   const { needsCrewSetup, isLoading: crewLoading } = useNeedsCrewSetup();
   const { needsPostAuthNotifications, isLoading: notifLoading } =
@@ -35,6 +41,9 @@ export default function TabLayout() {
   const unopenedCrates = useUnopenedCrateCount();
   const needsChallengeAttempt = useNeedsWeeklyChallengeAttempt();
   const profileAttention = unreadAlerts + unopenedCrates;
+
+  const tabBarBottomPad = insets.bottom + TAB_BAR_BOTTOM_PAD;
+  const tabBarHeight = TAB_BAR_CONTENT_HEIGHT + TAB_BAR_TOP_PAD + tabBarBottomPad;
 
   const c = theme.colors;
 
@@ -88,11 +97,11 @@ export default function TabLayout() {
 
           borderTopColor: c.border,
 
-          height: 66,
+          height: tabBarHeight,
 
-          paddingTop: 6,
+          paddingTop: TAB_BAR_TOP_PAD,
 
-          paddingBottom: 8,
+          paddingBottom: tabBarBottomPad,
         },
 
         tabBarLabelStyle: {
@@ -113,6 +122,17 @@ export default function TabLayout() {
 
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="flame" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="feed"
+        options={{
+          title: "Feed",
+
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="newspaper-outline" size={size} color={color} />
           ),
         }}
       />

@@ -27,6 +27,7 @@ export const queryKeys = {
   dailyGoal: (dailyGoalId?: string, userId?: string) =>
     ['daily-goals', 'detail', dailyGoalId, userId] as const,
   feed: (gangId: string) => ['feed', gangId] as const,
+  followingFeed: (userId?: string) => ['feed', 'following', userId] as const,
   myActivities: (userId?: string) => ['activities', 'mine', userId] as const,
   questActivity: (questId?: string, userId?: string) =>
     ['activities', 'quest', questId, userId] as const,

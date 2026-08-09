@@ -11,9 +11,19 @@ import { useTheme } from "@/lib/gaingang-theme";
 export interface GlassSurfaceProps extends ViewProps {
   /** 0–100: controls simulated blur opacity on non-iOS (ignored on iOS). */
   intensity?: number;
+  /**
+   * Force an opaque surface fill. Use over dark scrims in light mode so
+   * theme text stays readable (iOS blur would otherwise frost to dark gray).
+   */
+  opaque?: boolean;
 }
 
-export function GlassSurface({ style, children, ...props }: GlassSurfaceProps) {
+export function GlassSurface({
+  style,
+  children,
+  opaque: _opaque,
+  ...props
+}: GlassSurfaceProps) {
   const { theme } = useTheme();
   const c = theme.colors;
   const isDark = theme.mode === "dark";

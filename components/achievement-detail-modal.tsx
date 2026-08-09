@@ -8,7 +8,7 @@ import {
   achievementTierDef,
   resolveAchievementTier,
 } from '@/lib/achievements';
-import { fontFamily, type } from '@/lib/gaingang-theme';
+import { darkTheme, fontFamily, type } from '@/lib/gaingang-theme';
 import type { Achievement } from '@/types';
 
 export interface AchievementDetailModalProps {
@@ -28,6 +28,10 @@ export function AchievementDetailModal({
 }: AchievementDetailModalProps) {
   const t = useThemeTokens();
   if (!achievement) return null;
+
+  // Dark scrim + frosted card: light-mode page tokens (navy) are unreadable here.
+  const heading = t.isLight ? darkTheme.colors.text : t.heading;
+  const body = t.isLight ? darkTheme.colors.textDim : t.body;
 
   const tier = resolveAchievementTier({
     key: achievement.key,
@@ -56,7 +60,13 @@ export function AchievementDetailModal({
     >
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Dismiss">
         <Pressable onPress={(e) => e.stopPropagation()} style={styles.cardWrap}>
-          <GlassSurface style={styles.card}>
+          <GlassSurface
+            opaque={t.isLight}
+            style={[
+              styles.card,
+              t.isLight ? { backgroundColor: darkTheme.colors.surface } : null,
+            ]}
+          >
             <View style={styles.badgeRow}>
               <AchievementBadge
                 icon={achievement.icon}
@@ -66,25 +76,25 @@ export function AchievementDetailModal({
               />
             </View>
 
-            <Text style={[styles.kicker, { color: earned ? tierDef.glow : t.body }]}>
+            <Text style={[styles.kicker, { color: earned ? tierDef.glow : body }]}>
               {earned ? 'UNLOCKED' : 'LOCKED'}
             </Text>
-            <Text style={[styles.title, { color: t.heading }]}>{achievement.title}</Text>
-            <Text style={[styles.tier, { color: earned ? tierDef.glow : t.body }]}>
+            <Text style={[styles.title, { color: heading }]}>{achievement.title}</Text>
+            <Text style={[styles.tier, { color: earned ? tierDef.glow : body }]}>
               {tierDef.name}
             </Text>
 
-            <Text style={[type.bodySm, styles.description, { color: t.body }]}>
+            <Text style={[type.bodySm, styles.description, { color: body }]}>
               {achievement.description}
             </Text>
 
-            <Text style={[styles.meta, { color: t.body }]}>{earnedLabel}</Text>
+            <Text style={[styles.meta, { color: body }]}>{earnedLabel}</Text>
 
             <Pressable
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Close"
-              style={[styles.closeBtn, { borderColor: `${t.heading}22`, backgroundColor: t.buttonBg }]}
+              style={[styles.closeBtn, { borderColor: `${heading}22`, backgroundColor: t.buttonBg }]}
             >
               <Text style={{ fontFamily: fontFamily.bodySemi, fontSize: 15, color: t.heading }}>
                 Close

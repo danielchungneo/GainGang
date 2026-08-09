@@ -13,7 +13,7 @@ import {
   LOCKED_ACHIEVEMENT_TIER,
   type AchievementTier,
 } from '@/lib/achievements';
-import { fontFamily } from '@/lib/gaingang-theme';
+import { fontFamily, useTheme } from '@/lib/gaingang-theme';
 
 export interface AchievementBadgeProps {
   /** Value from `achievements.icon` (e.g. flame, dumbbell). */
@@ -48,7 +48,15 @@ export function AchievementBadge({
   onPress,
   accessibilityLabel,
 }: AchievementBadgeProps) {
+  const { theme } = useTheme();
+  const isLight = theme.mode === 'light';
   const def = earned ? achievementTierDef(tier) : LOCKED_ACHIEVEMENT_TIER;
+  // Glow is tuned for dark surfaces; on light trophy-case glass use the metal border.
+  const titleColor = earned
+    ? isLight
+      ? def.border[1]
+      : def.glow
+    : '#6C7896';
   const framePad = Math.max(def.borderWidth, 2) + (earned ? 2 : 1);
   const bodyW = size;
   const bodyH = size * 1.09;
@@ -112,7 +120,7 @@ export function AchievementBadge({
         <>
           {title ? (
             <Text
-              style={[styles.title, { color: earned ? def.glow : '#6C7896' }]}
+              style={[styles.title, { color: titleColor }]}
               numberOfLines={1}
               ellipsizeMode="tail"
             >

@@ -1,13 +1,22 @@
 /**
  * ActivityShareCard — 9:16 story cards for sharing a day's activity.
  *
+ * Drop-in replacement for components/activity-share-card.tsx.
+ * Same `activity` + `variant` API; `variant` gains 'photo'.
+ *
  * Hero content is the day's exercise list. Streak + total reps sit below.
- * Capture at SHARE_CARD_WIDTH/HEIGHT; use 3x in captureRef for 1080×1920.
+ *
+ * Deps: expo-linear-gradient, react-native-svg, @expo/vector-icons,
+ * react-native-view-shot — all already in package.json. Nothing new.
+ *
+ * Capture:
+ *   captureRef(ref, { format: 'png', quality: 1, result: 'tmpfile' })
+ * Render at SHARE_CARD_WIDTH/HEIGHT; capture at 3x → 1080×1920.
  */
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useId } from 'react';
-import { Image, type ImageSourcePropType, Text, View } from 'react-native';
+import React from 'react';
+import { Image, ImageSourcePropType, Text, View } from 'react-native';
 import Svg, {
   Defs,
   LinearGradient as SvgGradient,
@@ -18,8 +27,8 @@ import Svg, {
 } from 'react-native-svg';
 
 import { Colors, Typography } from '@/brand/constants/brand';
-import { MAX_SHARE_EXERCISES, shareCardData } from '@/components/share-card-data';
 import type { ActivityFeedItem } from '@/types';
+import { MAX_SHARE_EXERCISES, shareCardData } from './share-card-data';
 
 export type ActivityShareVariant = 'branded' | 'transparent' | 'photo';
 
@@ -27,51 +36,29 @@ export type ActivityShareVariant = 'branded' | 'transparent' | 'photo';
 export const SHARE_CARD_WIDTH = 360;
 export const SHARE_CARD_HEIGHT = 640;
 
-/** @deprecated Use SHARE_CARD_HEIGHT — kept for any leftover imports. */
-export const SHARE_CARD_MIN_HEIGHT = SHARE_CARD_HEIGHT;
-
 interface ActivityShareCardProps {
   activity: ActivityFeedItem;
   variant: ActivityShareVariant;
   /** Background image for variant="photo". */
   photo?: ImageSourcePropType;
-  /** Override frame size (photo cards match the chosen image aspect). */
-  width?: number;
-  height?: number;
-}
-
-/** Default empty photo-card frame — 3:4 like a portrait iPhone still. */
-export const PHOTO_CARD_WIDTH = 360;
-export const PHOTO_CARD_HEIGHT = 480;
-
-function svgId(raw: string): string {
-  return raw.replace(/[^a-zA-Z0-9_-]/g, '');
 }
 
 /* ── Brand mark ─────────────────────────────────────────────── */
 
-function Mark({
-  size = 24,
-  mono = false,
-  gradientId,
-}: {
-  size?: number;
-  mono?: boolean;
-  gradientId: string;
-}) {
+function Mark({ size = 24, mono = false }: { size?: number; mono?: boolean }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100">
-      {!mono ? (
+      {!mono && (
         <Defs>
-          <SvgGradient id={gradientId} x1="0.1" y1="0" x2="0.9" y2="1">
+          <SvgGradient id="ggShareMark" x1="0.1" y1="0" x2="0.9" y2="1">
             <Stop offset="0%" stopColor={Colors.systemBlue} />
             <Stop offset="100%" stopColor={Colors.questViolet} />
           </SvgGradient>
         </Defs>
-      ) : null}
+      )}
       <Polygon
         points="50,3 97,26 97,74 50,97 3,74 3,26"
-        fill={mono ? 'rgba(255,255,255,0.94)' : `url(#${gradientId})`}
+        fill={mono ? 'rgba(255,255,255,0.94)' : 'url(#ggShareMark)'}
       />
       <Path
         d="M 22,71 L 50,27 L 78,71 L 64,71 L 50,46 L 36,71 Z"
@@ -81,18 +68,10 @@ function Mark({
   );
 }
 
-function Lockup({
-  mono = false,
-  size = 16,
-  markGradientId,
-}: {
-  mono?: boolean;
-  size?: number;
-  markGradientId: string;
-}) {
+function Lockup({ mono = false, size = 16 }: { mono?: boolean; size?: number }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-      <Mark size={size + 8} mono={mono} gradientId={markGradientId} />
+      <Mark size={size + 8} mono={mono} />
       <Text
         allowFontScaling={false}
         style={{ fontFamily: Typography.display700, fontSize: size, letterSpacing: -0.3 }}
@@ -107,20 +86,17 @@ function Lockup({
 /** Right-aligned gradient numeral. SVG text keeps this to zero new deps. */
 function GradientAmount({
   value,
+  width = 92,
   size = 52,
-  gradientId,
 }: {
   value: string;
+  width?: number;
   size?: number;
-  gradientId: string;
 }) {
-  // Scale width with string length so values like "45s" / "1m 30s" don't clip.
-  const width = Math.max(92, Math.ceil(value.length * size * 0.58));
-
   return (
     <Svg width={width} height={size * 1.02}>
       <Defs>
-        <SvgGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+        <SvgGradient id="ggAmount" x1="0" y1="0" x2="1" y2="1">
           <Stop offset="0%" stopColor={Colors.auraBlue} />
           <Stop offset="55%" stopColor={Colors.systemBlue} />
           <Stop offset="100%" stopColor={Colors.auraViolet} />
@@ -132,7 +108,7 @@ function GradientAmount({
         textAnchor="end"
         fontFamily={Typography.display700}
         fontSize={size}
-        fill={`url(#${gradientId})`}
+        fill="url(#ggAmount)"
       >
         {value}
       </SvgText>
@@ -153,27 +129,13 @@ const monoLabel = (color: string, letterSpacing = 2.4, fontSize = 10) => ({
 /* ── Card ───────────────────────────────────────────────────── */
 
 export const ActivityShareCard = React.forwardRef<View, ActivityShareCardProps>(
-  function ActivityShareCard(
-    { activity, variant, photo, width: widthProp, height: heightProp },
-    ref,
-  ) {
-    const uid = svgId(useId());
-    const markGradientId = `ggShareMark-${uid}`;
-    const amountGradientId = `ggAmount-${uid}`;
-
+  function ActivityShareCard({ activity, variant, photo }, ref) {
     const { exercises, streakDays, totalReps, dateLabel } = shareCardData(activity);
     const list = exercises.slice(0, MAX_SHARE_EXERCISES);
 
-    const defaultWidth =
-      variant === 'photo' ? PHOTO_CARD_WIDTH : SHARE_CARD_WIDTH;
-    const defaultHeight =
-      variant === 'photo' ? PHOTO_CARD_HEIGHT : SHARE_CARD_HEIGHT;
-    const cardWidth = widthProp ?? defaultWidth;
-    const cardHeight = heightProp ?? defaultHeight;
-
     const frame = {
-      width: cardWidth,
-      height: cardHeight,
+      width: SHARE_CARD_WIDTH,
+      height: SHARE_CARD_HEIGHT,
       borderRadius: variant === 'transparent' ? 0 : 24,
       overflow: 'hidden' as const,
       backgroundColor: variant === 'transparent' ? 'transparent' : Colors.void,
@@ -199,10 +161,7 @@ export const ActivityShareCard = React.forwardRef<View, ActivityShareCardProps>(
                   key={`${ex.name}-${i}`}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}
                 >
-                  <GradientAmount
-                    value={ex.amount}
-                    gradientId={`${amountGradientId}-${i}`}
-                  />
+                  <GradientAmount value={ex.amount} />
                   <Text
                     allowFontScaling={false}
                     numberOfLines={1}
@@ -225,7 +184,7 @@ export const ActivityShareCard = React.forwardRef<View, ActivityShareCardProps>(
                 <StatTile label="Day streak" value={String(streakDays)} color={Colors.streak} icon />
                 <StatTile label="Total reps" value={String(totalReps)} />
               </View>
-              <Lockup markGradientId={markGradientId} />
+              <Lockup />
             </View>
           </View>
         </View>
@@ -274,7 +233,7 @@ export const ActivityShareCard = React.forwardRef<View, ActivityShareCardProps>(
                 <View style={{ width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.3)' }} />
                 <MiniStat label="Total reps" value={String(totalReps)} />
               </View>
-              <Lockup mono markGradientId={markGradientId} />
+              <Lockup mono />
             </View>
           </View>
         </View>
@@ -288,7 +247,6 @@ export const ActivityShareCard = React.forwardRef<View, ActivityShareCardProps>(
           <Image
             source={photo}
             style={{ position: 'absolute', width: '100%', height: '100%' }}
-            // Frame is sized to the photo's aspect, so cover shows the full image.
             resizeMode="cover"
           />
         ) : null}
@@ -313,7 +271,7 @@ export const ActivityShareCard = React.forwardRef<View, ActivityShareCardProps>(
             }}
           >
             <Text style={monoLabel('rgba(255,255,255,0.86)')}>{dateLabel}</Text>
-            <Mark size={22} mono gradientId={markGradientId} />
+            <Mark size={22} mono />
           </View>
 
           <View style={{ gap: 20 }}>

@@ -28,10 +28,7 @@ import {
   setCameraSetupSkipped,
 } from '@/lib/rep-counting/setup-preference';
 import type { CameraExerciseType, CameraTrackingMode } from '@/lib/rep-counting/types';
-import {
-  DEV_TEST_UNLOCK_MINUTES,
-  MIN_TEMPORARY_UNLOCK_MINUTES,
-} from '@/lib/screen-time-lock';
+import { MIN_TEMPORARY_UNLOCK_MINUTES } from '@/lib/screen-time-lock';
 import type { ExerciseCategory, ExerciseUnit } from '@/types';
 
 const RepCounterCamera = lazy(() =>
@@ -270,7 +267,7 @@ export default function RepCounterScreen() {
       ? params.unlockMinutes[0]
       : params.unlockMinutes;
     const parsedUnlock = Math.round(Number(unlockRaw));
-    const unlockFloor = __DEV__ ? DEV_TEST_UNLOCK_MINUTES : MIN_TEMPORARY_UNLOCK_MINUTES;
+    const unlockFloor = MIN_TEMPORARY_UNLOCK_MINUTES;
     const unlockMinutes =
       Number.isFinite(parsedUnlock) && parsedUnlock > 0
         ? Math.max(unlockFloor, parsedUnlock)

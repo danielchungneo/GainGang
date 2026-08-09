@@ -121,6 +121,7 @@ export default function EarnScreenTimeScreen() {
     temporaryUnlockRemainingSeconds,
     refreshTemporaryUnlock,
     lockNow,
+    clearDayUnlockAndLock,
   } = useScreenTimeLock();
 
   const { data: goals, isLoading: goalsLoading } = useMyTodaysDailyGoals();
@@ -254,8 +255,25 @@ export default function EarnScreenTimeScreen() {
             </Text>
             <Text style={[type.bodySm, { color: t.body }]}>
               Your apps stay open for the rest of the day. Focus lock returns after
-              midnight on your next workout day.
+              midnight — open GainGang again tomorrow to check for exercises.
             </Text>
+            {__DEV__ ? (
+              <View style={{ gap: 8, marginTop: 8 }}>
+                <Text style={[type.bodySm, { color: t.placeholder }]}>
+                  Dev: if this is wrong (exercises still incomplete), clear the day
+                  unlock stamp and force shields back on.
+                </Text>
+                <Button
+                  label="CLEAR DAY UNLOCK + LOCK"
+                  variant="secondary"
+                  onPress={() => {
+                    void (async () => {
+                      await clearDayUnlockAndLock();
+                    })();
+                  }}
+                />
+              </View>
+            ) : null}
           </GlassSurface>
         ) : status !== 'locked' && status !== 'temporarily_unlocked' ? (
           <GlassSurface style={{ padding: spacing.lg, gap: 8 }}>
@@ -326,9 +344,8 @@ export default function EarnScreenTimeScreen() {
             )}
 
             <Text style={[type.bodySm, { color: t.placeholder, marginTop: 4 }]}>
-              {__DEV__
-                ? 'Dev mode: offers are 1 rep / 1s for 1 minute of screen time.'
-                : 'Each offer unlocks about 15 minutes of time in your restricted apps. Finish every required exercise to unlock for the full day.'}
+              Each offer unlocks about 15 minutes of time in your restricted apps. Finish every
+              required exercise to unlock for the full day.
             </Text>
 
             {__DEV__ && canEarn ? (

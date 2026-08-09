@@ -179,7 +179,7 @@ export function useMyTodaysDailyGoals() {
 
 /**
  * Upcoming local dates (today → ~14 days) that have ≥1 exercise across the
- * user's active gang plans. Used by Focus lock for midnight rest-day awareness.
+ * user's active gang plans.
  */
 export async function fetchMyUpcomingExerciseDates(userId: string): Promise<string[]> {
   const { data: memberships, error: mErr } = await supabase

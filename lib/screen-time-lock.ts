@@ -56,10 +56,11 @@ export const MIN_TEMPORARY_UNLOCK_MINUTES = 15;
 /** Dev-only short unlock for testing re-lock without waiting 15 minutes. */
 export const DEV_TEST_UNLOCK_MINUTES = 1;
 
-/** Extra App Group fields for midnight rest-day / relock (persisted with block config). */
+/** Extra App Group fields for midnight relock (persisted with block config). */
 export interface FocusLockNativeExtras {
   focusLockEnabled: boolean;
-  datesWithExercises: string[];
+  /** @deprecated Ignored by midnight lock; kept for older app installs. */
+  datesWithExercises?: string[];
   unlockedDate?: string;
 }
 
@@ -152,13 +153,14 @@ export function deriveScreenTimeLockStatus(input: {
   if (input.prefs.blockedItems.length === 0) return 'needs_apps';
 
   const today = todayISO();
-  if (
-    !input.hasExercisesToday ||
-    input.prefs.unlockedDate === today ||
-    input.goalsComplete
-  ) {
-    return 'unlocked_today';
+  // Incomplete workout days stay locked even if a stale rest-day unlock stamp lingers.
+  if (input.hasExercisesToday) {
+    if (input.goalsComplete) return 'unlocked_today';
+    if (input.temporaryUnlockActive) return 'temporarily_unlocked';
+    return 'locked';
   }
+  // Rest day: unlock is stamped in sync when the app opens (unlockedDate = today).
+  if (input.prefs.unlockedDate === today) return 'unlocked_today';
   if (input.temporaryUnlockActive) return 'temporarily_unlocked';
   return 'locked';
 }
@@ -339,26 +341,138 @@ export async function relockScreenTimeApps(): Promise<void> {
   }
 }
 
+/** Dev: native ManagedSettings / App Group state (JS status can disagree). */
+export function getNativeFocusLockDebugInfo(): {
+  nativeIsActive: boolean | null;
+  nativeBlockedItemCount: number | null;
+  nativeRemainingUnlockSeconds: number | null;
+  decodedAppTokens: number | null;
+  decodedCategoryTokens: number | null;
+  storeApplicationCount: number | null;
+  storeApplicationsIsNil: boolean | null;
+  selectionAppTokens: number | null;
+  appGroup: string | null;
+  diagnosticsAvailable: boolean;
+  nativeError: string | null;
+} {
+  const empty = {
+    nativeIsActive: null as boolean | null,
+    nativeBlockedItemCount: null as number | null,
+    nativeRemainingUnlockSeconds: null as number | null,
+    decodedAppTokens: null as number | null,
+    decodedCategoryTokens: null as number | null,
+    storeApplicationCount: null as number | null,
+    storeApplicationsIsNil: null as boolean | null,
+    selectionAppTokens: null as number | null,
+    appGroup: null as string | null,
+    diagnosticsAvailable: false,
+    nativeError: null as string | null,
+  };
+  const native = loadNative();
+  if (!native || !isScreenTimeLockSupported()) {
+    return { ...empty, nativeError: 'native_unavailable' };
+  }
+  try {
+    const config = native.getBlockConfiguration?.() as
+      | { blockedItems?: unknown[]; isActive?: boolean }
+      | null
+      | undefined;
+    const remaining = Math.max(0, Math.floor(native.getRemainingUnlockTime() ?? 0));
+
+    let diagnostics: Record<string, unknown> | null = null;
+    let diagnosticsAvailable = false;
+    try {
+      if (typeof native.getShieldDiagnostics === 'function') {
+        diagnostics = native.getShieldDiagnostics() as unknown as Record<
+          string,
+          unknown
+        >;
+        diagnosticsAvailable = diagnostics != null;
+      }
+    } catch (error) {
+      return {
+        ...empty,
+        nativeIsActive: typeof config?.isActive === 'boolean' ? config.isActive : null,
+        nativeBlockedItemCount: Array.isArray(config?.blockedItems)
+          ? config.blockedItems.length
+          : null,
+        nativeRemainingUnlockSeconds: remaining,
+        nativeError: `getShieldDiagnostics failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+
+    return {
+      nativeIsActive: typeof config?.isActive === 'boolean' ? config.isActive : null,
+      nativeBlockedItemCount: Array.isArray(config?.blockedItems)
+        ? config.blockedItems.length
+        : null,
+      nativeRemainingUnlockSeconds: remaining,
+      decodedAppTokens:
+        typeof diagnostics?.decodedAppTokens === 'number'
+          ? diagnostics.decodedAppTokens
+          : null,
+      decodedCategoryTokens:
+        typeof diagnostics?.decodedCategoryTokens === 'number'
+          ? diagnostics.decodedCategoryTokens
+          : null,
+      storeApplicationCount:
+        typeof diagnostics?.storeApplicationCount === 'number'
+          ? diagnostics.storeApplicationCount
+          : null,
+      storeApplicationsIsNil:
+        typeof diagnostics?.storeApplicationsIsNil === 'boolean'
+          ? diagnostics.storeApplicationsIsNil
+          : null,
+      selectionAppTokens:
+        typeof diagnostics?.selectionAppTokens === 'number'
+          ? diagnostics.selectionAppTokens
+          : null,
+      appGroup:
+        typeof diagnostics?.appGroup === 'string' ? diagnostics.appGroup : null,
+      diagnosticsAvailable,
+      nativeError: diagnosticsAvailable
+        ? null
+        : 'getShieldDiagnostics missing — native build may predate the patch',
+    };
+  } catch (error) {
+    return {
+      ...empty,
+      nativeError: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 /** Hydrate persisted grant cache (call on app start / before first status read). */
 export async function hydrateTemporaryUnlockGrant(): Promise<void> {
   await loadTempUnlockGrant();
 }
 
 /**
- * Apply or clear iOS shields from persisted prefs + today's goals / rest day.
+ * Apply or clear iOS shields from persisted prefs + today's schedule / goals.
  * Safe no-op on non-iOS or when the native module is unavailable.
  * `justUnlocked` is true only when this sync newly sets unlockedDate because
- * workout goals were completed (not rest days).
+ * workout goals were completed (not rest-day open unlocks).
+ *
+ * Midnight always starts locked. Opening the app unlocks for the day when
+ * there are no exercises; otherwise unlock requires finishing goals (or a
+ * temporary earn grant).
  */
 export async function syncScreenTimeLockState(input: {
   prefs?: ScreenTimeLockPrefs;
   goalsComplete: boolean;
   hasExercisesToday: boolean;
+  /**
+   * False when today's goals could not be fetched (loading/error). Freezes all
+   * unlock-stamp changes so a transient fetch failure can neither grant a
+   * rest-day unlock nor revoke an earned one. Shields still apply fail-safe.
+   */
+  goalsKnown?: boolean;
   datesWithExercises?: string[];
 }): Promise<{ prefs: ScreenTimeLockPrefs; justUnlocked: boolean }> {
   const prefs = input.prefs ?? (await loadScreenTimeLockPrefs());
   const native = loadNative();
-  const datesWithExercises = input.datesWithExercises ?? [];
 
   if (!native || !isScreenTimeLockSupported()) {
     return { prefs, justUnlocked: false };
@@ -367,6 +481,7 @@ export async function syncScreenTimeLockState(input: {
   const today = todayISO();
   const hasSelection = prefs.blockedItems.length > 0;
   const hasExercisesToday = input.hasExercisesToday;
+  const goalsKnown = input.goalsKnown !== false;
 
   let next = prefs;
   let justUnlocked = false;
@@ -375,16 +490,24 @@ export async function syncScreenTimeLockState(input: {
     next = { ...prefs, unlockedDate: null };
   }
 
-  // Only celebrate / stamp unlockedDate when goals are done on a workout day.
-  if (
-    next.enabled &&
-    hasSelection &&
-    hasExercisesToday &&
-    input.goalsComplete &&
-    next.unlockedDate !== today
-  ) {
-    next = { ...next, unlockedDate: today };
-    justUnlocked = true;
+  if (next.enabled && hasSelection && goalsKnown) {
+    if (hasExercisesToday && !input.goalsComplete) {
+      // Workout day incomplete — drop a same-day unlock stamp (false rest day,
+      // mid-day plan edits, or goals that hydrated after an empty fetch).
+      if (next.unlockedDate === today) {
+        next = { ...next, unlockedDate: null };
+      }
+    } else if (!hasExercisesToday && next.unlockedDate !== today) {
+      // No exercises today — opening the app is enough to unlock for the day.
+      next = { ...next, unlockedDate: today };
+    } else if (
+      hasExercisesToday &&
+      input.goalsComplete &&
+      next.unlockedDate !== today
+    ) {
+      next = { ...next, unlockedDate: today };
+      justUnlocked = true;
+    }
   }
 
   if (next !== prefs) {
@@ -404,20 +527,37 @@ export async function syncScreenTimeLockState(input: {
     // the usage budget is spent (backstop if DeviceActivityMonitor missed it).
     getTemporaryUnlockState();
 
-    // Persist isActive:true while goals are incomplete so midnight / relock can
-    // re-apply shields. Native applyBlocks already skips shielding while a
-    // temporary unlock budget remains.
+    // Persist isActive:true while locked so midnight / relock can re-apply
+    // shields. Native applyBlocks already skips shielding while a temporary
+    // unlock budget remains.
     const config: Record<string, unknown> = {
       blockedItems: next.blockedItems,
       isActive: shouldLock,
       focusLockEnabled: true,
-      datesWithExercises,
     };
     if (next.unlockedDate) config.unlockedDate = next.unlockedDate;
+    // Full FamilyActivitySelection blob — native prefers this over per-item tokens.
+    if (next.selectionData) config.selectionData = next.selectionData;
 
     await native.setBlockConfiguration(
       config as unknown as Parameters<typeof native.setBlockConfiguration>[0],
     );
+
+    // Verify shields actually landed in ManagedSettings. getShieldDiagnostics
+    // also force re-applies the current config on the main thread as a
+    // self-heal (it respects active temporary unlocks and inactive configs).
+    if (shouldLock && typeof native.getShieldDiagnostics === 'function') {
+      const diag = native.getShieldDiagnostics();
+      if (
+        diag?.storeApplicationsIsNil === true &&
+        !getTemporaryUnlockState().active
+      ) {
+        console.warn(
+          '[screen-time-lock] shields empty after sync — ManagedSettings did not apply',
+          diag,
+        );
+      }
+    }
   } catch (error) {
     console.warn('[screen-time-lock] sync failed', error);
   }
@@ -428,7 +568,11 @@ export async function syncScreenTimeLockState(input: {
 export async function setScreenTimeLockEnabled(
   enabled: boolean,
   goalsComplete: boolean,
-  options: { hasExercisesToday: boolean; datesWithExercises?: string[] } = {
+  options: {
+    hasExercisesToday: boolean;
+    goalsKnown?: boolean;
+    datesWithExercises?: string[];
+  } = {
     hasExercisesToday: true,
   },
 ): Promise<{ prefs: ScreenTimeLockPrefs; justUnlocked: boolean }> {
@@ -443,6 +587,7 @@ export async function setScreenTimeLockEnabled(
     prefs: next,
     goalsComplete,
     hasExercisesToday: options.hasExercisesToday,
+    goalsKnown: options.goalsKnown,
     datesWithExercises: options.datesWithExercises,
   });
 }
@@ -454,6 +599,7 @@ export async function updateScreenTimeSelection(input: {
   totalCategories: number;
   goalsComplete: boolean;
   hasExercisesToday: boolean;
+  goalsKnown?: boolean;
   datesWithExercises?: string[];
 }): Promise<{ prefs: ScreenTimeLockPrefs; justUnlocked: boolean }> {
   const prefs = await loadScreenTimeLockPrefs();
@@ -469,6 +615,7 @@ export async function updateScreenTimeSelection(input: {
     prefs: next,
     goalsComplete: input.goalsComplete,
     hasExercisesToday: input.hasExercisesToday,
+    goalsKnown: input.goalsKnown,
     datesWithExercises: input.datesWithExercises,
   });
 }

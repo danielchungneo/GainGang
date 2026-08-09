@@ -2,10 +2,7 @@ import {
   getCameraExerciseType,
   supportsCameraTracking,
 } from '@/lib/rep-counting/exercise-registry';
-import {
-  DEV_TEST_UNLOCK_MINUTES,
-  MIN_TEMPORARY_UNLOCK_MINUTES,
-} from '@/lib/screen-time-lock';
+import { MIN_TEMPORARY_UNLOCK_MINUTES } from '@/lib/screen-time-lock';
 import type {
   DailyGoalExerciseWithProgress,
   DailyGoalWithProgress,
@@ -42,8 +39,8 @@ interface QuickEarnTemplate {
   label: string;
 }
 
-/** Production quick-earn catalog. */
-const PROD_QUICK_EARN_TEMPLATES: QuickEarnTemplate[] = [
+/** Quick-earn catalog — amounts match ~15 minutes of screen time. */
+export const QUICK_EARN_TEMPLATES: QuickEarnTemplate[] = [
   {
     nameIncludes: 'push',
     amount: 10,
@@ -74,48 +71,9 @@ const PROD_QUICK_EARN_TEMPLATES: QuickEarnTemplate[] = [
   },
 ];
 
-/** Dev catalog: 1 rep / 1s → 1 minute unlock for fast end-to-end testing. */
-const DEV_QUICK_EARN_TEMPLATES: QuickEarnTemplate[] = [
-  {
-    nameIncludes: 'push',
-    amount: 1,
-    unit: 'reps',
-    minutes: DEV_TEST_UNLOCK_MINUTES,
-    label: '1 push-up',
-  },
-  {
-    nameIncludes: 'plank',
-    amount: 1,
-    unit: 'seconds',
-    minutes: DEV_TEST_UNLOCK_MINUTES,
-    label: '1s plank',
-  },
-  {
-    nameIncludes: 'squat',
-    amount: 1,
-    unit: 'reps',
-    minutes: DEV_TEST_UNLOCK_MINUTES,
-    label: '1 squat',
-  },
-  {
-    nameIncludes: 'sit',
-    amount: 1,
-    unit: 'reps',
-    minutes: DEV_TEST_UNLOCK_MINUTES,
-    label: '1 sit-up',
-  },
-];
-
-/** Fixed quick-earn catalog — resolved against the live exercise table by name. */
-export const QUICK_EARN_TEMPLATES: QuickEarnTemplate[] = __DEV__
-  ? DEV_QUICK_EARN_TEMPLATES
-  : PROD_QUICK_EARN_TEMPLATES;
-
-const DAILY_REP_CHUNK = __DEV__ ? 1 : 10;
-const DAILY_HOLD_CHUNK = __DEV__ ? 1 : 30;
-const EARN_UNLOCK_MINUTES = __DEV__
-  ? DEV_TEST_UNLOCK_MINUTES
-  : MIN_TEMPORARY_UNLOCK_MINUTES;
+const DAILY_REP_CHUNK = 10;
+const DAILY_HOLD_CHUNK = 30;
+const EARN_UNLOCK_MINUTES = MIN_TEMPORARY_UNLOCK_MINUTES;
 
 function remainingFor(ex: DailyGoalExerciseWithProgress): number {
   return Math.max(0, Math.round(ex.individual_target - ex.user_total));
@@ -149,7 +107,6 @@ function findDailyMatch(
 /**
  * Build "from today's plan" offers: a small chunk and (when more remains) finish.
  * Only camera-trackable required exercises with remaining work are included.
- * In __DEV__, chunks are 1 rep / 1s for 1 minute unlocks.
  */
 export function buildDailyChunkOffers(goals: DailyGoalWithProgress[]): EarnOffer[] {
   const offers: EarnOffer[] = [];
@@ -184,8 +141,7 @@ export function buildDailyChunkOffers(goals: DailyGoalWithProgress[]): EarnOffer
         category: exercise.category,
       });
 
-      // Skip "finish exercise" offers in dev — the 1-rep chunk is enough to test.
-      if (!__DEV__ && remaining > chunkAmount) {
+      if (remaining > chunkAmount) {
         offers.push({
           id: `daily-finish:${exercise.id}:${remaining}`,
           kind: 'daily_chunk',

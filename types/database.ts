@@ -1038,6 +1038,18 @@ export type Database = {
         Args: { p_gang_id: string; p_limit?: number };
         Returns: Json;
       };
+      needs_gang_war_attempts: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      get_gang_war_member_contributions: {
+        Args: { p_match_id: string; p_gang_id: string };
+        Returns: Json;
+      };
+      get_gang_war_day_member_contributions: {
+        Args: { p_match_id: string; p_gang_id: string; p_day_on: string };
+        Returns: Json;
+      };
       mark_gang_war_seen: {
         Args: { p_match_id: string; p_kind: string };
         Returns: Json;

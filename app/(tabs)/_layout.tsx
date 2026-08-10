@@ -21,6 +21,8 @@ import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 
 import { useUnopenedCrateCount } from "@/hooks/use-reward-crates";
 
+import { useNeedsGangWarAttempts } from "@/hooks/use-gang-wars";
+
 import { status, useTheme } from "@/lib/gaingang-theme";
 
 const TAB_BAR_CONTENT_HEIGHT = 58;
@@ -39,6 +41,7 @@ export default function TabLayout() {
   const unreadAlerts = useUnreadNotificationCount();
   const unopenedCrates = useUnopenedCrateCount();
   const profileAttention = unreadAlerts + unopenedCrates;
+  const needsWarAttempts = useNeedsGangWarAttempts();
 
   const tabBarBottomPad = insets.bottom + TAB_BAR_BOTTOM_PAD;
   const tabBarHeight = TAB_BAR_CONTENT_HEIGHT + TAB_BAR_TOP_PAD + tabBarBottomPad;
@@ -151,6 +154,10 @@ export default function TabLayout() {
         name="war"
         options={{
           title: "War",
+
+          tabBarBadge: needsWarAttempts ? "" : undefined,
+
+          tabBarBadgeStyle: badgeStyle,
 
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="sword-cross" size={size} color={color} />

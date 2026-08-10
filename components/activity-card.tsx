@@ -10,6 +10,7 @@ import { StreakPill } from '@/components/ui/streak-pill';
 import { useCosmeticCatalog } from '@/hooks/use-cosmetics';
 import { useToggleKudos } from '@/hooks/use-social';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { isSystemActivityNote } from '@/lib/consolidate-feed-activities';
 import { formatAmount, timeAgo } from '@/lib/format';
 import { pushUserProfile } from '@/lib/navigate-profile';
 import { levelFromXp, type ActivityFeedItem } from '@/types';
@@ -103,16 +104,16 @@ export function ActivityCard({ activity, gangId }: ActivityCardProps) {
         ))}
       </View>
 
-      {activity.notes ? (
+      {activity.notes && !isSystemActivityNote(activity.notes) ? (
         <Text style={{ color: t.body }} className="text-sm leading-5">
           {activity.notes}
         </Text>
       ) : null}
 
-      {exercises.some((e) => e.notes) ? (
+      {exercises.some((e) => e.notes && !isSystemActivityNote(e.notes)) ? (
         <View style={{ gap: 4 }}>
           {exercises
-            .filter((e) => e.notes)
+            .filter((e) => e.notes && !isSystemActivityNote(e.notes))
             .map((exercise) => (
               <Text key={exercise.id} style={{ color: t.body }} className="text-sm leading-5">
                 <Text style={{ color: t.heading }} className="font-semibold">

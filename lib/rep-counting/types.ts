@@ -20,7 +20,14 @@ export type CameraExerciseType =
 /** Rep exercises count reps; hold exercises track elapsed seconds. */
 export type CameraTrackingMode = 'reps' | 'hold';
 
-export type HoldPhase = 'waiting' | 'countdown' | 'resuming' | 'holding' | 'paused';
+export type HoldPhase =
+  | 'waiting'
+  | 'countdown'
+  | 'resuming'
+  | 'holding'
+  | 'paused'
+  /** Single-attempt challenge mode: form broke after the hold started. */
+  | 'finished';
 
 export interface RepCounterSnapshot {
   repCount: number;

@@ -184,9 +184,14 @@ export class HoldCounter {
   private trackingOk = false;
   private fullyInFrame = false;
   private frameMessage: string;
+  private readonly endOnBreak: boolean;
 
-  constructor(private exerciseType: CameraExerciseType = 'plank') {
+  constructor(
+    private exerciseType: CameraExerciseType = 'plank',
+    options: { endOnBreak?: boolean } = {},
+  ) {
     this.frameMessage = 'Get into plank position';
+    this.endOnBreak = options.endOnBreak === true;
   }
 
   reset() {
@@ -241,6 +246,30 @@ export class HoldCounter {
     this.readyFrames = 0;
   }
 
+  /** Challenge mode: lock the score on the first form break after holding starts. */
+  private finishHold(message: string) {
+    if (this.holdSegmentStartedAt !== null) {
+      this.accumulatedMs += Date.now() - this.holdSegmentStartedAt;
+      this.holdSegmentStartedAt = null;
+    }
+    this.phase = 'finished';
+    this.resumeStartedAt = null;
+    this.countdownStartedAt = null;
+    this.countdownRemaining = 0;
+    this.readyFrames = 0;
+    this.breakFrames = 0;
+    this.frameMessage = message || 'Form broke — hold complete';
+  }
+
+  private breakActiveHold(message: string) {
+    if (this.endOnBreak) {
+      this.finishHold(message);
+      return;
+    }
+    this.pauseHold();
+    this.frameMessage = message;
+  }
+
   private enterWaiting(message: string) {
     this.phase = 'waiting';
     this.readyFrames = 0;
@@ -261,6 +290,10 @@ export class HoldCounter {
   }
 
   processFrame(landmarks: Landmark[]): HoldCounterSnapshot {
+    if (this.phase === 'finished') {
+      return this.snapshot();
+    }
+
     const frameCheck = checkBodyInFrame(landmarks, this.exerciseType);
     this.fullyInFrame = frameCheck.ok;
     this.frameMessage = frameCheck.message;
@@ -271,8 +304,7 @@ export class HoldCounter {
         // Grace period so brief visibility dips (e.g. chin tuck) don't pause.
         this.breakFrames++;
         if (this.breakFrames >= BREAK_FRAMES) {
-          this.pauseHold();
-          this.frameMessage = frameCheck.message || 'Get back in frame';
+          this.breakActiveHold(frameCheck.message || 'Get back in frame');
         }
       } else if (this.phase === 'countdown') {
         this.enterWaiting(frameCheck.message || 'Get into plank position');
@@ -294,8 +326,7 @@ export class HoldCounter {
         (this.phase === 'holding' || this.phase === 'resuming') &&
         this.breakFrames >= BREAK_FRAMES
       ) {
-        this.pauseHold();
-        this.frameMessage = pose.message;
+        this.breakActiveHold(pose.message);
       } else if (this.phase === 'countdown') {
         this.enterWaiting(pose.message);
       } else if (this.phase === 'paused') {
@@ -371,6 +402,9 @@ export class HoldCounter {
   }
 }
 
-export function createHoldCounter(type: CameraExerciseType = 'plank'): HoldCounter {
-  return new HoldCounter(type);
+export function createHoldCounter(
+  type: CameraExerciseType = 'plank',
+  options: { endOnBreak?: boolean } = {},
+): HoldCounter {
+  return new HoldCounter(type, options);
 }

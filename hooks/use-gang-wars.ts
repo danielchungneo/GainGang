@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth-context';
+import { useAwardAchievements } from '@/hooks/use-award-achievements';
 import { queryKeys } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
 import type { WarDivision } from '@/types';
@@ -55,6 +56,9 @@ export interface GangWarState {
     war_division: WarDivision | string | null;
   };
   match?: GangWarActiveMatch;
+  /** Highest scoring attempts today that contribute to the gang (up to 2). */
+  my_top_scores: number[];
+  my_attempt_count: number;
   pending_result: GangWarPendingResult | null;
 }
 
@@ -92,9 +96,33 @@ export function useGangWarState(gangId: string | undefined) {
         p_gang_id: gangId!,
       });
       if (error) throw error;
-      return data as unknown as GangWarState;
+      const payload = data as unknown as GangWarState;
+      return {
+        ...payload,
+        my_top_scores: (payload.my_top_scores ?? []).map(Number),
+        my_attempt_count: Number(payload.my_attempt_count ?? 0),
+      };
     },
   });
+}
+
+/** True when the user has an active war and fewer than 2 attempts today for any gang. */
+export function useNeedsGangWarAttempts(): boolean {
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
+  const { data, isLoading } = useQuery({
+    queryKey: queryKeys.needsGangWarAttempts(userId),
+    enabled: !!userId,
+    queryFn: async (): Promise<boolean> => {
+      const { data: needs, error } = await supabase.rpc('needs_gang_war_attempts');
+      if (error) throw error;
+      return !!needs;
+    },
+  });
+
+  if (isLoading || data == null) return false;
+  return data;
 }
 
 export function useGangWarHistory(gangId: string | undefined) {
@@ -120,6 +148,7 @@ export function useSubmitGangWarAttempt() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user.id;
+  const awardAchievements = useAwardAchievements();
 
   return useMutation({
     mutationFn: async (vars: {
@@ -136,9 +165,111 @@ export function useSubmitGangWarAttempt() {
       return data as unknown as SubmitGangWarAttemptResult;
     },
     onSuccess: (_data, vars) => {
+      void awardAchievements();
       void queryClient.invalidateQueries({
         queryKey: queryKeys.gangWarState(vars.gangId, userId),
       });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.needsGangWarAttempts(userId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['gang-wars', 'member-contributions'],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['gang-wars', 'day-member-contributions'],
+      });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.feed(vars.gangId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.followingFeed(userId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.profile(userId) });
+    },
+  });
+}
+
+export interface GangWarMemberContribution {
+  user_id: string | null;
+  full_name: string;
+  avatar_url: string | null;
+  contribution: number;
+}
+
+export interface GangWarMemberContributions {
+  ok: boolean;
+  gang_id: string;
+  gang_name: string;
+  is_bot: boolean;
+  members: GangWarMemberContribution[];
+}
+
+export interface GangWarDayMemberContributions {
+  ok: boolean;
+  gang_id: string;
+  gang_name: string;
+  is_bot: boolean;
+  day_on: string;
+  exercise_name: string;
+  unit: string;
+  gang_day_total: number;
+  members: GangWarMemberContribution[];
+}
+
+export function useGangWarMemberContributions(
+  matchId: string | undefined,
+  gangId: string | undefined,
+  enabled = true,
+) {
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
+  return useQuery({
+    queryKey: queryKeys.gangWarMemberContributions(matchId, gangId, userId),
+    enabled: !!matchId && !!gangId && !!userId && enabled,
+    queryFn: async (): Promise<GangWarMemberContributions> => {
+      const { data, error } = await supabase.rpc('get_gang_war_member_contributions', {
+        p_match_id: matchId!,
+        p_gang_id: gangId!,
+      });
+      if (error) throw error;
+      const payload = data as unknown as GangWarMemberContributions;
+      return {
+        ...payload,
+        members: (payload.members ?? []).map((m) => ({
+          ...m,
+          contribution: Number(m.contribution ?? 0),
+        })),
+      };
+    },
+  });
+}
+
+export function useGangWarDayMemberContributions(
+  matchId: string | undefined,
+  gangId: string | undefined,
+  dayOn: string | undefined,
+  enabled = true,
+) {
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
+  return useQuery({
+    queryKey: queryKeys.gangWarDayMemberContributions(matchId, gangId, dayOn, userId),
+    enabled: !!matchId && !!gangId && !!dayOn && !!userId && enabled,
+    queryFn: async (): Promise<GangWarDayMemberContributions> => {
+      const { data, error } = await supabase.rpc('get_gang_war_day_member_contributions', {
+        p_match_id: matchId!,
+        p_gang_id: gangId!,
+        p_day_on: dayOn!,
+      });
+      if (error) throw error;
+      const payload = data as unknown as GangWarDayMemberContributions;
+      return {
+        ...payload,
+        gang_day_total: Number(payload.gang_day_total ?? 0),
+        members: (payload.members ?? []).map((m) => ({
+          ...m,
+          contribution: Number(m.contribution ?? 0),
+        })),
+      };
     },
   });
 }

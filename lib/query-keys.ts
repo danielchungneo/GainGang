@@ -49,6 +49,20 @@ export const queryKeys = {
     ['gang-wars', 'state', gangId, userId] as const,
   gangWarHistory: (gangId?: string, userId?: string) =>
     ['gang-wars', 'history', gangId, userId] as const,
+  needsGangWarAttempts: (userId?: string) =>
+    ['gang-wars', 'needs-attempts', userId] as const,
+  gangWarMemberContributions: (
+    matchId?: string,
+    gangId?: string,
+    userId?: string,
+  ) => ['gang-wars', 'member-contributions', matchId, gangId, userId] as const,
+  gangWarDayMemberContributions: (
+    matchId?: string,
+    gangId?: string,
+    dayOn?: string,
+    userId?: string,
+  ) =>
+    ['gang-wars', 'day-member-contributions', matchId, gangId, dayOn, userId] as const,
   achievements: () => ['achievements'] as const,
   userAchievements: (userId?: string) => ['achievements', 'user', userId] as const,
   notifications: (userId?: string) => ['notifications', userId] as const,

@@ -12,25 +12,32 @@ import {
 } from 'react-native';
 
 import { GangBannerWithDivisionBorder } from '@/components/gang-banner-with-division-border';
+import { GangSelector } from '@/components/gang-selector';
+import { GangWarContributionsSheet } from '@/components/gang-war-contributions-sheet';
+import { GangWarDayBreakdownSheet } from '@/components/gang-war-day-breakdown-sheet';
 import { GangWarMatchupOverlay } from '@/components/gang-war-matchup-overlay';
 import { GangWarResultOverlay } from '@/components/gang-war-result-overlay';
-import { GangSelector } from '@/components/gang-selector';
 import { Button, GlassSurface, ScreenBackground } from '@/components/ui';
-import { useMyGangs } from '@/hooks/use-gangs';
 import {
   useGangWarHistory,
   useGangWarState,
   useMarkGangWarSeen,
+  type GangWarDayRow,
 } from '@/hooks/use-gang-wars';
+import { useMyGangs } from '@/hooks/use-gangs';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { formatAmount } from '@/lib/format';
+import { fontFamily, spacing, useTheme } from '@/lib/gaingang-theme';
 import {
   isWarDivision,
   WAR_DIVISION_LABELS,
 } from '@/lib/gang-wars/divisions';
-import { fontFamily, spacing, useTheme } from '@/lib/gaingang-theme';
 import { isRepCounterNativeSupported } from '@/lib/rep-counting/platform';
-import type { WarDivision } from '@/types';
+import type { ExerciseUnit, WarDivision } from '@/types';
+
+const US_BAR = '#4ADE80';
+const THEM_BAR = '#F87171';
 
 function divisionLabel(value: string | null | undefined): string {
   if (isWarDivision(value)) return WAR_DIVISION_LABELS[value];
@@ -56,6 +63,11 @@ export default function WarScreen() {
   const { data: gangs, isLoading: gangsLoading, refetch: refetchGangs } = useMyGangs();
   const [selectedGangId, setSelectedGangId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [contributionsGang, setContributionsGang] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [dayBreakdown, setDayBreakdown] = useState<GangWarDayRow | null>(null);
 
   const gangId = selectedGangId ?? gangs?.[0]?.id;
   const selectedGang = gangs?.find((g) => g.id === gangId);
@@ -85,14 +97,15 @@ export default function WarScreen() {
     [war?.match?.days],
   );
 
-  const leading =
-    war?.match != null
-      ? Number(war.match.our_score) === Number(war.match.their_score)
-        ? 'tie'
-        : Number(war.match.our_score) > Number(war.match.their_score)
-          ? 'us'
-          : 'them'
-      : null;
+  const todayUnit: ExerciseUnit =
+    todayDay?.unit === 'seconds' ? 'seconds' : 'reps';
+  const topScores = war?.my_top_scores ?? [];
+
+  const ourWeekScore = Math.round(Number(war?.match?.our_score ?? 0));
+  const theirWeekScore = Math.round(Number(war?.match?.their_score ?? 0));
+  const weekScoreTotal = ourWeekScore + theirWeekScore;
+  const ourBarShare = weekScoreTotal > 0 ? ourWeekScore / weekScoreTotal : 0.5;
+  const theirBarShare = weekScoreTotal > 0 ? theirWeekScore / weekScoreTotal : 0.5;
 
   const pendingResult = war?.pending_result ?? null;
   const showResultOverlay = !!pendingResult && !!gangId;
@@ -198,11 +211,13 @@ export default function WarScreen() {
           </GlassSurface>
         ) : (
           <>
-            <GangSelector
-              gangs={gangs}
-              selectedId={gangId!}
-              onSelect={setSelectedGangId}
-            />
+            {gangs.length > 1 ? (
+              <GangSelector
+                gangs={gangs}
+                selectedId={gangId!}
+                onSelect={setSelectedGangId}
+              />
+            ) : null}
 
             {showHistory ? (
               <View style={{ gap: spacing.sm }}>
@@ -301,9 +316,139 @@ export default function WarScreen() {
               </GlassSurface>
             ) : war?.match ? (
               <View style={{ gap: spacing.md }}>
+                {todayDay ? (
+                  <GlassSurface style={{ padding: spacing.md, gap: spacing.sm }}>
+                    <View className="flex-row items-start justify-between gap-3">
+                      <View style={{ flex: 1, gap: 4 }}>
+                        <Text
+                          style={{
+                            color: t.accent,
+                            fontSize: 11,
+                            letterSpacing: 1.2,
+                            fontFamily: fontFamily.bodySemi,
+                          }}
+                        >
+                          TODAY'S CHALLENGE
+                        </Text>
+                        <View className="flex-row items-center gap-2">
+                          <Text
+                            style={{
+                              flexShrink: 1,
+                              fontFamily: fontFamily.display,
+                              color: t.heading,
+                              fontSize: 22,
+                            }}
+                            numberOfLines={1}
+                          >
+                            {todayDay.exercise_name}
+                          </Text>
+                          <View
+                            style={{
+                              backgroundColor: theme.colors.primary,
+                              paddingHorizontal: 9,
+                              paddingVertical: 5,
+                              borderRadius: 8,
+                              minWidth: 40,
+                              alignItems: 'center',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontFamily: fontFamily.bodySemi,
+                                fontSize: 12,
+                                fontVariant: ['tabular-nums'],
+                                color: '#FFFFFF',
+                                letterSpacing: 0.3,
+                              }}
+                            >
+                              60s
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                      <View className="flex-row items-center gap-1.5 pt-0.5">
+                        <Text
+                          style={{
+                            color: '#F97316',
+                            fontSize: 12,
+                            fontFamily: fontFamily.bodySemi,
+                            textAlign: 'right',
+                          }}
+                        >
+                          Improve Your Scores
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View className="flex-row gap-2">
+                      {[0, 1].map((slot) => {
+                        const score = topScores[slot];
+                        const hasScore = score != null;
+                        return (
+                          <View
+                            key={slot}
+                            style={{
+                              flex: 1,
+                              gap: 4,
+                              paddingVertical: 12,
+                              paddingHorizontal: 12,
+                              borderRadius: 14,
+                              backgroundColor: 'rgba(77,140,255,0.08)',
+                              borderWidth: 1,
+                              borderColor: hasScore
+                                ? 'rgba(74,222,128,0.28)'
+                                : theme.colors.border,
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: t.placeholder,
+                                fontSize: 11,
+                                letterSpacing: 0.4,
+                                fontFamily: fontFamily.bodySemi,
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {slot === 0 ? 'Best' : '2nd Best'}
+                            </Text>
+                            <Text
+                              style={{
+                                fontFamily: fontFamily.display,
+                                fontSize: 28,
+                                lineHeight: 32,
+                                color: hasScore ? t.heading : t.placeholder,
+                                fontVariant: ['tabular-nums'],
+                              }}
+                              numberOfLines={1}
+                            >
+                              {hasScore ? formatAmount(score, todayUnit) : '---'}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    <Button
+                      label={cameraOk ? 'Go To War' : 'Camera Required'}
+                      onPress={startToday}
+                      disabled={!cameraOk}
+                    />
+                  </GlassSurface>
+                ) : null}
+
                 <GlassSurface style={{ padding: spacing.md, gap: spacing.md }}>
                   <View className="flex-row items-center justify-between gap-2">
-                    <View className="items-center gap-2 flex-1">
+                    <Pressable
+                      className="items-center gap-2 flex-1"
+                      onPress={() =>
+                        setContributionsGang({
+                          id: war.gang.id,
+                          name: war.gang.name,
+                        })
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`View ${war.gang.name} contributions`}
+                    >
                       <GangBannerWithDivisionBorder
                         uri={war.gang.banner_url}
                         name={war.gang.name}
@@ -331,7 +476,7 @@ export default function WarScreen() {
                       >
                         {divisionLabel(war.gang.war_division)}
                       </Text>
-                    </View>
+                    </Pressable>
 
                     <View
                       style={{
@@ -357,7 +502,17 @@ export default function WarScreen() {
                       </Text>
                     </View>
 
-                    <View className="items-center gap-2 flex-1">
+                    <Pressable
+                      className="items-center gap-2 flex-1"
+                      onPress={() =>
+                        setContributionsGang({
+                          id: war.match.opponent.id,
+                          name: war.match.opponent.name,
+                        })
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`View ${war.match.opponent.name} contributions`}
+                    >
                       <GangBannerWithDivisionBorder
                         uri={war.match.opponent.banner_url}
                         name={war.match.opponent.name}
@@ -386,136 +541,80 @@ export default function WarScreen() {
                         {divisionLabel(war.match.opponent.war_division)}
                         {war.match.opponent.is_bot ? ' · Bot' : ''}
                       </Text>
-                    </View>
+                    </Pressable>
                   </View>
 
-                  <View
-                    style={{
-                      height: 1,
-                      backgroundColor: theme.colors.border,
-                      opacity: 0.7,
-                    }}
-                  />
-
-                  <View className="flex-row items-end justify-center gap-8">
-                    <View className="items-center gap-1">
-                      <Text
-                        style={{
-                          color: leading === 'us' ? '#86efac' : t.placeholder,
-                          fontSize: 11,
-                          letterSpacing: 0.8,
-                          textTransform: 'uppercase',
-                          fontFamily: fontFamily.bodySemi,
-                        }}
-                      >
-                        Us
-                      </Text>
-                      <Text
-                        style={{
-                          fontFamily: fontFamily.display,
-                          fontSize: 40,
-                          color: leading === 'us' ? '#86efac' : t.heading,
-                        }}
-                      >
-                        {Math.round(Number(war.match.our_score))}
-                      </Text>
-                    </View>
-                    <Text
+                  <View style={{ gap: 10 }}>
+                    <View
                       style={{
-                        color: t.placeholder,
-                        marginBottom: 10,
-                        fontSize: 18,
+                        height: 28,
+                        borderRadius: 999,
+                        overflow: 'hidden',
+                        flexDirection: 'row',
+                        backgroundColor: 'rgba(148,163,184,0.16)',
                       }}
                     >
-                      –
-                    </Text>
-                    <View className="items-center gap-1">
-                      <Text
-                        style={{
-                          color: leading === 'them' ? '#fca5a5' : t.placeholder,
-                          fontSize: 11,
-                          letterSpacing: 0.8,
-                          textTransform: 'uppercase',
-                          fontFamily: fontFamily.bodySemi,
-                        }}
-                      >
-                        Them
-                      </Text>
-                      <Text
-                        style={{
-                          fontFamily: fontFamily.display,
-                          fontSize: 40,
-                          color: leading === 'them' ? '#fca5a5' : t.heading,
-                        }}
-                      >
-                        {Math.round(Number(war.match.their_score))}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text
-                    style={{
-                      color: t.placeholder,
-                      fontSize: 12,
-                      textAlign: 'center',
-                    }}
-                  >
-                    {leading === 'us'
-                      ? "You're ahead this week"
-                      : leading === 'them'
-                        ? "They're ahead this week"
-                        : 'Tied this week'}
-                  </Text>
-                </GlassSurface>
-
-                {todayDay ? (
-                  <GlassSurface style={{ padding: spacing.md, gap: spacing.sm }}>
-                    <View className="flex-row items-center justify-between">
-                      <View style={{ flex: 1, gap: 4 }}>
-                        <Text
-                          style={{
-                            color: t.accent,
-                            fontSize: 11,
-                            letterSpacing: 1.2,
-                            fontFamily: fontFamily.bodySemi,
-                          }}
-                        >
-                          TODAY'S CHALLENGE
-                        </Text>
-                        <Text
-                          style={{
-                            fontFamily: fontFamily.display,
-                            color: t.heading,
-                            fontSize: 22,
-                          }}
-                        >
-                          {todayDay.exercise_name}
-                        </Text>
-                      </View>
                       <View
                         style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 14,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: 'rgba(77,140,255,0.12)',
+                          flex: Math.max(ourBarShare, weekScoreTotal === 0 ? 0.5 : 0.0001),
+                          backgroundColor: US_BAR,
                         }}
-                      >
-                        <Ionicons name="timer-outline" size={22} color={t.accent} />
+                      />
+                      <View
+                        style={{
+                          flex: Math.max(theirBarShare, weekScoreTotal === 0 ? 0.5 : 0.0001),
+                          backgroundColor: THEM_BAR,
+                        }}
+                      />
+                    </View>
+                    <View className="flex-row items-start justify-between gap-3">
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text
+                          style={{
+                            color: US_BAR,
+                            fontFamily: fontFamily.bodySemi,
+                            fontSize: 13,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {war.gang.name}
+                        </Text>
+                        <Text
+                          style={{
+                            color: t.heading,
+                            fontFamily: fontFamily.display,
+                            fontSize: 18,
+                          }}
+                        >
+                          {formatAmount(ourWeekScore, 'reps')}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1, gap: 2, alignItems: 'flex-end' }}>
+                        <Text
+                          style={{
+                            color: THEM_BAR,
+                            fontFamily: fontFamily.bodySemi,
+                            fontSize: 13,
+                            textAlign: 'right',
+                          }}
+                          numberOfLines={1}
+                        >
+                          {war.match.opponent.name}
+                        </Text>
+                        <Text
+                          style={{
+                            color: t.heading,
+                            fontFamily: fontFamily.display,
+                            fontSize: 18,
+                            textAlign: 'right',
+                          }}
+                        >
+                          {formatAmount(theirWeekScore, 'reps')}
+                        </Text>
                       </View>
                     </View>
-                    <Text style={{ color: t.body, fontSize: 13, lineHeight: 19 }}>
-                      60-second max reps. Your top 2 attempts count for{' '}
-                      {selectedGang?.name ?? 'your gang'}.
-                    </Text>
-                    <Button
-                      label={cameraOk ? 'Go To War' : 'Camera Required'}
-                      onPress={startToday}
-                      disabled={!cameraOk}
-                    />
-                  </GlassSurface>
-                ) : null}
+                  </View>
+                </GlassSurface>
 
                 <GlassSurface style={{ paddingVertical: 6, paddingHorizontal: 4 }}>
                   <View
@@ -532,7 +631,7 @@ export default function WarScreen() {
                         fontSize: 15,
                       }}
                     >
-                      Daily breakdown
+                      Daily Breakdown
                     </Text>
                   </View>
                   {war.match.days.map((day, index) => {
@@ -610,26 +709,50 @@ export default function WarScreen() {
                             {day.is_future ? (
                               <Text style={{ color: t.placeholder, fontSize: 14 }}>—</Text>
                             ) : (
-                              <View className="flex-row items-baseline gap-1.5">
-                                <Text
+                              <View className="flex-row items-center gap-2">
+                                <View className="flex-row items-baseline gap-1.5">
+                                  <Text
+                                    style={{
+                                      fontFamily: fontFamily.bodySemi,
+                                      fontSize: 15,
+                                      color: dayLead === 'us' ? '#86efac' : t.heading,
+                                    }}
+                                  >
+                                    {our}
+                                  </Text>
+                                  <Text style={{ color: t.placeholder, fontSize: 12 }}>:</Text>
+                                  <Text
+                                    style={{
+                                      fontFamily: fontFamily.bodySemi,
+                                      fontSize: 15,
+                                      color: dayLead === 'them' ? '#fca5a5' : t.heading,
+                                    }}
+                                  >
+                                    {their}
+                                  </Text>
+                                </View>
+                                <Pressable
+                                  onPress={() => setDayBreakdown(day)}
+                                  hitSlop={10}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`View ${weekdayName(day.day_on)} contribution details`}
                                   style={{
-                                    fontFamily: fontFamily.bodySemi,
-                                    fontSize: 15,
-                                    color: dayLead === 'us' ? '#86efac' : t.heading,
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: 14,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: 'rgba(77,140,255,0.12)',
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(77,140,255,0.28)',
                                   }}
                                 >
-                                  {our}
-                                </Text>
-                                <Text style={{ color: t.placeholder, fontSize: 12 }}>:</Text>
-                                <Text
-                                  style={{
-                                    fontFamily: fontFamily.bodySemi,
-                                    fontSize: 15,
-                                    color: dayLead === 'them' ? '#fca5a5' : t.heading,
-                                  }}
-                                >
-                                  {their}
-                                </Text>
+                                  <Ionicons
+                                    name="information-circle-outline"
+                                    size={18}
+                                    color={t.accent}
+                                  />
+                                </Pressable>
                               </View>
                             )}
                           </View>
@@ -685,6 +808,32 @@ export default function WarScreen() {
               gangId,
             });
           }}
+        />
+      ) : null}
+
+      {contributionsGang && war?.match ? (
+        <GangWarContributionsSheet
+          matchId={war.match.id}
+          gangId={contributionsGang.id}
+          gangName={contributionsGang.name}
+          visible
+          onClose={() => setContributionsGang(null)}
+          unit="reps"
+        />
+      ) : null}
+
+      {dayBreakdown && war?.match ? (
+        <GangWarDayBreakdownSheet
+          matchId={war.match.id}
+          dayOn={dayBreakdown.day_on}
+          exerciseName={dayBreakdown.exercise_name}
+          unit={dayBreakdown.unit === 'seconds' ? 'seconds' : 'reps'}
+          ourGangId={war.gang.id}
+          ourGangName={war.gang.name}
+          theirGangId={war.match.opponent.id}
+          theirGangName={war.match.opponent.name}
+          visible
+          onClose={() => setDayBreakdown(null)}
         />
       ) : null}
     </ScreenBackground>

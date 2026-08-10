@@ -36,7 +36,14 @@ interface HoldCounterCameraProps {
   targetSeconds?: number;
   /** Resume from a previous hold when returning from review. */
   initialElapsedSeconds?: number;
+  /**
+   * Challenge / max-hold mode: first form break after the timer starts ends
+   * the attempt (no pause/resume). Workout logging leaves this off.
+   */
+  endOnBreak?: boolean;
   onElapsedChange?: (seconds: number) => void;
+  /** Fires once when endOnBreak locks the hold score. */
+  onHoldComplete?: (seconds: number) => void;
   onSnapshot?: (snapshot: HoldCounterSnapshot) => void;
 }
 
@@ -49,7 +56,9 @@ function formatHoldTime(totalSeconds: number): string {
 export function HoldCounterCamera({
   targetSeconds,
   initialElapsedSeconds = 0,
+  endOnBreak = false,
   onElapsedChange,
+  onHoldComplete,
   onSnapshot,
 }: HoldCounterCameraProps) {
   const device = useCameraDevice('front', {
@@ -66,10 +75,11 @@ export function HoldCounterCamera({
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [uiRotation, setUiRotation] = useState<CameraUiRotation>(0);
 
-  const holdCounterRef = useRef(createHoldCounter('plank'));
+  const holdCounterRef = useRef(createHoldCounter('plank', { endOnBreak }));
   const lastElapsedRef = useRef(0);
   const lastCountdownRef = useRef(0);
   const lastPhaseRef = useRef<HoldPhase>('waiting');
+  const holdCompleteFiredRef = useRef(false);
   const lastBridgeAtRef = useRef(0);
   const uiRotationRef = useRef<CameraUiRotation>(uiRotation);
   uiRotationRef.current = uiRotation;
@@ -97,12 +107,13 @@ export function HoldCounterCamera({
   }, [uiRotation]);
 
   useEffect(() => {
-    const counter = createHoldCounter('plank');
-    const seed = initialElapsedSeconds;
+    const counter = createHoldCounter('plank', { endOnBreak });
+    const seed = endOnBreak ? 0 : initialElapsedSeconds;
     if (seed > 0) {
       counter.seedElapsedSeconds(seed);
     }
     holdCounterRef.current = counter;
+    holdCompleteFiredRef.current = false;
     lastElapsedRef.current = seed;
     lastCountdownRef.current = 0;
     lastPhaseRef.current = 'waiting';
@@ -148,6 +159,18 @@ export function HoldCounterCamera({
       if (snapshot.phase === 'holding' && lastPhaseRef.current !== 'holding') {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
+
+      if (
+        snapshot.phase === 'finished' &&
+        lastPhaseRef.current !== 'finished' &&
+        !holdCompleteFiredRef.current
+      ) {
+        holdCompleteFiredRef.current = true;
+        lastElapsedRef.current = snapshot.elapsedSeconds;
+        onElapsedChange?.(snapshot.elapsedSeconds);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        onHoldComplete?.(snapshot.elapsedSeconds);
+      }
       lastPhaseRef.current = snapshot.phase;
 
       if (snapshot.elapsedSeconds > lastElapsedRef.current) {
@@ -165,7 +188,14 @@ export function HoldCounterCamera({
         onElapsedChange?.(snapshot.elapsedSeconds);
       }
     },
-    [hasTarget, onElapsedChange, onSnapshot, targetSeconds, tickFlash],
+    [
+      hasTarget,
+      onElapsedChange,
+      onHoldComplete,
+      onSnapshot,
+      targetSeconds,
+      tickFlash,
+    ],
   );
 
   const handlePoseResultRef = useRef(handlePoseResult);
@@ -249,7 +279,9 @@ export function HoldCounterCamera({
   }
 
   const widestZoom = device.minZoom;
-  const showWarning = phase === 'waiting' || phase === 'paused' || !fullyInFrame || !trackingOk;
+  const holdFinished = phase === 'finished';
+  const showWarning =
+    !holdFinished && (phase === 'waiting' || phase === 'paused' || !fullyInFrame || !trackingOk);
   const targetMet = hasTarget && elapsedSeconds >= targetSeconds!;
 
   return (
@@ -329,7 +361,13 @@ export function HoldCounterCamera({
             </View>
 
             <View style={[hud.hudBottom, compact ? hud.hudBottomCompact : null]}>
-              {phase === 'countdown' ? (
+              {holdFinished ? (
+                <View style={[hud.statusCard, compact ? hud.statusCardCompact : null]}>
+                  <Text style={[hud.statusText, compact ? hud.statusTextCompact : null]}>
+                    {frameMessage || 'Hold complete'}
+                  </Text>
+                </View>
+              ) : phase === 'countdown' ? (
                 <View style={[hud.countdownBadge, compact ? hud.countdownBadgeCompact : null]}>
                   <Text
                     style={[hud.countdownValue, compact ? hud.countdownValueCompact : null]}

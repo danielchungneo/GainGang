@@ -118,6 +118,8 @@ export function useGangWarHistory(gangId: string | undefined) {
 
 export function useSubmitGangWarAttempt() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user.id;
 
   return useMutation({
     mutationFn: async (vars: {
@@ -135,7 +137,7 @@ export function useSubmitGangWarAttempt() {
     },
     onSuccess: (_data, vars) => {
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.gangWarState(vars.gangId),
+        queryKey: queryKeys.gangWarState(vars.gangId, userId),
       });
     },
   });
@@ -143,6 +145,8 @@ export function useSubmitGangWarAttempt() {
 
 export function useMarkGangWarSeen() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user.id;
 
   return useMutation({
     mutationFn: async (vars: {
@@ -157,9 +161,35 @@ export function useMarkGangWarSeen() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_data, vars) => {
+    onMutate: async (vars) => {
+      const key = queryKeys.gangWarState(vars.gangId, userId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<GangWarState>(key);
+
+      if (previous) {
+        if (vars.kind === 'vs' && previous.match) {
+          queryClient.setQueryData<GangWarState>(key, {
+            ...previous,
+            match: { ...previous.match, vs_seen: true },
+          });
+        } else if (vars.kind === 'result') {
+          queryClient.setQueryData<GangWarState>(key, {
+            ...previous,
+            pending_result: null,
+          });
+        }
+      }
+
+      return { previous, key };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous && context.key) {
+        queryClient.setQueryData(context.key, context.previous);
+      }
+    },
+    onSettled: (_data, _err, vars) => {
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.gangWarState(vars.gangId),
+        queryKey: queryKeys.gangWarState(vars.gangId, userId),
       });
     },
   });

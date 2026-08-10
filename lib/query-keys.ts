@@ -45,6 +45,10 @@ export const queryKeys = {
   ) => ['challenges', 'leaderboard', challengeId, scope, gangId ?? ''] as const,
   myChallengeEntry: (challengeId?: string, userId?: string) =>
     ['challenges', 'entry', challengeId, userId] as const,
+  gangWarState: (gangId?: string, userId?: string) =>
+    ['gang-wars', 'state', gangId, userId] as const,
+  gangWarHistory: (gangId?: string, userId?: string) =>
+    ['gang-wars', 'history', gangId, userId] as const,
   achievements: () => ['achievements'] as const,
   userAchievements: (userId?: string) => ['achievements', 'user', userId] as const,
   notifications: (userId?: string) => ['notifications', userId] as const,

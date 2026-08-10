@@ -1,4 +1,7 @@
-import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+
+import { useCallback, useEffect, useState } from "react";
 
 import {
   ActivityIndicator,
@@ -13,16 +16,21 @@ import { DayCompleteWithRewardClaim } from "@/components/day-complete-with-rewar
 import { GoalCompleteOverlay } from "@/components/goal-complete-overlay";
 import { LevelUpWithRewardClaim } from "@/components/level-up-with-reward-claim";
 import { StreakContinueOverlay } from "@/components/streak-continue-overlay";
+import { WeeklyChallengesPanel } from "@/components/weekly-challenges-panel";
 
 import {
   Button,
   GlassSurface,
   LevelBadge,
   ScreenBackground,
-  StreakPill
+  StreakPill,
 } from "@/components/ui";
 
+import { GradientTabSelect } from "@/components/ui/gradient-tab-select";
+
 import { useAuth } from "@/context/auth-context";
+
+import { useCurrentWeeklyChallenge, useNeedsWeeklyChallengeAttempt } from "@/hooks/use-challenges";
 
 import { useEquippedCosmetics } from "@/hooks/use-cosmetics";
 
@@ -42,9 +50,18 @@ import { fontFamily, spacing, type, useTheme } from "@/lib/gaingang-theme";
 
 import { levelFromXp } from "@/types";
 
-import { useCallback } from "react";
-
 import type { DailyGoalSaveCelebrationInput } from "@/lib/daily-goal-celebration";
+
+type GainViewTab = "today" | "challenges";
+
+const VIEW_TAB_DEFS: {
+  key: GainViewTab;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { key: "today", label: "Today", icon: "barbell-outline" },
+  { key: "challenges", label: "Challenges", icon: "trophy-outline" },
+];
 
 export default function TodayScreen() {
   const t = useThemeTokens();
@@ -53,14 +70,27 @@ export default function TodayScreen() {
 
   const { session } = useAuth();
 
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+
+  const [viewTab, setViewTab] = useState<GainViewTab>("today");
+
   const { data: profile } = useProfile();
   const equipped = useEquippedCosmetics(profile);
 
   const { data: gangs } = useMyGangs();
 
-  const { data: dailyGoals, isLoading, refetch } = useMyTodaysDailyGoals();
+  const needsChallengeAttempt = useNeedsWeeklyChallengeAttempt();
 
-  const { isRefreshing, onRefresh } = usePullToRefresh(refetch);
+  const { data: dailyGoals, isLoading, refetch: refetchGoals } =
+    useMyTodaysDailyGoals();
+
+  const { refetch: refetchChallenge } = useCurrentWeeklyChallenge();
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([refetchGoals(), refetchChallenge()]);
+  }, [refetchGoals, refetchChallenge]);
+
+  const { isRefreshing, onRefresh } = usePullToRefresh(refreshAll);
 
   const {
     streakContinue,
@@ -76,6 +106,17 @@ export default function TodayScreen() {
   } = useDailyGoalSaveCelebrations();
 
   const dailyGoalsList = dailyGoals ?? [];
+
+  const viewTabs = VIEW_TAB_DEFS.map((tab) =>
+    tab.key === "challenges"
+      ? { ...tab, showBadge: needsChallengeAttempt }
+      : tab,
+  );
+
+  useEffect(() => {
+    if (tabParam === "challenges") setViewTab("challenges");
+    else if (tabParam === "today") setViewTab("today");
+  }, [tabParam]);
 
   const handleActivitySaved = useCallback(
     (input: DailyGoalSaveCelebrationInput) => {
@@ -141,76 +182,73 @@ export default function TodayScreen() {
           ) : null}
         </View>
 
-        {/* {profile ? (
-          <XPBar
-            level={RANK_ORDER.indexOf(progress.current) + 1}
-            fromTier={progress.current}
-            toTier={progress.next ?? progress.current}
-            currentXp={(profile.xp ?? 0) - floor}
-            targetXp={progress.next ? ceil - floor : 1}
-          />
-        ) : (
-          <GlassSurface style={{ padding: 18, alignItems: "center" }}>
-            <ActivityIndicator color={t.accent} />
-          </GlassSurface>
-        )} */}
+        <GradientTabSelect
+          tabs={viewTabs}
+          selected={viewTab}
+          onSelect={setViewTab}
+        />
 
-        {isLoading ? (
-          <ActivityIndicator color={t.accent} style={{ marginTop: 20 }} />
-        ) : !gangs || gangs.length === 0 ? (
-          <GlassSurface style={{ padding: 20, gap: 12 }}>
-            <Text
-              style={[
-                type.heading,
-                { color: t.heading, fontSize: 22, lineHeight: 28 },
-              ]}
-            >
-              Join a Gang to get Goals
-            </Text>
+        {viewTab === "today" ? (
+          isLoading ? (
+            <ActivityIndicator color={t.accent} style={{ marginTop: 20 }} />
+          ) : !gangs || gangs.length === 0 ? (
+            <GlassSurface style={{ padding: 20, gap: 12 }}>
+              <Text
+                style={[
+                  type.heading,
+                  { color: t.heading, fontSize: 22, lineHeight: 28 },
+                ]}
+              >
+                Join a Gang to get Goals
+              </Text>
 
-            <Text style={[type.bodySm, { color: t.body }]}>
-              Weekly plans with daily goals are issued at the Gang level. Join
-              or create one to start your grind.
-            </Text>
+              <Text style={[type.bodySm, { color: t.body }]}>
+                Weekly plans with daily goals are issued at the Gang level. Join
+                or create one to start your grind.
+              </Text>
 
-            <Button
-              label="FIND A GANG"
-              onPress={() => router.push("/(tabs)/groups")}
-            />
-          </GlassSurface>
-        ) : dailyGoalsList.length === 0 ? (
-          <GlassSurface style={{ padding: 20, gap: 6 }}>
-            <Text
-              style={[
-                {
-                  fontFamily: fontFamily.bodySemi,
-                  fontSize: 18,
-                  color: t.heading,
-                },
-              ]}
-            >
-              No goals for today
-            </Text>
-
-            <Text style={[type.bodySm, { color: t.body }]}>
-              Your Gang leader hasn&apos;t published a weekly plan yet, or today is a rest day.
-            </Text>
-          </GlassSurface>
-        ) : (
-          <View className="gap-3">
-            <Text style={[type.label, { color: theme.colors.textMuted }]}>
-              Today&apos;s goals
-            </Text>
-
-            {dailyGoalsList.map((g) => (
-              <DailyGoalCard
-                key={g.id}
-                goal={g}
-                cameraActions
-                onActivitySaved={handleActivitySaved}
+              <Button
+                label="FIND A GANG"
+                onPress={() => router.push("/(tabs)/groups")}
               />
-            ))}
-          </View>
+            </GlassSurface>
+          ) : dailyGoalsList.length === 0 ? (
+            <GlassSurface style={{ padding: 20, gap: 6 }}>
+              <Text
+                style={[
+                  {
+                    fontFamily: fontFamily.bodySemi,
+                    fontSize: 18,
+                    color: t.heading,
+                  },
+                ]}
+              >
+                No goals for today
+              </Text>
+
+              <Text style={[type.bodySm, { color: t.body }]}>
+                Your Gang leader hasn&apos;t published a weekly plan yet, or today
+                is a rest day.
+              </Text>
+            </GlassSurface>
+          ) : (
+            <View className="gap-3">
+              <Text style={[type.label, { color: theme.colors.textMuted }]}>
+                Today&apos;s goals
+              </Text>
+
+              {dailyGoalsList.map((g) => (
+                <DailyGoalCard
+                  key={g.id}
+                  goal={g}
+                  cameraActions
+                  onActivitySaved={handleActivitySaved}
+                />
+              ))}
+            </View>
+          )
+        ) : (
+          <WeeklyChallengesPanel />
         )}
       </ScrollView>
 
@@ -224,7 +262,7 @@ export default function TodayScreen() {
         />
       ) : null}
 
-      {celebration && !streakContinue && celebration.kind === 'day' ? (
+      {celebration && !streakContinue && celebration.kind === "day" ? (
         <DayCompleteWithRewardClaim
           key={celebrationKey}
           visible
@@ -235,7 +273,7 @@ export default function TodayScreen() {
         />
       ) : null}
 
-      {celebration && !streakContinue && celebration.kind !== 'day' ? (
+      {celebration && !streakContinue && celebration.kind !== "day" ? (
         <GoalCompleteOverlay
           key={celebrationKey}
           visible

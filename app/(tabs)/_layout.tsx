@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { Redirect, Tabs } from "expo-router";
 
@@ -16,8 +16,6 @@ import {
   useNeedsFocusLockIntro,
   useNeedsPostAuthNotifications,
 } from "@/hooks/use-onboarding";
-
-import { useNeedsWeeklyChallengeAttempt } from "@/hooks/use-challenges";
 
 import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 
@@ -40,7 +38,6 @@ export default function TabLayout() {
   const { needsEquipmentPrompt, isLoading: equipmentLoading } = useNeedsEquipmentPrompt();
   const unreadAlerts = useUnreadNotificationCount();
   const unopenedCrates = useUnopenedCrateCount();
-  const needsChallengeAttempt = useNeedsWeeklyChallengeAttempt();
   const profileAttention = unreadAlerts + unopenedCrates;
 
   const tabBarBottomPad = insets.bottom + TAB_BAR_BOTTOM_PAD;
@@ -71,7 +68,7 @@ export default function TabLayout() {
 
   if (needsEquipmentPrompt) return <Redirect href="/welcome-equipment" />;
 
-  const challengeBadgeStyle = {
+  const badgeStyle = {
     backgroundColor: status.danger,
     color: "#FFFFFF",
     fontSize: 10,
@@ -117,7 +114,7 @@ export default function TabLayout() {
         },
       }}
     >
-      {/* Visual order: Feed · Gangs · Gain · Challenges · Profile */}
+      {/* Visual order: Feed · Gangs · Gain · War · Profile */}
       <Tabs.Screen
         name="feed"
         options={{
@@ -151,16 +148,12 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="challenges"
+        name="war"
         options={{
-          title: "Challenges",
-
-          tabBarBadge: needsChallengeAttempt ? "" : undefined,
-
-          tabBarBadgeStyle: challengeBadgeStyle,
+          title: "War",
 
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trophy" size={size} color={color} />
+            <MaterialCommunityIcons name="sword-cross" size={size} color={color} />
           ),
         }}
       />
@@ -177,7 +170,7 @@ export default function TabLayout() {
                 : profileAttention
               : undefined,
 
-          tabBarBadgeStyle: challengeBadgeStyle,
+          tabBarBadgeStyle: badgeStyle,
 
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />

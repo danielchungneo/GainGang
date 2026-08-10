@@ -4,6 +4,8 @@ import { useCallback, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
+import { GangWarMatchupOverlay } from '@/components/gang-war-matchup-overlay';
+import { GangWarResultOverlay } from '@/components/gang-war-result-overlay';
 import { LevelUpOverlay } from '@/components/level-up-overlay';
 import { AchievementUnlockOverlay } from '@/components/achievement-unlock-overlay';
 import { RewardReveal } from '@/components/reward-reveal';
@@ -31,7 +33,10 @@ type AnimationId =
   | 'reward-reveal-c'
   | 'reward-reveal-b'
   | 'reward-reveal-a'
-  | 'reward-reveal-s';
+  | 'reward-reveal-s'
+  | 'gang-war-vs'
+  | 'gang-war-win'
+  | 'gang-war-loss';
 
 interface AnimationDef {
   id: AnimationId;
@@ -130,6 +135,24 @@ const ANIMATIONS: AnimationDef[] = [
     title: 'Reward Reveal · Mythic',
     description: 'Sealed orb charge → burst → claim',
     icon: 'cube',
+  },
+  {
+    id: 'gang-war-vs',
+    title: 'Gang War · Matchup VS',
+    description: 'New weekly matchup reveal (division borders)',
+    icon: 'flash',
+  },
+  {
+    id: 'gang-war-win',
+    title: 'Gang War · Victory',
+    description: 'Scores → division promote → claim war crate',
+    icon: 'trophy',
+  },
+  {
+    id: 'gang-war-loss',
+    title: 'Gang War · Defeat',
+    description: 'Scores → somber demote → continue',
+    icon: 'skull-outline',
   },
 ];
 
@@ -420,6 +443,46 @@ export default function DevAnimationsScreen() {
         achievement={DEV_ACHIEVEMENT}
         onDismiss={dismiss}
       />
+
+      {active === 'gang-war-vs' ? (
+        <GangWarMatchupOverlay
+          key={`gang-war-vs-${playKey}`}
+          ourName="Iron Legion"
+          ourBannerUrl={null}
+          ourDivision="iron"
+          theirName="Bronze Age Bros"
+          theirBannerUrl={null}
+          theirDivision="bronze"
+          onDismiss={dismiss}
+        />
+      ) : null}
+
+      {active === 'gang-war-win' ? (
+        <GangWarResultOverlay
+          key={`gang-war-win-${playKey}`}
+          won
+          division="silver"
+          ourScore={842}
+          theirScore={610}
+          ourName="Iron Legion"
+          ourBannerUrl={null}
+          onDismiss={dismiss}
+          onClaimReward={dismiss}
+        />
+      ) : null}
+
+      {active === 'gang-war-loss' ? (
+        <GangWarResultOverlay
+          key={`gang-war-loss-${playKey}`}
+          won={false}
+          division="gold"
+          ourScore={412}
+          theirScore={588}
+          ourName="Iron Legion"
+          ourBannerUrl={null}
+          onDismiss={dismiss}
+        />
+      ) : null}
 
       <Modal
         visible={!!revealDef && !!revealTier}

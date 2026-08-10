@@ -58,8 +58,17 @@ export type XpAwardKind =
 export type ChallengeMode = 'timed_reps' | 'max_hold';
 export type WeeklyChallengeStatus = 'active' | 'completed';
 export type RewardCrateStatus = 'sealed' | 'opened';
-export type RewardCrateSource = 'daily_completion' | 'level_up';
+export type RewardCrateSource = 'daily_completion' | 'level_up' | 'gang_war_win';
 export type RewardCrateTier = 'aura' | 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+export type WarDivision =
+  | 'iron'
+  | 'bronze'
+  | 'silver'
+  | 'gold'
+  | 'emerald'
+  | 'diamond'
+  | 'crystal'
+  | 'onyx';
 export type CosmeticKind = 'title' | 'avatar_border' | 'level_border' | 'banner';
 export type CosmeticSource = 'crate' | 'grant';
 
@@ -132,6 +141,8 @@ export type Database = {
           is_system: boolean;
           max_members: number | null;
           eligible_for_gang_competitions: boolean;
+          war_division: WarDivision | null;
+          war_bot_division: WarDivision | null;
           created_at: string;
         };
         Insert: {
@@ -147,6 +158,8 @@ export type Database = {
           is_system?: boolean;
           max_members?: number | null;
           eligible_for_gang_competitions?: boolean;
+          war_division?: WarDivision | null;
+          war_bot_division?: WarDivision | null;
         };
         Update: Partial<Database['public']['Tables']['gangs']['Insert']>;
         Relationships: [];
@@ -774,6 +787,7 @@ export type Database = {
           source: RewardCrateSource;
           source_date: string;
           source_level: number | null;
+          source_match_id: string | null;
           status: RewardCrateStatus;
           tier: RewardCrateTier;
           title: string;
@@ -789,6 +803,7 @@ export type Database = {
           source?: RewardCrateSource;
           source_date: string;
           source_level?: number | null;
+          source_match_id?: string | null;
           status?: RewardCrateStatus;
           tier?: RewardCrateTier;
           title?: string;
@@ -1009,6 +1024,26 @@ export type Database = {
       };
       submit_challenge_attempt: {
         Args: { p_weekly_challenge_id: string; p_score: number };
+        Returns: Json;
+      };
+      submit_gang_war_attempt: {
+        Args: { p_match_id: string; p_gang_id: string; p_score: number };
+        Returns: Json;
+      };
+      get_gang_war_state: {
+        Args: { p_gang_id: string };
+        Returns: Json;
+      };
+      get_gang_war_history: {
+        Args: { p_gang_id: string; p_limit?: number };
+        Returns: Json;
+      };
+      mark_gang_war_seen: {
+        Args: { p_match_id: string; p_kind: string };
+        Returns: Json;
+      };
+      rollover_gang_wars: {
+        Args: { p_force?: boolean };
         Returns: Json;
       };
       shares_gang: {

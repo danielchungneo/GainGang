@@ -16,6 +16,7 @@ import { useFollowCounts } from '@/hooks/use-follows';
 import { useProfile } from '@/hooks/use-profile';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { consolidateFeedByUserDay } from '@/lib/consolidate-feed-activities';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
 import type { ActivityFeedItem } from '@/types';
 
@@ -43,7 +44,7 @@ export default function FeedScreen() {
   });
 
   const activities = useMemo(
-    () => data?.pages.flatMap((page) => page) ?? [],
+    () => consolidateFeedByUserDay(data?.pages.flatMap((page) => page) ?? []),
     [data?.pages],
   );
 

@@ -36,6 +36,7 @@ import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { useActiveWeeklyPlan } from '@/hooks/use-weekly-plans';
 import { formatGoalDate, todayISO } from '@/lib/format';
 import { shareGangInvite } from '@/lib/gang-invite';
+import { consolidateFeedByUserDay } from '@/lib/consolidate-feed-activities';
 import { fontFamily, spacing, type, useTheme } from '@/lib/gaingang-theme';
 import { pushUserProfile } from '@/lib/navigate-profile';
 
@@ -436,9 +437,13 @@ function GangActivityTab({
   isLoading: boolean;
 }) {
   const t = useThemeTokens();
+  const activities = useMemo(
+    () => consolidateFeedByUserDay(feed ?? []),
+    [feed],
+  );
 
   if (isLoading) return <ActivityIndicator color={t.accent} style={{ marginTop: 20 }} />;
-  if (!feed || feed.length === 0) {
+  if (activities.length === 0) {
     return (
       <EmptyCard
         title="No activity yet"
@@ -449,7 +454,7 @@ function GangActivityTab({
 
   return (
     <View className="gap-3">
-      {feed.map((activity) => (
+      {activities.map((activity) => (
         <ActivityCard key={activity.id} activity={activity} gangId={gangId} />
       ))}
     </View>

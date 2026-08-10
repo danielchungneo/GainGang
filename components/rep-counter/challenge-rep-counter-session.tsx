@@ -1,5 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
   lazy,
@@ -29,6 +30,7 @@ import {
 import { useProfile } from '@/hooks/use-profile';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { formatAmount } from '@/lib/format';
+import { fontFamily } from '@/lib/gaingang-theme';
 import {
   getCameraExerciseType,
   getCameraTrackingMode,
@@ -42,6 +44,10 @@ import {
 import type { CameraTrackingMode } from '@/lib/rep-counting/types';
 import type { ChallengeMode, ExerciseUnit } from '@/types';
 import { getLevelUpInfo } from '@/types';
+
+const ACCENT_CYAN = '#22D3EE';
+const ACCENT_GREEN = '#4ADE80';
+const ACCENT_GOLD = '#FBBF24';
 
 const RepCounterCamera = lazy(() =>
   import('@/components/rep-counter/rep-counter-camera').then((mod) => ({
@@ -299,34 +305,97 @@ export function ChallengeRepCounterSession({
   }
 
   if (step === 'done' && result) {
+    const isPersonalBest = result.accepted;
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: '#05070F' }]}>
-        <Header title="Challenge complete" onClose={() => router.back()} />
-        <View style={styles.centered}>
-          <Ionicons
-            name={result.accepted ? 'trophy' : 'checkmark-circle'}
-            size={56}
-            color={t.accent}
-          />
-          <Text style={{ color: t.heading, fontSize: 22, fontWeight: '800', marginTop: 16 }}>
-            {result.accepted ? 'New personal best!' : 'Attempt logged'}
+        <LinearGradient
+          colors={
+            isPersonalBest
+              ? ['rgba(251,191,36,0.28)', 'transparent', 'rgba(34,211,238,0.12)']
+              : ['rgba(34,211,238,0.22)', 'transparent', 'rgba(74,222,128,0.1)']
+          }
+          start={{ x: 0.15, y: 0 }}
+          end={{ x: 0.85, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <Header title="Attempt locked" onClose={() => router.back()} />
+        <View style={[styles.centered, { paddingBottom: insets.bottom + 24 }]}>
+          <View style={styles.heroBadge}>
+            <LinearGradient
+              colors={
+                isPersonalBest
+                  ? ['#FBBF24', '#F59E0B', '#EA580C']
+                  : ['#22D3EE', '#4D8CFF']
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroBadgeGlow}
+            >
+              <MaterialCommunityIcons
+                name={isPersonalBest ? 'trophy' : 'lightning-bolt'}
+                size={36}
+                color="#FFFFFF"
+              />
+            </LinearGradient>
+          </View>
+
+          <Text
+            style={[
+              styles.doneEyebrow,
+              { color: isPersonalBest ? ACCENT_GOLD : ACCENT_CYAN },
+            ]}
+          >
+            {isPersonalBest ? 'NEW PERSONAL BEST' : 'ATTEMPT LOGGED'}
           </Text>
-          <Text style={{ color: t.body, marginTop: 8, textAlign: 'center' }}>
-            This try: {formatAmount(result.score_submitted, unit)}
-            {'\n'}
-            Best: {formatAmount(result.best_score, unit)} · {result.attempt_count} attempt
-            {result.attempt_count === 1 ? '' : 's'}
+          <Text style={styles.doneTitle}>
+            {isPersonalBest ? 'You raised the bar' : 'Solid effort'}
           </Text>
-          {result.xp_awarded > 0 ? (
-            <Text style={{ color: t.accent, marginTop: 12, fontWeight: '700' }}>
-              +{result.xp_awarded} XP for your first attempt this week
+          <Text style={styles.doneSubtitle}>
+            {isPersonalBest
+              ? 'That score is your best this week. Keep hunting the next one.'
+              : 'Logged for the leaderboard. Beat your best next time.'}
+          </Text>
+
+          <View style={styles.scoreHeroCard}>
+            <Text style={styles.scoreHeroLabel}>This attempt</Text>
+            <Text style={styles.scoreHeroValue}>
+              {formatAmount(result.score_submitted, unit)}
             </Text>
-          ) : null}
+            <Text style={styles.scoreHeroUnit}>{unit}</Text>
+          </View>
+
+          <View style={styles.statRow}>
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>Best</Text>
+              <Text style={styles.statValue}>
+                {formatAmount(result.best_score, unit)}
+              </Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>Attempts</Text>
+              <Text style={styles.statValue}>{result.attempt_count}</Text>
+            </View>
+            {result.xp_awarded > 0 ? (
+              <>
+                <View style={styles.statDivider} />
+                <View style={styles.statCell}>
+                  <Text style={styles.statLabel}>XP</Text>
+                  <Text style={[styles.statValue, { color: ACCENT_GREEN }]}>
+                    +{result.xp_awarded}
+                  </Text>
+                </View>
+              </>
+            ) : null}
+          </View>
+
           <TouchableOpacity
             onPress={() => router.back()}
-            style={[styles.primaryBtn, { backgroundColor: t.accent, marginTop: 24 }]}
+            style={[styles.primaryBtn, styles.primaryBtnWide, { backgroundColor: t.accent }]}
           >
-            <Text style={{ color: t.accentOnPrimary, fontWeight: '700' }}>Done</Text>
+            <Text style={{ color: t.accentOnPrimary, fontWeight: '800', fontSize: 16 }}>
+              Back to Challenge
+            </Text>
           </TouchableOpacity>
         </View>
         {levelUp ? (
@@ -350,19 +419,19 @@ export function ChallengeRepCounterSession({
         subtitle={
           step === 'active'
             ? isHold
-              ? 'Hold as long as you can'
+              ? 'Hold until form breaks'
               : 'Live counting'
             : step === 'review'
               ? 'Review score'
               : 'Challenge setup'
         }
         rightAction={
-          step === 'active' && !sessionLimit ? (
+          step === 'active' && !sessionLimit && !isHold ? (
             <TouchableOpacity
               onPress={() => setStep('review')}
               hitSlop={12}
               accessibilityRole="button"
-              accessibilityLabel={isHold ? 'Finish hold' : 'Finish set'}
+              accessibilityLabel="Finish set"
             >
               <Text style={{ color: '#22d3ee', fontWeight: '700', fontSize: 16 }}>Finish</Text>
             </TouchableOpacity>
@@ -381,6 +450,11 @@ export function ChallengeRepCounterSession({
           {sessionLimit ? (
             <Text style={{ color: '#94A3B8', textAlign: 'center', fontSize: 14 }}>
               Timer starts on your first rep — then {sessionLimit} seconds.
+            </Text>
+          ) : isHold ? (
+            <Text style={{ color: '#94A3B8', textAlign: 'center', fontSize: 14 }}>
+              Get into form to start the countdown. Your score locks the moment form breaks —
+              no pausing or restarting mid-hold.
             </Text>
           ) : (
             <Text style={{ color: '#94A3B8', textAlign: 'center', fontSize: 14 }}>
@@ -407,7 +481,15 @@ export function ChallengeRepCounterSession({
           >
             {isHold ? (
               <HoldCounterCamera
+                endOnBreak
                 onElapsedChange={setTrackedAmount}
+                onHoldComplete={(seconds) => {
+                  if (autoFinishedRef.current) return;
+                  autoFinishedRef.current = true;
+                  setTrackedAmount(seconds);
+                  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  setStep('review');
+                }}
               />
             ) : (
               <RepCounterCamera
@@ -459,32 +541,46 @@ export function ChallengeRepCounterSession({
       ) : null}
 
       {step === 'review' ? (
-        <View style={[styles.centered, { paddingBottom: insets.bottom + 24 }]}>
-          <Text style={{ color: '#94A3B8', fontSize: 14, fontWeight: '600' }}>Your score</Text>
-          <Text style={{ color: '#F8FAFC', fontSize: 56, fontWeight: '800', marginTop: 8 }}>
-            {isHold ? formatHoldReview(trackedAmount) : trackedAmount}
-          </Text>
-          <Text style={{ color: '#94A3B8', marginTop: 4 }}>
-            {isHold ? 'seconds' : unit}
-          </Text>
-          <TouchableOpacity
-            onPress={() => void handleSubmit()}
-            style={[styles.primaryBtn, { backgroundColor: t.accent, marginTop: 28 }]}
-          >
-            <Text style={{ color: t.accentOnPrimary, fontWeight: '700' }}>Submit Attempt</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              autoFinishedRef.current = false;
-              setTimerStarted(false);
-              setTrackedAmount(0);
-              if (sessionLimit) setSecondsLeft(sessionLimit);
-              setStep('active');
-            }}
-            style={{ marginTop: 16 }}
-          >
-            <Text style={{ color: '#94A3B8', fontWeight: '600' }}>Retry</Text>
-          </TouchableOpacity>
+        <View style={styles.reviewShell}>
+          <LinearGradient
+            colors={['rgba(34,211,238,0.16)', 'transparent', 'rgba(74,222,128,0.1)']}
+            start={{ x: 0.2, y: 0 }}
+            end={{ x: 0.8, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={[styles.reviewBody, { paddingBottom: insets.bottom + 24 }]}>
+            <View style={styles.reviewPill}>
+              <View style={styles.reviewPillDot} />
+              <Text style={styles.reviewPillText}>
+                {isHold ? 'Form broke — score locked' : 'Ready to submit'}
+              </Text>
+            </View>
+            <Text style={styles.reviewEyebrow}>Your score</Text>
+            <Text style={styles.reviewScore}>
+              {isHold ? formatHoldReview(trackedAmount) : trackedAmount}
+            </Text>
+            <Text style={styles.reviewUnit}>{isHold ? 'seconds' : unit}</Text>
+            <TouchableOpacity
+              onPress={() => void handleSubmit()}
+              style={[styles.primaryBtn, styles.primaryBtnWide, { backgroundColor: ACCENT_CYAN }]}
+            >
+              <Text style={{ color: '#042F2E', fontWeight: '800', fontSize: 16 }}>
+                Submit Attempt
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                autoFinishedRef.current = false;
+                setTimerStarted(false);
+                setTrackedAmount(0);
+                if (sessionLimit) setSecondsLeft(sessionLimit);
+                setStep('active');
+              }}
+              style={{ marginTop: 16 }}
+            >
+              <Text style={{ color: '#94A3B8', fontWeight: '600' }}>Retry</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : null}
     </SafeAreaView>
@@ -540,6 +636,155 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cameraBody: { flex: 1 },
+  reviewShell: { flex: 1 },
+  reviewBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  reviewPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(34,211,238,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,211,238,0.35)',
+    marginBottom: 12,
+  },
+  reviewPillDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: ACCENT_CYAN,
+  },
+  reviewPillText: {
+    color: ACCENT_CYAN,
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 13,
+    letterSpacing: 0.3,
+  },
+  reviewEyebrow: {
+    color: '#94A3B8',
+    fontSize: 12,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    fontFamily: fontFamily.bodySemi,
+  },
+  reviewScore: {
+    color: '#F8FAFC',
+    fontSize: 64,
+    lineHeight: 70,
+    fontFamily: fontFamily.display,
+    fontVariant: ['tabular-nums'],
+  },
+  reviewUnit: {
+    color: '#94A3B8',
+    fontSize: 15,
+    marginBottom: 8,
+  },
+  heroBadge: {
+    marginBottom: 8,
+  },
+  heroBadgeGlow: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneEyebrow: {
+    fontSize: 12,
+    letterSpacing: 1.6,
+    fontFamily: fontFamily.bodySemi,
+    marginTop: 8,
+  },
+  doneTitle: {
+    color: '#F8FAFC',
+    fontSize: 30,
+    fontFamily: fontFamily.display,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  doneSubtitle: {
+    color: '#94A3B8',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 8,
+    maxWidth: 280,
+  },
+  scoreHeroCard: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    backgroundColor: 'rgba(34,211,238,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,211,238,0.3)',
+    marginTop: 8,
+  },
+  scoreHeroLabel: {
+    color: '#67E8F9',
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    fontFamily: fontFamily.bodySemi,
+  },
+  scoreHeroValue: {
+    color: '#F8FAFC',
+    fontSize: 44,
+    fontFamily: fontFamily.display,
+    marginTop: 4,
+    fontVariant: ['tabular-nums'],
+  },
+  scoreHeroUnit: {
+    color: '#94A3B8',
+    fontSize: 14,
+    marginTop: 2,
+  },
+  statRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderRadius: 16,
+    backgroundColor: 'rgba(14, 21, 36, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.22)',
+  },
+  statCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  statDivider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(103, 232, 249, 0.3)',
+  },
+  statLabel: {
+    color: '#7D8AA8',
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    fontFamily: fontFamily.bodySemi,
+  },
+  statValue: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontFamily: fontFamily.bodySemi,
+    fontVariant: ['tabular-nums'],
+  },
   challengeHud: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -593,6 +838,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
+  },
+  primaryBtnWide: {
+    alignSelf: 'stretch',
+    marginTop: 18,
+    paddingVertical: 16,
   },
   header: {
     flexDirection: 'row',

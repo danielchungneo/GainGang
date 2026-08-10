@@ -245,6 +245,8 @@ export function useSubmitChallengeAttempt() {
         void queryClient.invalidateQueries({
           queryKey: queryKeys.myChallengeEntry(vars.weeklyChallengeId, userId),
         });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.myActivities(userId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.followingFeed(userId) });
       }
     },
   });

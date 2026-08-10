@@ -87,6 +87,13 @@ function formatTarget(amount: number, unit: Extract<ExerciseUnit, 'reps' | 'seco
   return `${amount} ${amount === 1 ? 'rep' : 'reps'}`;
 }
 
+/** Short display names for earn cards (DB may still say "Bodyweight Squats"). */
+function displayExerciseName(name: string): string {
+  const trimmed = name.trim();
+  if (/^bodyweight\s+squats?$/i.test(trimmed)) return 'Squats';
+  return trimmed;
+}
+
 function findDailyMatch(
   goals: DailyGoalWithProgress[],
   exerciseId: string,
@@ -105,7 +112,7 @@ function findDailyMatch(
 }
 
 /**
- * Build "from today's plan" offers: a small chunk and (when more remains) finish.
+ * Build "from today's plan" offers: 10 reps (or remaining) / 30s hold (or remaining).
  * Only camera-trackable required exercises with remaining work are included.
  */
 export function buildDailyChunkOffers(goals: DailyGoalWithProgress[]): EarnOffer[] {
@@ -128,8 +135,11 @@ export function buildDailyChunkOffers(goals: DailyGoalWithProgress[]): EarnOffer
       offers.push({
         id: `daily-chunk:${exercise.id}:${chunkAmount}`,
         kind: 'daily_chunk',
-        title: `${formatTarget(chunkAmount, unit)} · ${exercise.exercise_name}`,
-        subtitle: `From ${goal.gang_name ?? 'today'} · earn ${EARN_UNLOCK_MINUTES} min`,
+        title:
+          unit === 'seconds'
+            ? `${formatTarget(chunkAmount, unit)} ${displayExerciseName(exercise.exercise_name)}`
+            : `${chunkAmount} ${displayExerciseName(exercise.exercise_name)}`,
+        subtitle: '',
         exerciseId: exercise.exercise_id,
         exerciseName: exercise.exercise_name,
         unit,
@@ -140,24 +150,6 @@ export function buildDailyChunkOffers(goals: DailyGoalWithProgress[]): EarnOffer
         gangId: goal.gang_id,
         category: exercise.category,
       });
-
-      if (remaining > chunkAmount) {
-        offers.push({
-          id: `daily-finish:${exercise.id}:${remaining}`,
-          kind: 'daily_chunk',
-          title: `Finish ${exercise.exercise_name}`,
-          subtitle: `${formatTarget(remaining, unit)} left · earn ${EARN_UNLOCK_MINUTES} min`,
-          exerciseId: exercise.exercise_id,
-          exerciseName: exercise.exercise_name,
-          unit,
-          targetAmount: remaining,
-          unlockMinutes: EARN_UNLOCK_MINUTES,
-          dailyGoalId: goal.id,
-          dailyGoalExerciseId: exercise.id,
-          gangId: goal.gang_id,
-          category: exercise.category,
-        });
-      }
     }
   }
 
@@ -186,15 +178,12 @@ export function buildQuickEarnOffers(
     if (!match) continue;
 
     const daily = findDailyMatch(todayGoals, match.id);
-    const creditsDaily = daily != null;
 
     offers.push({
       id: `quick:${template.nameIncludes}:${match.id}`,
       kind: 'quick_earn',
       title: template.label,
-      subtitle: creditsDaily
-        ? `Also counts toward today · earn ${template.minutes} min`
-        : `Earn ${template.minutes} min of screen time`,
+      subtitle: '',
       exerciseId: match.id,
       exerciseName: match.name,
       unit: template.unit,

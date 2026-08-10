@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ExerciseSetupGuide } from '@/components/rep-counter/exercise-setup-guide';
 import { ChallengeRepCounterSession } from '@/components/rep-counter/challenge-rep-counter-session';
+import { GangWarRepCounterSession } from '@/components/rep-counter/gang-war-rep-counter-session';
 import { WorkoutRepCounterSession } from '@/components/rep-counter/workout-rep-counter-session';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import {
@@ -66,6 +67,8 @@ export default function RepCounterScreen() {
     weeklyChallengeId?: string;
     challengeMode?: string;
     timeLimitSeconds?: string;
+    gangWarMatchId?: string;
+    gangId?: string;
   }>();
   const t = useThemeTokens();
   const nativeSupported = isRepCounterNativeSupported();
@@ -73,12 +76,17 @@ export default function RepCounterScreen() {
   const isOnboarding = modeParam === 'onboarding';
   const isWorkout = modeParam === 'workout';
   const isChallenge = modeParam === 'challenge';
+  const isGangWar = modeParam === 'gang_war';
   const workoutDailyGoalId = Array.isArray(params.dailyGoalId)
     ? params.dailyGoalId[0]
     : params.dailyGoalId;
   const challengeIdRaw = Array.isArray(params.weeklyChallengeId)
     ? params.weeklyChallengeId[0]
     : params.weeklyChallengeId;
+  const gangWarMatchIdRaw = Array.isArray(params.gangWarMatchId)
+    ? params.gangWarMatchId[0]
+    : params.gangWarMatchId;
+  const gangIdRaw = Array.isArray(params.gangId) ? params.gangId[0] : params.gangId;
   const challengeModeRaw = Array.isArray(params.challengeMode)
     ? params.challengeMode[0]
     : params.challengeMode;
@@ -220,6 +228,30 @@ export default function RepCounterScreen() {
           remaining.length > 0 ? serializeRepCounterQueue(remaining) : '',
       },
     });
+  }
+
+  if (isGangWar && gangWarMatchIdRaw && gangIdRaw) {
+    const unitParam = Array.isArray(params.unit) ? params.unit[0] : params.unit;
+    const unit = unitParam === 'seconds' ? 'seconds' : 'reps';
+    return (
+      <GangWarRepCounterSession
+        matchId={gangWarMatchIdRaw}
+        gangId={gangIdRaw}
+        exerciseId={
+          (Array.isArray(params.exerciseId) ? params.exerciseId[0] : params.exerciseId) ?? ''
+        }
+        exerciseName={
+          (Array.isArray(params.exerciseName) ? params.exerciseName[0] : params.exerciseName) ??
+          ''
+        }
+        unit={unit}
+        timeLimitSeconds={
+          Number.isFinite(timeLimitSeconds) && timeLimitSeconds > 0
+            ? Math.round(timeLimitSeconds)
+            : 60
+        }
+      />
+    );
   }
 
   if (isChallenge && challengeIdRaw) {

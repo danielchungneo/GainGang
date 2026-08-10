@@ -39,6 +39,7 @@ Living checklist of planned product features. Mark items done as they ship; add 
 - [ ] Gang member appreciation — banner that highlights best performing gang member of the day
 - [ ] Gang leveling system — gangs have their own level and streak for completing gang goals
 - [ ] Gang Wars — matched with another gang for the week; daily challenges contribute to gang score; gangs move up/down divisions; winning in higher divisions means better rewards
+  - Staging + Production DB migrated — see [`GANG_WARS_REQUIREMENTS.md`](./GANG_WARS_REQUIREMENTS.md)
 
 ### Economy
 

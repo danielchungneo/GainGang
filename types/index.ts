@@ -26,6 +26,7 @@ export type {
   CosmeticSource,
   ChallengeMode,
   WeeklyChallengeStatus,
+  WarDivision,
 } from './database';
 
 import type {

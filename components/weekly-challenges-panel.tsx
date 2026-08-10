@@ -5,19 +5,12 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  RefreshControl,
-  ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 
-import {
-  Button,
-  GlassSurface,
-  LeaderboardRow,
-  ScreenBackground,
-} from '@/components/ui';
+import { Button, GlassSurface, LeaderboardRow } from '@/components/ui';
 import { GradientTabSelect } from '@/components/ui/gradient-tab-select';
 import { useAuth } from '@/context/auth-context';
 import {
@@ -27,10 +20,9 @@ import {
 } from '@/hooks/use-challenges';
 import { useCosmeticCatalog } from '@/hooks/use-cosmetics';
 import { useMyGangs } from '@/hooks/use-gangs';
-import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { formatAmount } from '@/lib/format';
-import { fontFamily, spacing, type, useTheme } from '@/lib/gaingang-theme';
+import { fontFamily, spacing, useTheme } from '@/lib/gaingang-theme';
 import { isRepCounterNativeSupported } from '@/lib/rep-counting/platform';
 
 type ScopeTab = 'world' | 'my_gangs';
@@ -44,21 +36,25 @@ function daysLeftLabel(endsOn: string): string {
   return `${days} days left`;
 }
 
-export default function ChallengesScreen() {
+/** Compact weekly challenge strip + leaderboard for the Gain tab. */
+export function WeeklyChallengesPanel() {
   const t = useThemeTokens();
   const { theme } = useTheme();
   const { session } = useAuth();
-  const { data: challenge, isLoading, refetch } = useCurrentWeeklyChallenge();
+  const { data: challenge, isLoading } = useCurrentWeeklyChallenge();
   const { data: gangs } = useMyGangs();
   const { data: catalog } = useCosmeticCatalog();
-  const { isRefreshing, onRefresh } = usePullToRefresh(refetch);
 
   const [scopeTab, setScopeTab] = useState<ScopeTab>('world');
   const [gangPickerOpen, setGangPickerOpen] = useState(false);
   const [selectedGangId, setSelectedGangId] = useState<string | undefined>();
 
   const effectiveScope: ChallengeLeaderboardScope =
-    scopeTab === 'my_gangs' && selectedGangId ? 'gang' : scopeTab === 'my_gangs' ? 'my_gangs' : 'world';
+    scopeTab === 'my_gangs' && selectedGangId
+      ? 'gang'
+      : scopeTab === 'my_gangs'
+        ? 'my_gangs'
+        : 'world';
 
   const unit = challenge?.challenge_type.unit ?? 'reps';
   const { data: board, isLoading: boardLoading } = useChallengeLeaderboard(
@@ -96,63 +92,33 @@ export default function ChallengesScreen() {
   }
 
   return (
-    <ScreenBackground>
-      <ScrollView
-        contentContainerStyle={{
-          padding: spacing.lg,
-          gap: spacing.md,
-          paddingBottom: 40,
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={t.accent}
-          />
-        }
-      >
-        <View className="mt-4 gap-1">
-          <Text style={[type.labelSm, { color: t.body }]}>This week</Text>
-          <Text
-            style={{
-              fontFamily: fontFamily.display,
-              fontSize: 28,
-              color: t.heading,
-            }}
-          >
-            Challenges
+    <>
+      {isLoading ? (
+        <ActivityIndicator color={t.accent} style={{ marginTop: 12 }} />
+      ) : !challenge ? (
+        <GlassSurface style={{ padding: spacing.md, gap: 6 }}>
+          <Text style={{ fontFamily: fontFamily.bodySemi, color: t.heading, fontSize: 16 }}>
+            No active challenge
           </Text>
-        </View>
-
-        {isLoading ? (
-          <ActivityIndicator color={t.accent} style={{ marginTop: 24 }} />
-        ) : !challenge ? (
-          <GlassSurface style={{ padding: spacing.lg }}>
-            <Text style={{ fontFamily: fontFamily.bodySemi, color: t.heading, fontSize: 16 }}>
-              No active challenge
-            </Text>
-            <Text style={{ color: t.body, marginTop: 8, lineHeight: 20 }}>
-              The next weekly challenge rolls out Monday morning.
-            </Text>
-          </GlassSurface>
-        ) : (
+          <Text style={{ color: t.body, fontSize: 13, lineHeight: 18 }}>
+            The next weekly challenge rolls out Monday morning.
+          </Text>
+        </GlassSurface>
+      ) : (
+        <View style={{ gap: spacing.md }}>
           <GlassSurface style={{ padding: spacing.md, gap: spacing.sm }}>
             <View className="flex-row items-center justify-between gap-3">
-              <View className="flex-1 gap-0.5">
-                <Text
-                  style={{
-                    fontFamily: fontFamily.display,
-                    fontSize: 18,
-                    color: t.heading,
-                  }}
-                  numberOfLines={1}
-                >
-                  {challenge.challenge_type.name}
-                </Text>
-                <Text style={{ color: t.placeholder, fontSize: 12 }}>
-                  {daysLeftLabel(challenge.ends_on)} · camera required
-                </Text>
-              </View>
+              <Text
+                style={{
+                  flex: 1,
+                  fontFamily: fontFamily.display,
+                  fontSize: 18,
+                  color: t.heading,
+                }}
+                numberOfLines={1}
+              >
+                {challenge.challenge_type.name}
+              </Text>
               <View
                 style={{
                   backgroundColor: theme.colors.primary,
@@ -179,26 +145,19 @@ export default function ChallengesScreen() {
               </View>
             </View>
 
-            <Text
-              style={{ color: t.body, fontSize: 13, lineHeight: 18 }}
-              numberOfLines={2}
-            >
-              {challenge.challenge_type.description}
-            </Text>
-
-            {challenge.my_entry ? (
-              <Text style={{ color: t.body, fontSize: 13 }}>
-                Best{' '}
-                <Text style={{ fontFamily: fontFamily.bodySemi, color: t.heading }}>
-                  {formatAmount(Number(challenge.my_entry.best_score), unit)}
-                </Text>
-                <Text style={{ color: t.placeholder }}>
-                  {' '}
-                  · {challenge.my_entry.attempt_count} attempt
-                  {challenge.my_entry.attempt_count === 1 ? '' : 's'}
-                </Text>
+            <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1">
+              <Text style={{ color: t.placeholder, fontSize: 12 }}>
+                {daysLeftLabel(challenge.ends_on)} · camera
               </Text>
-            ) : null }
+              {challenge.my_entry ? (
+                <Text style={{ color: t.body, fontSize: 12 }}>
+                  · Best{' '}
+                  <Text style={{ fontFamily: fontFamily.bodySemi, color: t.heading }}>
+                    {formatAmount(Number(challenge.my_entry.best_score), unit)}
+                  </Text>
+                </Text>
+              ) : null}
+            </View>
 
             <Button
               label={cameraOk ? 'Start Challenge' : 'Camera Required'}
@@ -211,24 +170,12 @@ export default function ChallengesScreen() {
               </Text>
             ) : null}
           </GlassSurface>
-        )}
 
-        {challenge ? (
-          <View className="gap-3">
-            <Text
-              style={{
-                fontFamily: fontFamily.bodySemi,
-                fontSize: 16,
-                color: t.heading,
-              }}
-            >
-              Leaderboard
-            </Text>
-
+          <View style={{ gap: spacing.sm }}>
             <GradientTabSelect
               tabs={[
-                { key: 'world', label: 'World' },
-                { key: 'my_gangs', label: 'My Gangs' },
+                { key: 'world', label: 'World', icon: 'globe-outline' },
+                { key: 'my_gangs', label: 'My Gangs', icon: 'people-outline' },
               ]}
               selected={scopeTab}
               onSelect={(key) => {
@@ -249,7 +196,7 @@ export default function ChallengesScreen() {
                   borderWidth: 1,
                   borderColor: theme.colors.border,
                   paddingHorizontal: 14,
-                  paddingVertical: 12,
+                  paddingVertical: 10,
                   backgroundColor: theme.colors.surface,
                 }}
               >
@@ -261,9 +208,9 @@ export default function ChallengesScreen() {
             ) : null}
 
             {boardLoading ? (
-              <ActivityIndicator color={t.accent} style={{ marginTop: 12 }} />
+              <ActivityIndicator color={t.accent} style={{ marginTop: 8 }} />
             ) : (board ?? []).length === 0 ? (
-              <GlassSurface style={{ padding: spacing.lg }}>
+              <GlassSurface style={{ padding: spacing.md }}>
                 <Text style={{ color: t.body, textAlign: 'center' }}>
                   No scores yet. Be the first on the board.
                 </Text>
@@ -314,8 +261,8 @@ export default function ChallengesScreen() {
               </View>
             )}
           </View>
-        ) : null}
-      </ScrollView>
+        </View>
+      )}
 
       <Modal
         visible={gangPickerOpen}
@@ -391,6 +338,6 @@ export default function ChallengesScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-    </ScreenBackground>
+    </>
   );
 }

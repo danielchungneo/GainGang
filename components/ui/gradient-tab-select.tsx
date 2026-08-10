@@ -2,12 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { fontFamily, radius, useTheme } from '@/lib/gaingang-theme';
+import { fontFamily, radius, status, useTheme } from '@/lib/gaingang-theme';
 
 export interface GradientTabOption<T extends string> {
   key: T;
   label: string;
   icon?: keyof typeof Ionicons.glyphMap;
+  showBadge?: boolean;
 }
 
 export interface GradientTabSelectProps<T extends string> {
@@ -48,7 +49,9 @@ export function GradientTabSelect<T extends string>({
               ]}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
-              accessibilityLabel={tab.label}
+              accessibilityLabel={
+                tab.showBadge ? `${tab.label}, notification` : tab.label
+              }
             >
               {active ? (
                 <LinearGradient
@@ -77,6 +80,7 @@ export function GradientTabSelect<T extends string>({
                   </Text>
                 </View>
               )}
+              {tab.showBadge ? <View style={styles.badge} /> : null}
             </Pressable>
           </View>
         );
@@ -104,6 +108,7 @@ const styles = StyleSheet.create({
   tabPressable: {
     flex: 1,
     width: '100%',
+    position: 'relative',
   },
   tabFillActive: {
     flex: 1,
@@ -143,5 +148,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.2,
     textAlign: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: 6,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: status.danger,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
 });

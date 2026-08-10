@@ -41,10 +41,14 @@ import { pushUserProfile } from '@/lib/navigate-profile';
 
 type GangViewTab = 'progress' | 'activity' | 'leaderboard';
 
-const VIEW_TABS: { key: GangViewTab; label: string }[] = [
-  { key: 'progress', label: 'Progress' },
-  { key: 'activity', label: 'Activity' },
-  { key: 'leaderboard', label: 'Leaderboard' },
+const VIEW_TABS: {
+  key: GangViewTab;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { key: 'progress', label: 'Progress', icon: 'stats-chart-outline' },
+  { key: 'activity', label: 'Activity', icon: 'pulse-outline' },
+  { key: 'leaderboard', label: 'Leaderboard', icon: 'trophy-outline' },
 ];
 
 export default function GroupsScreen() {
@@ -295,6 +299,7 @@ export default function GroupsScreen() {
           visible={membersOpen}
           onClose={() => setMembersOpen(false)}
           viewerRole={selectedGang.role}
+          maxMembers={selectedGang.max_members}
         />
       ) : null}
     </ScreenBackground>

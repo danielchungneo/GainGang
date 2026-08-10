@@ -21,6 +21,11 @@ import {
   useTransferGangOwnership,
 } from '@/hooks/use-gangs';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import {
+  formatGangMemberCapacity,
+  isGangAtCapacity,
+  isGangNearCapacity,
+} from '@/lib/gang-capacity';
 import { fontFamily, radius, spacing, type } from '@/lib/gaingang-theme';
 import { pushUserProfile } from '@/lib/navigate-profile';
 import { levelFromXp, type GangMemberWithProfile, type GangRole } from '@/types';
@@ -32,6 +37,8 @@ interface GangMembersSheetProps {
   onClose: () => void;
   /** Viewer's role in this gang. */
   viewerRole?: GangRole;
+  /** Join cap; null/undefined = unlimited (e.g. system gangs). */
+  maxMembers?: number | null;
 }
 
 function roleLabel(role: GangRole): string {
@@ -54,6 +61,7 @@ export function GangMembersSheet({
   visible,
   onClose,
   viewerRole,
+  maxMembers,
 }: GangMembersSheetProps) {
   const t = useThemeTokens();
   const { session } = useAuth();
@@ -64,6 +72,19 @@ export function GangMembersSheet({
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
 
   const isOwner = viewerRole === 'owner';
+  const rosterCount = members?.length;
+  const capacityLabel =
+    rosterCount == null
+      ? '…'
+      : formatGangMemberCapacity(rosterCount, maxMembers, { showFullSuffix: true });
+  const capacityTone =
+    rosterCount == null
+      ? t.body
+      : isGangAtCapacity(rosterCount, maxMembers)
+        ? '#ef4444'
+        : isGangNearCapacity(rosterCount, maxMembers)
+          ? '#f59e0b'
+          : t.body;
 
   function confirmKick(member: GangMemberWithProfile) {
     if (busyUserId) return;
@@ -222,10 +243,7 @@ export function GangMembersSheet({
               >
                 {gangName}
               </Text>
-              <Text style={[type.bodySm, { color: t.body }]}>
-                {members?.length ?? '…'}{' '}
-                {(members?.length ?? 0) === 1 ? 'member' : 'members'}
-              </Text>
+              <Text style={[type.bodySm, { color: capacityTone }]}>{capacityLabel}</Text>
             </View>
             <TouchableOpacity
               onPress={onClose}

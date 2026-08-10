@@ -4,7 +4,19 @@ import UIKit
 
 class ShieldConfigurationExtension: ShieldConfigurationDataSource {
 
-  private let appGroupIdentifier = "group.com.danielchungneo.gaingang.blocker"
+  /// Prefer the App Group this extension is entitled to (dev vs prod).
+  private let appGroupIdentifier: String = {
+    let candidates = [
+      "group.com.danielchungneo.gaingang.dev.blocker",
+      "group.com.danielchungneo.gaingang.blocker",
+    ]
+    for id in candidates {
+      if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) != nil {
+        return id
+      }
+    }
+    return candidates[1]
+  }()
 
   // All values below are replaced by the config plugin at prebuild time
   private let shieldTitle = "Finish your gains"

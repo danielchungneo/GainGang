@@ -218,6 +218,7 @@ export function useGangInvitePreview(inviteCode: string) {
         already_member: boolean;
       };
       const memberCount = preview.member_count ?? 0;
+      // null = unlimited (system gangs); only fall back to 25 when the RPC omits the field.
       const maxMembers =
         preview.max_members === undefined ? MAX_GANG_MEMBERS : preview.max_members;
       return {

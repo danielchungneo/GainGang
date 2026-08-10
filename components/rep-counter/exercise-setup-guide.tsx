@@ -22,6 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { cameraHud } from '@/components/rep-counter/camera-hud-styles';
+import { CameraPrivacyNotice } from '@/components/rep-counter/camera-privacy-notice';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import {
   CAMERA_SETUP_VIDEO,
@@ -235,9 +236,10 @@ export function ExerciseSetupGuide({
                 <View style={styles.tipRow}>
                   <Text style={{ color: t.accent }}>•</Text>
                   <Text style={[styles.tipText, { color: t.body }]}>
-                    Keep the phone still once recording starts.
+                    Keep the phone still once counting starts.
                   </Text>
                 </View>
+                <CameraPrivacyNotice />
               </View>
             </View>
 

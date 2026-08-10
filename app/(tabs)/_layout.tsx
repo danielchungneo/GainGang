@@ -5,6 +5,7 @@ import { Redirect, Tabs } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { GainTabButton } from "@/components/gain-tab-button";
 import { HapticTab } from "@/components/haptic-tab";
 
 import { useAuth } from "@/context/auth-context";
@@ -24,8 +25,8 @@ import { useUnopenedCrateCount } from "@/hooks/use-reward-crates";
 
 import { status, useTheme } from "@/lib/gaingang-theme";
 
-const TAB_BAR_CONTENT_HEIGHT = 52;
-const TAB_BAR_TOP_PAD = 6;
+const TAB_BAR_CONTENT_HEIGHT = 58;
+const TAB_BAR_TOP_PAD = 8;
 const TAB_BAR_BOTTOM_PAD = 4;
 
 export default function TabLayout() {
@@ -83,6 +84,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      initialRouteName="index"
       screenOptions={{
         tabBarButton: HapticTab,
 
@@ -115,17 +117,7 @@ export default function TabLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Today",
-
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="flame" size={size} color={color} />
-          ),
-        }}
-      />
-
+      {/* Visual order: Feed · Gangs · Gain · Challenges · Profile */}
       <Tabs.Screen
         name="feed"
         options={{
@@ -145,6 +137,16 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people" size={size} color={color} />
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Gain",
+          tabBarLabel: () => null,
+          tabBarIcon: () => null,
+          tabBarButton: (props) => <GainTabButton {...props} />,
         }}
       />
 

@@ -9,8 +9,19 @@ import Foundation
 // that @bacons/apple-targets writes into the extension's Info.plist. If it doesn't
 // match, iOS cannot instantiate the extension and NONE of the callbacks fire.
 class DeviceActivityMonitorExtension: DeviceActivityMonitor {
-  // CONFIGURE: Replace with your App Group identifier
-  private let appGroupIdentifier = "group.com.danielchungneo.gaingang.blocker"
+  /// Prefer the App Group this extension is entitled to (dev vs prod).
+  private let appGroupIdentifier: String = {
+    let candidates = [
+      "group.com.danielchungneo.gaingang.dev.blocker",
+      "group.com.danielchungneo.gaingang.blocker",
+    ]
+    for id in candidates {
+      if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) != nil {
+        return id
+      }
+    }
+    return candidates[1]
+  }()
   // Granted earned-time budget in SECONDS (Int); kept in sync with
   // ExpoAppBlockerModule.swift. Presence with value > 0 means an unlock is active.
   private let temporaryUnlockKey = "appBlocker.temporaryUnlock.v1"
@@ -92,21 +103,36 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     clearUnlockState()
 
     // Temporary-unlock activity: re-apply stored config after budget day ends.
-    // Focus lock daily: intervalDidStart on the new day applies schedule-aware locks.
+    // Focus lock daily: intervalDidStart on the new day re-locks selected apps.
     if activity.rawValue != focusLockDailyActivityName {
       reapplyBlockConfiguration()
     }
   }
 
-  /// Fires at 00:00 for the repeating Focus lock daily schedule. Applies shields
-  /// when today has exercises; clears them on rest days — without opening the app.
+  /// Fires at 00:00 for the repeating Focus lock daily schedule. Re-applies
+  /// shields for a new calendar day (unless already unlocked today) without
+  /// opening the app.
   override func intervalDidStart(for activity: DeviceActivityName) {
     super.intervalDidStart(for: activity)
 
-    if activity.rawValue == focusLockDailyActivityName {
-      clearUnlockState()
-      applyFocusLockForCurrentDay()
+    guard activity.rawValue == focusLockDailyActivityName else { return }
+
+    // startMonitoring fires this callback immediately when the schedule is
+    // registered mid-interval — i.e. on every config sync, not just at 00:00.
+    // Only honor the real midnight tick; otherwise this wipes an active
+    // earned-time budget seconds after a temporary unlock is granted.
+    let comps = Calendar.current.dateComponents([.hour, .minute], from: Date())
+    guard comps.hour == 0, (comps.minute ?? 0) <= 5 else { return }
+
+    // A budget granted after midnight (today) is legitimate — don't wipe it.
+    if let grantedAt = sharedDefaults?.object(forKey: unlockGrantedAtKey) as? Date,
+       Calendar.current.isDate(grantedAt, inSameDayAs: Date()),
+       (sharedDefaults?.integer(forKey: temporaryUnlockKey) ?? 0) > 0 {
+      return
     }
+
+    clearUnlockState()
+    applyFocusLockForCurrentDay()
   }
 
   /// Extract the threshold seconds from an event name like `appBlocker.usageStep.90`;
@@ -124,7 +150,8 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     sharedDefaults?.removeObject(forKey: unlockGrantedAtKey)
   }
 
-  /// Lock or unlock based on whether today is in `datesWithExercises`.
+  /// Relock selected apps at the start of each day while Focus lock is on.
+  /// Yesterday's unlock stamp is cleared; only `unlockedDate == today` stays open.
   private func applyFocusLockForCurrentDay() {
     let userDefaults = sharedDefaults ?? UserDefaults.standard
     guard var configDict = userDefaults.dictionary(forKey: blockConfigStorageKey) else {
@@ -133,7 +160,6 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     }
 
     let focusLockEnabled = configDict["focusLockEnabled"] as? Bool ?? false
-    let dates = configDict["datesWithExercises"] as? [String] ?? []
     let today = Self.todayISOString()
 
     guard focusLockEnabled else {
@@ -148,7 +174,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
       return
     }
 
-    var shouldLock = dates.contains(today)
+    var shouldLock = true
     if let unlockedDate = configDict["unlockedDate"] as? String, unlockedDate == today {
       // Goals already completed today — don't re-lock until the next calendar day.
       shouldLock = false

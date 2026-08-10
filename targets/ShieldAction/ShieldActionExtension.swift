@@ -4,7 +4,19 @@ import UIKit
 import UserNotifications
 
 class ShieldActionExtension: ShieldActionDelegate {
-  private let appGroupIdentifier = "group.com.danielchungneo.gaingang.blocker"
+  /// Prefer the App Group this extension is entitled to (dev vs prod).
+  private let appGroupIdentifier: String = {
+    let candidates = [
+      "group.com.danielchungneo.gaingang.dev.blocker",
+      "group.com.danielchungneo.gaingang.blocker",
+    ]
+    for id in candidates {
+      if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) != nil {
+        return id
+      }
+    }
+    return candidates[1]
+  }()
   private let pendingUnlockKey = "appBlocker.pendingUnlock.v1"
   private let pendingInterceptsKey = "appBlocker.pendingIntercepts.v1"
   private let lastInterceptTsKey = "appBlocker.lastInterceptTs.v1"

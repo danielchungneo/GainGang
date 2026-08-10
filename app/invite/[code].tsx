@@ -14,6 +14,11 @@ import {
   useNeedsPreAuthOnboarding,
 } from '@/hooks/use-onboarding';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import {
+  formatGangMemberCapacity,
+  isGangAtCapacity,
+  isGangNearCapacity,
+} from '@/lib/gang-capacity';
 import { savePendingGangInvite } from '@/lib/gang-invite';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
 
@@ -153,6 +158,7 @@ export default function GangInviteScreen() {
               name={preview.name}
               description={preview.description}
               memberCount={preview.member_count}
+              maxMembers={preview.max_members}
             />
             <Text style={[type.bodySm, { color: t.body }]}>You&apos;re already in this gang.</Text>
             <TouchableOpacity
@@ -184,8 +190,9 @@ export default function GangInviteScreen() {
 
             {preview.is_full ? (
               <Text style={[type.bodySm, { color: t.body }]}>
-                This Gang is full ({preview.max_members} members max). Ask the owner to make room,
-                or join another gang.
+                This Gang is full
+                {preview.max_members != null ? ` (${preview.max_members} members max)` : ''}. Ask
+                the owner to make room, or join another gang.
               </Text>
             ) : null}
 
@@ -240,11 +247,16 @@ function GangPreviewCard({
   name: string;
   description: string | null;
   memberCount: number;
-  maxMembers?: number;
+  maxMembers?: number | null;
   isFull?: boolean;
 }) {
   const t = useThemeTokens();
-  const cap = maxMembers ?? 25;
+  const atCapacity = isFull ?? isGangAtCapacity(memberCount, maxMembers);
+  const capacityTone = atCapacity
+    ? '#ef4444'
+    : isGangNearCapacity(memberCount, maxMembers)
+      ? '#f59e0b'
+      : t.body;
 
   return (
     <View className="gap-3">
@@ -253,9 +265,8 @@ function GangPreviewCard({
         <Text style={{ color: t.heading, fontFamily: fontFamily.bodySemi, fontSize: 20 }}>
           {name}
         </Text>
-        <Text style={[type.bodySm, { color: isFull ? '#ef4444' : t.body }]}>
-          {memberCount}/{cap} {memberCount === 1 ? 'member' : 'members'}
-          {isFull ? ' · Full' : ''}
+        <Text style={[type.bodySm, { color: capacityTone }]}>
+          {formatGangMemberCapacity(memberCount, maxMembers, { showFullSuffix: true })}
         </Text>
       </View>
       {description ? (

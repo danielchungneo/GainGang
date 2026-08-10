@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { OnboardingShell } from '@/components/onboarding/onboarding-shell';
+import { CameraPrivacyNotice } from '@/components/rep-counter/camera-privacy-notice';
 import { RewardReveal } from '@/components/reward-reveal';
 import { Button } from '@/components/ui/button';
 import { GlassSurface } from '@/components/ui/glass-surface';
@@ -122,6 +123,7 @@ export default function OnboardingDemoScreen() {
             ? 'You just verified real reps with the camera. Collect your starter reward to continue.'
             : 'See GainGang in action — knock out a few reps and watch the camera count them for you. This is how every workout feels.'
         }
+        scrollContent
         footer={
           <>
             {isComplete ? (
@@ -146,6 +148,12 @@ export default function OnboardingDemoScreen() {
           </>
         }
       >
+        {!isComplete ? (
+          <View style={{ marginBottom: spacing.md }}>
+            <CameraPrivacyNotice size="large" />
+          </View>
+        ) : null}
+
         <View style={styles.picker}>
           {ONBOARDING_DEMO_OPTIONS.filter((option) =>
             isComplete ? option.id === completedOption?.id : true,

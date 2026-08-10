@@ -7,6 +7,8 @@ export const queryKeys = {
   followStatus: (viewerId?: string, targetId?: string) =>
     ['follows', 'status', viewerId, targetId] as const,
   followCounts: (userId?: string) => ['follows', 'counts', userId] as const,
+  followList: (userId?: string, list?: 'followers' | 'following') =>
+    ['follows', 'list', userId, list] as const,
   myGangs: (userId?: string) => ['gangs', 'mine', userId] as const,
   gang: (gangId: string) => ['gangs', gangId] as const,
   gangMembers: (gangId: string) => ['gangs', gangId, 'members'] as const,

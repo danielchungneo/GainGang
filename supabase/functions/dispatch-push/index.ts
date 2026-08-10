@@ -31,6 +31,8 @@ function titleForType(type: string): string {
       return "You've been poked";
     case "daily_goal":
       return "Daily goal crushed";
+    case "workout_reminder":
+      return "Finish today's Gain";
     default:
       return "GainGang";
   }

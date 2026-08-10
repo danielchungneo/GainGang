@@ -40,6 +40,8 @@ interface DayExerciseRow {
 
 interface ProfileStreakCalendarProps {
   activities: ActivityWithExercises[];
+  /** Render without an outer GlassSurface (for nesting inside another card). */
+  embedded?: boolean;
 }
 
 function buildMonthGrid(year: number, month: number): CalendarDay[] {
@@ -113,6 +115,7 @@ function consolidatedExercisesForDay(
 
 export function ProfileStreakCalendar({
   activities,
+  embedded = false,
 }: ProfileStreakCalendarProps) {
   const t = useThemeTokens();
   const { theme } = useTheme();
@@ -188,192 +191,200 @@ export function ProfileStreakCalendar({
   const streakBarBg = 'rgba(245,165,36,0.18)';
   const cellSize = ROW_HEIGHT - 8;
 
-  return (
-    <>
-      <GlassSurface style={{ padding: 16, gap: 16 }}>
-        <View className="flex-row items-center justify-between">
-          <TouchableOpacity
-            onPress={() => shiftMonth(-1)}
-            accessibilityRole="button"
-            accessibilityLabel="Previous month"
-            hitSlop={8}
+  const calendarBody = (
+    <View style={{ gap: 16 }}>
+      <View className="flex-row items-center justify-between">
+        <TouchableOpacity
+          onPress={() => shiftMonth(-1)}
+          accessibilityRole="button"
+          accessibilityLabel="Previous month"
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-back" size={22} color={t.heading} />
+        </TouchableOpacity>
+
+        <Text
+          style={{
+            fontFamily: fontFamily.displaySemi,
+            fontSize: 22,
+            color: t.heading,
+          }}
+        >
+          {monthYearLabel(viewYear, viewMonth)}
+        </Text>
+
+        <TouchableOpacity
+          onPress={() => shiftMonth(1)}
+          accessibilityRole="button"
+          accessibilityLabel="Next month"
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-forward" size={22} color={t.heading} />
+        </TouchableOpacity>
+      </View>
+
+      <View className="flex-row">
+        <View style={{ flex: 1 }}>
+          <View
+            className="flex-row"
+            style={{ height: DAY_HEADER_HEIGHT, marginBottom: 4 }}
           >
-            <Ionicons name="chevron-back" size={22} color={t.heading} />
-          </TouchableOpacity>
-
-          <Text
-            style={{
-              fontFamily: fontFamily.displaySemi,
-              fontSize: 22,
-              color: t.heading,
-            }}
-          >
-            {monthYearLabel(viewYear, viewMonth)}
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => shiftMonth(1)}
-            accessibilityRole="button"
-            accessibilityLabel="Next month"
-            hitSlop={8}
-          >
-            <Ionicons name="chevron-forward" size={22} color={t.heading} />
-          </TouchableOpacity>
-        </View>
-
-        <View className="flex-row">
-          <View style={{ flex: 1 }}>
-            <View
-              className="flex-row"
-              style={{ height: DAY_HEADER_HEIGHT, marginBottom: 4 }}
-            >
-              {DAY_HEADERS.map((label, i) => (
-                <View key={`${label}-${i}`} style={{ flex: 1, alignItems: 'center' }}>
-                  <Text style={[type.dataSm, { color: t.body }]}>{label}</Text>
-                </View>
-              ))}
-            </View>
-
-            {weekRows.map((row, rowIndex) => (
-              <View
-                key={rowIndex}
-                className="flex-row"
-                style={{ height: ROW_HEIGHT }}
-              >
-                {row.map((day) => {
-                  const hasActivity = activeDates.has(day.iso);
-                  const isSelected = selectedDate === day.iso;
-                  const isToday = day.iso === today;
-
-                  return (
-                    <TouchableOpacity
-                      key={day.iso}
-                      onPress={() => handleDayPress(day)}
-                      style={{
-                        flex: 1,
-                        height: ROW_HEIGHT,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${day.day}${hasActivity ? ', activity logged, tap to view' : ''}`}
-                    >
-                      <View
-                        style={{
-                          width: cellSize,
-                          height: cellSize,
-                          borderRadius: cellSize / 2,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: hasActivity ? '#FFFFFF' : inactiveBg,
-                          borderWidth: isSelected || isToday ? 2 : 0,
-                          borderColor: isSelected
-                            ? t.heading
-                            : isToday
-                              ? 'rgba(255,255,255,0.5)'
-                              : 'transparent',
-                          opacity: day.inMonth ? 1 : 0.35,
-                        }}
-                      >
-                        {hasActivity ? (
-                          <Ionicons name="footsteps" size={16} color="#05070F" />
-                        ) : (
-                          <Text
-                            style={{
-                              fontFamily: fontFamily.mono,
-                              fontSize: 13,
-                              color: t.heading,
-                            }}
-                          >
-                            {day.day}
-                          </Text>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
+            {DAY_HEADERS.map((label, i) => (
+              <View key={`${label}-${i}`} style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={[type.dataSm, { color: t.body }]}>{label}</Text>
               </View>
             ))}
           </View>
 
-          <View
-            style={{
-              width: STREAK_COL_WIDTH,
-              marginLeft: 8,
-              position: 'relative',
-            }}
-          >
+          {weekRows.map((row, rowIndex) => (
             <View
-              style={{
-                position: 'absolute',
-                top: DAY_HEADER_HEIGHT + 4,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                borderRadius: STREAK_COL_WIDTH / 2,
-                backgroundColor: streakBarBg,
-              }}
-            />
+              key={rowIndex}
+              className="flex-row"
+              style={{ height: ROW_HEIGHT }}
+            >
+              {row.map((day) => {
+                const hasActivity = activeDates.has(day.iso);
+                const isSelected = selectedDate === day.iso;
+                const isToday = day.iso === today;
 
-            <View style={{ height: DAY_HEADER_HEIGHT + 4 }} />
-
-            {weekRows.map((_, rowIndex) => {
-              const completed = completedWeekRows[rowIndex];
-
-              return (
-                <View
-                  key={rowIndex}
-                  style={{
-                    height: ROW_HEIGHT,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <View
+                return (
+                  <TouchableOpacity
+                    key={day.iso}
+                    onPress={() => handleDayPress(day)}
                     style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 11,
+                      flex: 1,
+                      height: ROW_HEIGHT,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: completed ? status.fire : 'transparent',
-                      borderWidth: completed ? 0 : 1,
-                      borderColor: 'rgba(245,165,36,0.35)',
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${day.day}${hasActivity ? ', activity logged, tap to view' : ''}`}
                   >
-                    {completed ? (
-                      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                    ) : null}
-                  </View>
-                </View>
-              );
-            })}
+                    <View
+                      style={{
+                        width: cellSize,
+                        height: cellSize,
+                        borderRadius: cellSize / 2,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: hasActivity ? '#FFFFFF' : inactiveBg,
+                        borderWidth: isSelected || isToday ? 2 : 0,
+                        borderColor: isSelected
+                          ? t.heading
+                          : isToday
+                            ? 'rgba(255,255,255,0.5)'
+                            : 'transparent',
+                        opacity: day.inMonth ? 1 : 0.35,
+                      }}
+                    >
+                      {hasActivity ? (
+                        <Ionicons name="footsteps" size={16} color="#05070F" />
+                      ) : (
+                        <Text
+                          style={{
+                            fontFamily: fontFamily.mono,
+                            fontSize: 13,
+                            color: t.heading,
+                          }}
+                        >
+                          {day.day}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </View>
 
-            <View
-              style={{
-                height: ROW_HEIGHT,
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'row',
-                gap: 2,
-              }}
-              accessibilityLabel={`Weekly streak: ${weeklyStreak} ${weeklyStreak === 1 ? 'week' : 'weeks'}`}
-            >
-              <Ionicons name="flame" size={14} color={status.fire} />
-              <Text
+        <View
+          style={{
+            width: STREAK_COL_WIDTH,
+            marginLeft: 8,
+            position: 'relative',
+          }}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              top: DAY_HEADER_HEIGHT + 4,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              borderRadius: STREAK_COL_WIDTH / 2,
+              backgroundColor: streakBarBg,
+            }}
+          />
+
+          <View style={{ height: DAY_HEADER_HEIGHT + 4 }} />
+
+          {weekRows.map((_, rowIndex) => {
+            const completed = completedWeekRows[rowIndex];
+
+            return (
+              <View
+                key={rowIndex}
                 style={{
-                  fontFamily: fontFamily.display,
-                  fontSize: 13,
-                  lineHeight: 15,
-                  color: status.fire,
+                  height: ROW_HEIGHT,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                {weeklyStreak > 99 ? '99+' : weeklyStreak}
-              </Text>
-            </View>
+                <View
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: completed ? status.fire : 'transparent',
+                    borderWidth: completed ? 0 : 1,
+                    borderColor: 'rgba(245,165,36,0.35)',
+                  }}
+                >
+                  {completed ? (
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+
+          <View
+            style={{
+              height: ROW_HEIGHT,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+              gap: 2,
+            }}
+            accessibilityLabel={`Weekly streak: ${weeklyStreak} ${weeklyStreak === 1 ? 'week' : 'weeks'}`}
+          >
+            <Ionicons name="flame" size={14} color={status.fire} />
+            <Text
+              style={{
+                fontFamily: fontFamily.display,
+                fontSize: 13,
+                lineHeight: 15,
+                color: status.fire,
+              }}
+            >
+              {weeklyStreak > 99 ? '99+' : weeklyStreak}
+            </Text>
           </View>
         </View>
-      </GlassSurface>
+      </View>
+    </View>
+  );
+
+  return (
+    <>
+      {embedded ? (
+        calendarBody
+      ) : (
+        <GlassSurface style={{ padding: 16, gap: 16 }}>{calendarBody}</GlassSurface>
+      )}
 
       <Modal
         visible={detailDate != null}

@@ -55,6 +55,11 @@ export default function AlertsScreen() {
       return;
     }
 
+    if (alert.type === 'workout_reminder') {
+      router.push('/(tabs)');
+      return;
+    }
+
     if (alert.activity_id) {
       router.push(`/activity/${alert.activity_id}`);
       return;

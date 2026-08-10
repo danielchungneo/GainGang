@@ -11,6 +11,11 @@ import {
 
 import { GangBanner } from '@/components/ui/gang-banner';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import {
+  formatGangMemberCapacity,
+  isGangAtCapacity,
+  isGangNearCapacity,
+} from '@/lib/gang-capacity';
 import { fontFamily, type } from '@/lib/gaingang-theme';
 import type { GangSummary } from '@/types';
 
@@ -39,7 +44,15 @@ export function GangSelector({
   const hasMultipleGangs = gangs.length > 1;
   const titleStyle = [type.heading, { color: t.heading, flexShrink: 1 }];
   const memberCount = selected.member_count ?? 0;
-  const memberLabel = `${memberCount} ${memberCount === 1 ? 'member' : 'members'}`;
+  const maxMembers = selected.max_members;
+  const memberLabel = formatGangMemberCapacity(memberCount, maxMembers, {
+    showFullSuffix: true,
+  });
+  const capacityTone = isGangAtCapacity(memberCount, maxMembers)
+    ? '#ef4444'
+    : isGangNearCapacity(memberCount, maxMembers)
+      ? '#f59e0b'
+      : t.body;
   const showMembersRow = !!onPressMembers || !!actions;
 
   const hasBanner = !!selected.banner_url;
@@ -90,11 +103,11 @@ export function GangSelector({
                 style={{ flexShrink: 1 }}
               >
                 <View className="flex-row items-center gap-1.5">
-                  <Ionicons name="people-outline" size={15} color={t.body} />
-                  <Text style={[type.bodySm, { color: t.body }]} numberOfLines={1}>
+                  <Ionicons name="people-outline" size={15} color={capacityTone} />
+                  <Text style={[type.bodySm, { color: capacityTone }]} numberOfLines={1}>
                     {memberLabel}
                   </Text>
-                  <Ionicons name="chevron-forward" size={13} color={t.body} />
+                  <Ionicons name="chevron-forward" size={13} color={capacityTone} />
                 </View>
               </TouchableOpacity>
             ) : (
@@ -154,12 +167,20 @@ export function GangSelector({
                           </Text>
                           <Text
                             style={{
-                              color: isSelected ? t.accentOnPrimary : t.body,
-                              opacity: 0.8,
+                              color: isSelected
+                                ? t.accentOnPrimary
+                                : isGangAtCapacity(gang.member_count, gang.max_members)
+                                  ? '#ef4444'
+                                  : isGangNearCapacity(gang.member_count, gang.max_members)
+                                    ? '#f59e0b'
+                                    : t.body,
+                              opacity: isSelected ? 0.8 : 1,
                               fontSize: 12,
                             }}
                           >
-                            {gang.member_count} {gang.member_count === 1 ? 'member' : 'members'}
+                            {formatGangMemberCapacity(gang.member_count, gang.max_members, {
+                              showFullSuffix: true,
+                            })}
                           </Text>
                         </View>
                         {isSelected ? (

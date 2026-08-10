@@ -119,6 +119,8 @@ function RootNavigator() {
 
         <Stack.Screen name="profile/[userId]" options={{ headerShown: false }} />
 
+        <Stack.Screen name="follows/[userId]" options={{ headerShown: false }} />
+
         <Stack.Screen name="settings" options={{ headerShown: false }} />
 
         <Stack.Screen

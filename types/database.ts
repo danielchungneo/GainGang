@@ -45,7 +45,8 @@ export type NotificationType =
   | 'gang'
   | 'poke'
   | 'daily_goal'
-  | 'follow';
+  | 'follow'
+  | 'workout_reminder';
 
 export type PushPlatform = 'ios' | 'android' | 'web' | 'unknown';
 export type XpAwardKind =
@@ -1021,6 +1022,22 @@ export type Database = {
       are_friends: {
         Args: { p_user_a: string; p_user_b: string };
         Returns: boolean;
+      };
+      can_view_follow_list: {
+        Args: { p_user_id: string };
+        Returns: boolean;
+      };
+      list_follows: {
+        Args: { p_user_id: string; p_list: string };
+        Returns: {
+          user_id: string;
+          full_name: string | null;
+          username: string | null;
+          avatar_url: string | null;
+          xp: number;
+          created_at: string;
+          viewer_is_following: boolean;
+        }[];
       };
       create_weekly_plan: {
         Args: {

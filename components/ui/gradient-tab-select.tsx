@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -6,6 +7,7 @@ import { fontFamily, radius, useTheme } from '@/lib/gaingang-theme';
 export interface GradientTabOption<T extends string> {
   key: T;
   label: string;
+  icon?: keyof typeof Ionicons.glyphMap;
 }
 
 export interface GradientTabSelectProps<T extends string> {
@@ -46,6 +48,7 @@ export function GradientTabSelect<T extends string>({
               ]}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
+              accessibilityLabel={tab.label}
             >
               {active ? (
                 <LinearGradient
@@ -54,13 +57,22 @@ export function GradientTabSelect<T extends string>({
                   end={{ x: 1, y: 0 }}
                   style={styles.tabFillActive}
                 >
+                  {tab.icon ? (
+                    <Ionicons name={tab.icon} size={16} color="#FFFFFF" />
+                  ) : null}
                   <Text style={styles.tabLabelActive} numberOfLines={1}>
                     {tab.label}
                   </Text>
                 </LinearGradient>
               ) : (
                 <View style={styles.tabFillInactive}>
-                  <Text style={[styles.tabLabelInactive, { color: c.textMuted }]} numberOfLines={1}>
+                  {tab.icon ? (
+                    <Ionicons name={tab.icon} size={16} color={c.textMuted} />
+                  ) : null}
+                  <Text
+                    style={[styles.tabLabelInactive, { color: c.textMuted }]}
+                    numberOfLines={1}
+                  >
                     {tab.label}
                   </Text>
                 </View>
@@ -76,12 +88,13 @@ export function GradientTabSelect<T extends string>({
 const styles = StyleSheet.create({
   track: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     alignSelf: 'stretch',
     width: '100%',
     borderRadius: radius.lg,
     borderWidth: 1,
-    padding: 3,
-    gap: 2,
+    padding: 4,
+    gap: 4,
   },
   tabSlot: {
     flex: 1,
@@ -95,35 +108,39 @@ const styles = StyleSheet.create({
   tabFillActive: {
     flex: 1,
     width: '100%',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 3,
     borderRadius: radius.md,
     paddingVertical: 8,
     paddingHorizontal: 4,
-    minHeight: 36,
+    minHeight: 48,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
   },
   tabFillInactive: {
     flex: 1,
     width: '100%',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 3,
     borderRadius: radius.md,
     paddingVertical: 8,
     paddingHorizontal: 4,
-    minHeight: 36,
+    minHeight: 48,
   },
   tabLabelActive: {
     fontFamily: fontFamily.bodySemi,
-    fontSize: 12,
+    fontSize: 11,
     color: '#FFFFFF',
     letterSpacing: 0.2,
     textAlign: 'center',
   },
   tabLabelInactive: {
     fontFamily: fontFamily.bodySemi,
-    fontSize: 12,
+    fontSize: 11,
     letterSpacing: 0.2,
     textAlign: 'center',
   },

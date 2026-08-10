@@ -106,6 +106,19 @@ export interface FollowCounts {
   following: number;
 }
 
+export type FollowListKind = 'followers' | 'following';
+
+/** A person in a followers/following list, plus whether the viewer follows them. */
+export interface FollowListEntry {
+  user_id: string;
+  full_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  xp: number;
+  created_at: string;
+  viewer_is_following: boolean;
+}
+
 /** A gang the current user belongs to, with their role + member count. */
 export interface GangSummary extends Gang {
   role: GangMember['role'];

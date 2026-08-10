@@ -18,6 +18,11 @@ import { ScreenBackground } from '@/components/ui/screen-background';
 import { useDiscoverGangs, useJoinPublicGang } from '@/hooks/use-gangs';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import {
+  formatGangMemberCapacity,
+  isGangAtCapacity,
+  isGangNearCapacity,
+} from '@/lib/gang-capacity';
 
 export default function JoinGangScreen() {
   const t = useThemeTokens();
@@ -96,11 +101,18 @@ export default function JoinGangScreen() {
                     </Text>
                   ) : null}
                   <Text
-                    style={{ color: gang.is_full ? '#ef4444' : t.body }}
+                    style={{
+                      color: isGangAtCapacity(gang.member_count, gang.max_members)
+                        ? '#ef4444'
+                        : isGangNearCapacity(gang.member_count, gang.max_members)
+                          ? '#f59e0b'
+                          : t.body,
+                    }}
                     className="text-xs mt-0.5"
                   >
-                    {gang.member_count}/25 members
-                    {gang.is_full ? ' · Full' : ''}
+                    {formatGangMemberCapacity(gang.member_count, gang.max_members, {
+                      showFullSuffix: true,
+                    })}
                   </Text>
                 </View>
                 <TouchableOpacity

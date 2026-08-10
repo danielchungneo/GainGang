@@ -95,6 +95,11 @@ export function pathForNotificationData(data: Record<string, unknown> | undefine
     return `/(tabs)/groups?gangId=${encodeURIComponent(gangId)}&tab=progress`;
   }
 
+  // Workout reminders open the Gain (Today) tab.
+  if (type === 'workout_reminder') {
+    return '/(tabs)';
+  }
+
   if (activityId) return `/activity/${activityId}`;
 
   if (gangId) {

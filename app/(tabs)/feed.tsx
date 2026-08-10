@@ -57,7 +57,9 @@ export default function FeedScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: ActivityFeedItem }) => (
-      <ActivityCard activity={item} gangId={item.gang_id ?? undefined} />
+      <View style={{ paddingHorizontal: spacing.lg }}>
+        <ActivityCard activity={item} gangId={item.gang_id ?? undefined} />
+      </View>
     ),
     [],
   );
@@ -98,7 +100,7 @@ export default function FeedScreen() {
   return (
     <ScreenBackground>
       {isLoading && activities.length === 0 ? (
-        <View style={{ flex: 1, paddingHorizontal: spacing.lg }}>
+        <View style={{ flex: 1 }}>
           {listHeader}
           <ActivityIndicator color={t.accent} style={{ marginTop: 24 }} />
         </View>
@@ -108,13 +110,16 @@ export default function FeedScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={{
-            paddingHorizontal: spacing.lg,
             paddingBottom: 40,
             flexGrow: 1,
           }}
           ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
           ListHeaderComponent={listHeader}
-          ListEmptyComponent={listEmpty}
+          ListEmptyComponent={
+            listEmpty ? (
+              <View style={{ paddingHorizontal: spacing.lg }}>{listEmpty}</View>
+            ) : null
+          }
           ListFooterComponent={listFooter}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.4}

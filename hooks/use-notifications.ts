@@ -250,6 +250,8 @@ export function notificationVisual(type: NotificationType): {
       return { icon: 'hand-left', label: 'Poke' };
     case 'daily_goal':
       return { icon: 'trophy', label: 'Daily goal' };
+    case 'workout_reminder':
+      return { icon: 'alarm', label: 'Reminder' };
     case 'mention':
       return { icon: 'at', label: 'Mention' };
     case 'achievement':

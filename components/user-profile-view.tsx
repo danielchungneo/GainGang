@@ -10,7 +10,7 @@ import {
 
 import { AchievementDetailModal } from '@/components/achievement-detail-modal';
 import { ProfileActivitiesFeed } from '@/components/profile-activities-feed';
-import { ProfileStreakCalendar } from '@/components/profile-streak-calendar';
+import { ProfileStatsPanel } from '@/components/profile-stats-panel';
 import {
   AchievementBadge,
   Avatar,
@@ -30,11 +30,11 @@ import { useFollowCounts, useFollowStatus, useToggleFollow } from '@/hooks/use-f
 import { useProfile } from '@/hooks/use-profile';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { resolveAchievementTier, collapseAchievementLines, sortAchievementsByRarity } from '@/lib/achievements';
-import { fontFamily, type } from '@/lib/gaingang-theme';
+import { fontFamily, status, type } from '@/lib/gaingang-theme';
 import { rarityDef } from '@/lib/rewards';
 import { levelProgress } from '@/types';
 
-type ProfileView = 'streak' | 'activities' | 'badges';
+type ProfileView = 'stats' | 'activities' | 'badges';
 
 interface UserProfileViewProps {
   userId: string;
@@ -43,7 +43,7 @@ interface UserProfileViewProps {
 
 export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) {
   const t = useThemeTokens();
-  const [activeView, setActiveView] = useState<ProfileView>('streak');
+  const [activeView, setActiveView] = useState<ProfileView>('stats');
   const [isAvatarViewerOpen, setIsAvatarViewerOpen] = useState(false);
   const [godModeBadgeCount, setGodModeBadgeCount] = useState<number | null>(null);
 
@@ -199,18 +199,42 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
         ) : null}
 
         <View className="flex-row items-center gap-4">
-          <Text style={[type.bodySm, { color: t.body }]}>
-            <Text style={{ fontFamily: fontFamily.bodySemi, color: t.heading }}>
-              {(followCounts?.followers ?? 0).toLocaleString()}
-            </Text>{' '}
-            followers
-          </Text>
-          <Text style={[type.bodySm, { color: t.body }]}>
-            <Text style={{ fontFamily: fontFamily.bodySemi, color: t.heading }}>
-              {(followCounts?.following ?? 0).toLocaleString()}
-            </Text>{' '}
-            following
-          </Text>
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: '/follows/[userId]',
+                params: { userId, list: 'followers' },
+              })
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`${followCounts?.followers ?? 0} followers`}
+            hitSlop={6}
+          >
+            <Text style={[type.bodySm, { color: t.body }]}>
+              <Text style={{ fontFamily: fontFamily.bodySemi, color: t.heading }}>
+                {(followCounts?.followers ?? 0).toLocaleString()}
+              </Text>{' '}
+              followers
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: '/follows/[userId]',
+                params: { userId, list: 'following' },
+              })
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`${followCounts?.following ?? 0} following`}
+            hitSlop={6}
+          >
+            <Text style={[type.bodySm, { color: t.body }]}>
+              <Text style={{ fontFamily: fontFamily.bodySemi, color: t.heading }}>
+                {(followCounts?.following ?? 0).toLocaleString()}
+              </Text>{' '}
+              following
+            </Text>
+          </TouchableOpacity>
           {isFriend ? (
             <Text style={[type.bodySm, { color: t.accent }]}>Friends</Text>
           ) : null}
@@ -273,13 +297,15 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
 
       <View className="flex-row gap-3">
         <StatTile
-          icon="flame"
-          label="Streak"
+          icon="stats-chart"
+          label="Stats"
           value={`${profile.current_streak}`}
-          isActive={activeView === 'streak'}
+          valueAccessory="flame"
+          valueAccessoryColor={status.fire}
+          isActive={activeView === 'stats'}
           onPress={() => {
             if (activeView === 'badges') setGodModeBadgeCount(null);
-            setActiveView('streak');
+            setActiveView('stats');
           }}
         />
         <StatTile
@@ -305,8 +331,12 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
         />
       </View>
 
-      {activeView === 'streak' ? (
-        <ProfileStreakCalendar activities={activities ?? []} />
+      {activeView === 'stats' ? (
+        <ProfileStatsPanel
+          profile={profile}
+          activities={activities ?? []}
+          isOwnProfile={isOwnProfile}
+        />
       ) : null}
 
       {activeView === 'activities' ? (
@@ -344,12 +374,16 @@ function StatTile({
   icon,
   label,
   value,
+  valueAccessory,
+  valueAccessoryColor,
   isActive,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
+  valueAccessory?: keyof typeof Ionicons.glyphMap;
+  valueAccessoryColor?: string;
   isActive: boolean;
   onPress: () => void;
 }) {
@@ -360,7 +394,9 @@ function StatTile({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: isActive }}
-      accessibilityLabel={`${label}, ${value}`}
+      accessibilityLabel={
+        valueAccessory === 'flame' ? `${label}, ${value} day streak` : `${label}, ${value}`
+      }
       style={{ flex: 1 }}
     >
       <GlassSurface
@@ -374,7 +410,16 @@ function StatTile({
         }}
       >
         <Ionicons name={icon} size={22} color={t.accent} />
-        <Text style={[type.data, { color: t.heading }]}>{value}</Text>
+        <View className="flex-row items-center" style={{ gap: 4 }}>
+          {valueAccessory ? (
+            <Ionicons
+              name={valueAccessory}
+              size={14}
+              color={valueAccessoryColor ?? t.accent}
+            />
+          ) : null}
+          <Text style={[type.data, { color: t.heading }]}>{value}</Text>
+        </View>
         <Text style={[type.dataSm, { color: isActive ? t.heading : t.body }]}>{label}</Text>
       </GlassSurface>
     </TouchableOpacity>

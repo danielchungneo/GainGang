@@ -71,6 +71,7 @@ export type WarDivision =
   | 'onyx';
 export type CosmeticKind = 'title' | 'avatar_border' | 'level_border' | 'banner';
 export type CosmeticSource = 'crate' | 'grant';
+export type CurrencyAwardKind = 'crate_reward';
 
 export type Database = {
   public: {
@@ -406,6 +407,26 @@ export type Database = {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['xp_awards']['Insert']>;
+        Relationships: [];
+      };
+      currency_awards: {
+        Row: {
+          id: string;
+          kind: CurrencyAwardKind;
+          user_id: string;
+          reward_crate_id: string | null;
+          amount: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          kind: CurrencyAwardKind;
+          user_id: string;
+          reward_crate_id?: string | null;
+          amount: number;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['currency_awards']['Insert']>;
         Relationships: [];
       };
       challenge_types: {

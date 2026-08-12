@@ -74,6 +74,7 @@ import Svg, {
 } from 'react-native-svg';
 
 import { LevelBadge } from '@/components/ui';
+import { CredPlate } from '@/components/ui/cred-plate';
 import { useCelebrationGate } from '@/hooks/use-celebration-gate';
 
 const ORB = 118;
@@ -203,6 +204,10 @@ export type RewardRowData = {
   color?: string;
   /** When set, renders a LevelBadge (used for XP rarity tiers). */
   badgeLevel?: number;
+  /** LevelBadge center text when badgeLevel is set. Defaults to XP. */
+  badgeLabel?: string;
+  /** Use the CredPlate mark instead of LevelBadge / text icon. */
+  mark?: 'creds';
 };
 
 export type RewardRevealProps = {
@@ -391,7 +396,8 @@ function Shard({ clock, i, accent }: { clock: SharedValue<number>; i: number; ac
 function RewardRow({ clock, row, index, accent }: { clock: SharedValue<number>; row: RewardRowData; index: number; accent: string }) {
   const s = TL.rowsStart + index * TL.rowStep;
   const color = row.color ?? accent;
-  const hasBadge = typeof row.badgeLevel === 'number' && row.badgeLevel > 0;
+  const isCreds = row.mark === 'creds';
+  const hasBadge = !isCreds && typeof row.badgeLevel === 'number' && row.badgeLevel > 0;
   const rowStyle = useAnimatedStyle(() => ({
     opacity: segE(clock.value, s, s + 0.34, outCubic),
     transform: [{ translateX: (1 - segE(clock.value, s, s + 0.44, outBack)) * 22 }],
@@ -402,9 +408,17 @@ function RewardRow({ clock, row, index, accent }: { clock: SharedValue<number>; 
   });
   return (
     <Animated.View style={[styles.row, rowStyle]}>
-      {hasBadge ? (
+      {isCreds ? (
+        <View style={[styles.rowIcon, { backgroundColor: `${color}1f`, borderColor: `${color}55`, shadowColor: color }]}>
+          <CredPlate size={22} glow />
+        </View>
+      ) : hasBadge ? (
         <View style={styles.rowBadge}>
-          <LevelBadge level={row.badgeLevel!} size={34} centerLabel="XP" />
+          <LevelBadge
+            level={row.badgeLevel!}
+            size={34}
+            centerLabel={row.badgeLabel ?? 'XP'}
+          />
         </View>
       ) : (
         <View style={[styles.rowIcon, { backgroundColor: `${color}1f`, borderColor: `${color}55`, shadowColor: color }]}>

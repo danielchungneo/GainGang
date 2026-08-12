@@ -24,6 +24,7 @@ export type {
   RewardCrateTier,
   CosmeticKind,
   CosmeticSource,
+  CurrencyAwardKind,
   ChallengeMode,
   WeeklyChallengeStatus,
   WarDivision,

@@ -27,6 +27,8 @@ import Svg, {
   LinearGradient as SvgGradient,
 } from "react-native-svg";
 
+import { CredsHud } from "@/components/creds-hud";
+import { ProfileHud } from "@/components/profile-hud";
 import { useTheme } from "@/lib/gaingang-theme";
 
 const GRID_SIZE = 48;
@@ -218,6 +220,8 @@ export function ScreenBackground({ children, style, ...props }: ViewProps) {
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         {children}
       </SafeAreaView>
+      <ProfileHud />
+      <CredsHud />
     </View>
   );
 }

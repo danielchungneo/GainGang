@@ -148,7 +148,10 @@ export default function WarScreen() {
           />
         }
       >
-        <View className="mt-4 flex-row items-end justify-between">
+        <View
+          className="mt-4 flex-row items-end justify-between"
+          style={{ paddingTop: spacing.lg }}
+        >
           <View style={{ gap: 4 }}>
             <Text
               style={{

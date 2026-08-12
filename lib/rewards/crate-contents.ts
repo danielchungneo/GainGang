@@ -4,6 +4,7 @@ import type { CosmeticKind } from '@/types/database';
 import { rarityDef } from './rarities';
 import type {
   CosmeticCrateReward,
+  CredsCrateReward,
   CrateContents,
   CrateReward,
   RewardRarity,
@@ -57,6 +58,33 @@ function parseXpReward(raw: Record<string, unknown>): XpCrateReward | null {
   };
 }
 
+function parseCredsReward(raw: Record<string, unknown>): CredsCrateReward | null {
+  if (raw.kind !== 'creds') return null;
+  if (!isRewardRarity(raw.rarity)) return null;
+  if (typeof raw.amount !== 'number' || !Number.isFinite(raw.amount) || raw.amount <= 0) {
+    return null;
+  }
+
+  const def = rarityDef(raw.rarity);
+  const amount = Math.floor(raw.amount);
+  const badgeLevel =
+    typeof raw.badgeLevel === 'number' && raw.badgeLevel > 0
+      ? Math.floor(raw.badgeLevel)
+      : def.badgeLevel;
+
+  return {
+    kind: 'creds',
+    rarity: raw.rarity,
+    amount,
+    badgeLevel,
+    label: 'CREDS',
+    value:
+      typeof raw.value === 'string' && raw.value.trim()
+        ? raw.value
+        : `+${amount} Creds`,
+  };
+}
+
 function parseCosmeticReward(raw: Record<string, unknown>): CosmeticCrateReward | null {
   if (raw.kind !== 'cosmetic') return null;
   if (!isRewardRarity(raw.rarity)) return null;
@@ -88,6 +116,7 @@ function parseReward(raw: unknown): CrateReward | null {
   if (!isRecord(raw)) return null;
   if (raw.kind === 'xp') return parseXpReward(raw);
   if (raw.kind === 'cosmetic') return parseCosmeticReward(raw);
+  if (raw.kind === 'creds') return parseCredsReward(raw);
   return null;
 }
 
@@ -120,10 +149,12 @@ export function highestRewardRarity(rewards: CrateReward[]): RewardRarity | null
   return best;
 }
 
-/** Prefer badge emblem from the lead XP reward when present. */
+/** Prefer badge emblem from the lead XP reward, then Creds. */
 export function emblemLevelFromRewards(rewards: CrateReward[]): number | undefined {
   const xp = rewards.find((r): r is XpCrateReward => r.kind === 'xp');
-  return xp?.badgeLevel;
+  if (xp) return xp.badgeLevel;
+  const creds = rewards.find((r): r is CredsCrateReward => r.kind === 'creds');
+  return creds?.badgeLevel;
 }
 
 export function revealTierFromCrate(
@@ -153,9 +184,12 @@ export function raritySubtitle(rewards: CrateReward[]): string | undefined {
   const def = rarityDef(top);
   const xp = rewards.find((r): r is XpCrateReward => r.kind === 'xp');
   const cosmetic = rewards.find((r): r is CosmeticCrateReward => r.kind === 'cosmetic');
-  if (xp && cosmetic) return `${def.name} XP · ${cosmetic.name}`;
-  if (xp) return `${def.name} XP drop · +${xp.amount} XP`;
-  if (cosmetic) return `${def.name} · ${cosmetic.name}`;
+  const creds = rewards.find((r): r is CredsCrateReward => r.kind === 'creds');
+  const credsBit = creds ? ` · +${creds.amount} Creds` : '';
+  if (xp && cosmetic) return `${def.name} XP · ${cosmetic.name}${credsBit}`;
+  if (xp) return `${def.name} XP drop · +${xp.amount} XP${credsBit}`;
+  if (cosmetic) return `${def.name} · ${cosmetic.name}${credsBit}`;
+  if (creds) return `${def.name} · +${creds.amount} Creds`;
   return `${def.name} reward`;
 }
 

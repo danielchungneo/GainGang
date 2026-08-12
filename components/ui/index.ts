@@ -19,6 +19,7 @@ export type { XPBarProps } from './xp-bar';
 export { GlassSurface } from './glass-surface';
 export type { GlassSurfaceProps } from './glass-surface';
 export { ScreenBackground } from './screen-background';
+export { CredPlate } from './cred-plate';
 export { KeyboardAwareScrollView } from './keyboard-aware-scroll-view';
 export { Avatar } from './avatar';
 export { ProfileBanner } from './profile-banner';

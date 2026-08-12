@@ -1,6 +1,6 @@
 # Feature TODO — Running List
 
-**Last updated:** 2026-08-10
+**Last updated:** 2026-08-11
 
 Living checklist of planned product features. Mark items done as they ship; add new ideas at the bottom under **Backlog**.
 
@@ -43,7 +43,10 @@ Living checklist of planned product features. Mark items done as they ship; add 
 
 ### Economy
 
-- [ ] App currency so we can have an in-app shop for cosmetics and what not — currency gained from chests or you can buy them
+- [ ] Creds economy — crate opens always grant Creds by crate rarity; shop still to build
+  - [x] Name: Creds (`profiles.currency`)
+  - [x] Guaranteed Creds in crate loot + reveal
+  - [ ] Cosmetic shop that spends Creds
 
 ---
 

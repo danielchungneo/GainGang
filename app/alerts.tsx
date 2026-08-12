@@ -20,6 +20,7 @@ import {
 } from '@/hooks/use-notifications';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { HUD_CONTENT_TOP_PAD } from '@/lib/app-hud';
 import { timeAgo } from '@/lib/format';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
 import { pushUserProfile } from '@/lib/navigate-profile';
@@ -77,7 +78,8 @@ export default function AlertsScreen() {
     <ScreenBackground>
       <ScrollView
         contentContainerStyle={{
-          padding: spacing.lg,
+          paddingHorizontal: spacing.lg,
+          paddingTop: HUD_CONTENT_TOP_PAD,
           gap: spacing.md,
           paddingBottom: 40,
         }}
@@ -89,7 +91,7 @@ export default function AlertsScreen() {
           />
         }
       >
-        <View className="mt-4 flex-row items-center gap-3">
+        <View className="flex-row items-center gap-3">
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"

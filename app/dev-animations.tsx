@@ -507,6 +507,13 @@ export default function DevAnimationsScreen() {
                   label: 'XP EARNED',
                   value: `+${revealDef.xpAmount}`,
                   badgeLevel: revealDef.badgeLevel,
+                  badgeLabel: 'XP',
+                  color: revealDef.color,
+                },
+                {
+                  label: 'CREDS',
+                  value: `+${revealDef.credsAmount} Creds`,
+                  mark: 'creds',
                   color: revealDef.color,
                 },
               ]}

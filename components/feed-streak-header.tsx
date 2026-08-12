@@ -4,6 +4,7 @@ import { Text, View } from 'react-native';
 
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { todayISO } from '@/lib/format';
+import { HUD_CONTENT_TOP_PAD } from '@/lib/app-hud';
 import { fontFamily, spacing, status, type, useTheme } from '@/lib/gaingang-theme';
 import { addDaysISO, mondayOfWeek, type ActivityWithExercises } from '@/types';
 
@@ -54,7 +55,7 @@ export function FeedStreakHeader({ activities, streakDays }: FeedStreakHeaderPro
     <View
       style={{
         marginBottom: spacing.lg,
-        paddingTop: spacing.md,
+        paddingTop: HUD_CONTENT_TOP_PAD,
         paddingBottom: spacing.lg,
         paddingHorizontal: spacing.lg,
         gap: spacing.md,

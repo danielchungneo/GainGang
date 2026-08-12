@@ -6,9 +6,9 @@ export type RewardRarity = Rank;
 
 /**
  * Extensible reward kinds. Add new kinds here as loot expands
- * (e.g. 'currency' | 'xp_boost').
+ * (e.g. 'xp_boost').
  */
-export type RewardKind = 'xp' | 'cosmetic';
+export type RewardKind = 'xp' | 'cosmetic' | 'creds';
 
 interface CrateRewardBase {
   kind: RewardKind;
@@ -38,8 +38,19 @@ export interface CosmeticCrateReward extends CrateRewardBase {
   name: string;
 }
 
+/** Guaranteed Creds drop — amount is based on the sealed crate's rarity. */
+export interface CredsCrateReward extends CrateRewardBase {
+  kind: 'creds';
+  amount: number;
+  /**
+   * Level used to pick a LevelBadge palette for this crate tier.
+   * Not the player's level — a visual stand-in for the drop tier.
+   */
+  badgeLevel: number;
+}
+
 /** Discriminated union — extend as new reward kinds ship. */
-export type CrateReward = XpCrateReward | CosmeticCrateReward;
+export type CrateReward = XpCrateReward | CosmeticCrateReward | CredsCrateReward;
 
 /** Persisted shape of `user_reward_crates.contents`. */
 export interface CrateContents {

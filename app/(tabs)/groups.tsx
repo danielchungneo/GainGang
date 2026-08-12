@@ -154,7 +154,7 @@ export default function GroupsScreen() {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={t.accent} />
         }
       >
-        <View className="mt-4">
+        <View className="mt-4" style={{ paddingTop: spacing.lg }}>
           {hasGangs && selectedGang ? (
             <GangSelector
               gangs={gangs}

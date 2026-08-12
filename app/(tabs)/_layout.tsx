@@ -17,10 +17,6 @@ import {
   useNeedsPostAuthNotifications,
 } from "@/hooks/use-onboarding";
 
-import { useUnreadNotificationCount } from "@/hooks/use-notifications";
-
-import { useUnopenedCrateCount } from "@/hooks/use-reward-crates";
-
 import { useNeedsGangWarAttempts } from "@/hooks/use-gang-wars";
 
 import { status, useTheme } from "@/lib/gaingang-theme";
@@ -38,9 +34,6 @@ export default function TabLayout() {
     useNeedsPostAuthNotifications();
   const { needsFocusLockIntro, isLoading: focusIntroLoading } = useNeedsFocusLockIntro();
   const { needsEquipmentPrompt, isLoading: equipmentLoading } = useNeedsEquipmentPrompt();
-  const unreadAlerts = useUnreadNotificationCount();
-  const unopenedCrates = useUnopenedCrateCount();
-  const profileAttention = unreadAlerts + unopenedCrates;
   const needsWarAttempts = useNeedsGangWarAttempts();
 
   const tabBarBottomPad = insets.bottom + TAB_BAR_BOTTOM_PAD;
@@ -117,7 +110,7 @@ export default function TabLayout() {
         },
       }}
     >
-      {/* Visual order: Feed · Gangs · Gain · War · Profile */}
+      {/* Visual order: Feed · Gangs · Gain · War · Shop */}
       <Tabs.Screen
         name="feed"
         options={{
@@ -166,22 +159,22 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="profile"
+        name="shop"
         options={{
-          title: "Profile",
-
-          tabBarBadge:
-            profileAttention > 0
-              ? profileAttention > 99
-                ? "99+"
-                : profileAttention
-              : undefined,
-
-          tabBarBadgeStyle: badgeStyle,
+          title: "Shop",
 
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+            <Ionicons name="storefront-outline" size={size} color={color} />
           ),
+        }}
+      />
+
+      {/* Reachable via Profile HUD — not shown in the tab bar. */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          href: null,
+          title: "Profile",
         }}
       />
     </Tabs>

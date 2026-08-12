@@ -27,6 +27,7 @@ import { useProfile } from '@/hooks/use-profile';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useOpenRewardCrate, useRewardCrates } from '@/hooks/use-reward-crates';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { HUD_CONTENT_TOP_PAD } from '@/lib/app-hud';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
 import {
   emblemLevelFromRewards,
@@ -104,12 +105,23 @@ function starterCategoryLabel(category: StarterCosmeticCrateCategory): string {
 }
 
 function rewardsToRevealRows(rewards: CrateReward[]): RewardRowData[] {
-  return rewards.map((reward) => ({
-    label: reward.label,
-    value: reward.value,
-    color: rewardAccentColor(reward),
-    badgeLevel: reward.kind === 'xp' ? reward.badgeLevel : undefined,
-  }));
+  return rewards.map((reward) => {
+    if (reward.kind === 'creds') {
+      return {
+        label: reward.label,
+        value: reward.value,
+        color: rewardAccentColor(reward),
+        mark: 'creds' as const,
+      };
+    }
+    return {
+      label: reward.label,
+      value: reward.value,
+      color: rewardAccentColor(reward),
+      badgeLevel: reward.kind === 'xp' ? reward.badgeLevel : undefined,
+      badgeLabel: reward.kind === 'xp' ? 'XP' : undefined,
+    };
+  });
 }
 
 function xpAmountFromRewards(rewards: CrateReward[]): number {
@@ -271,7 +283,7 @@ export default function InventoryScreen() {
         <View
           style={{
             paddingHorizontal: spacing.lg,
-            paddingTop: spacing.lg,
+            paddingTop: HUD_CONTENT_TOP_PAD,
             gap: spacing.sm,
           }}
         >

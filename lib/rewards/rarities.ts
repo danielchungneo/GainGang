@@ -11,6 +11,11 @@ export interface RewardRarityDef {
   /** XP granted when this rarity is rolled for an XP reward. */
   xpAmount: number;
   /**
+   * Creds granted when a crate of this sealed tier is opened.
+   * Must stay in sync with `reward_rarity_creds` SQL.
+   */
+  credsAmount: number;
+  /**
    * Representative player level for LevelBadge coloring.
    * Levels map to palette bands every 10 levels.
    */
@@ -30,6 +35,7 @@ export const REWARD_RARITIES: Record<RewardRarity, RewardRarityDef> = {
     name: 'Common',
     weight: 40,
     xpAmount: 25,
+    credsAmount: 100,
     badgeLevel: 5,
     ...pickRankVisual('E'),
   },
@@ -38,6 +44,7 @@ export const REWARD_RARITIES: Record<RewardRarity, RewardRarityDef> = {
     name: 'Uncommon',
     weight: 25,
     xpAmount: 50,
+    credsAmount: 250,
     badgeLevel: 15,
     ...pickRankVisual('D'),
   },
@@ -46,6 +53,7 @@ export const REWARD_RARITIES: Record<RewardRarity, RewardRarityDef> = {
     name: 'Rare',
     weight: 18,
     xpAmount: 100,
+    credsAmount: 500,
     badgeLevel: 25,
     ...pickRankVisual('C'),
   },
@@ -54,6 +62,7 @@ export const REWARD_RARITIES: Record<RewardRarity, RewardRarityDef> = {
     name: 'Epic',
     weight: 10,
     xpAmount: 200,
+    credsAmount: 1000,
     badgeLevel: 35,
     ...pickRankVisual('B'),
   },
@@ -62,6 +71,7 @@ export const REWARD_RARITIES: Record<RewardRarity, RewardRarityDef> = {
     name: 'Legendary',
     weight: 5,
     xpAmount: 400,
+    credsAmount: 2000,
     badgeLevel: 45,
     ...pickRankVisual('A'),
   },
@@ -70,6 +80,7 @@ export const REWARD_RARITIES: Record<RewardRarity, RewardRarityDef> = {
     name: 'Mythic',
     weight: 2,
     xpAmount: 800,
+    credsAmount: 5000,
     badgeLevel: 55,
     ...pickRankVisual('S'),
   },

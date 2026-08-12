@@ -1,5 +1,6 @@
 export type {
   CosmeticCrateReward,
+  CredsCrateReward,
   CrateContents,
   CrateReward,
   RewardKind,

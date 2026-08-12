@@ -198,7 +198,7 @@ export function UserProfileView({ userId, isOwnProfile }: UserProfileViewProps) 
           <Text style={[type.bodySm, { color: t.body }]}>{profile.bio}</Text>
         ) : null}
 
-        <View className="flex-row items-center gap-4">
+        <View className="flex-row items-center gap-4 flex-wrap">
           <TouchableOpacity
             onPress={() =>
               router.push({

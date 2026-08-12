@@ -14,3 +14,5 @@ export type { ReactionChipProps, ReactionKind } from './ReactionChip';
 export { StreakPill } from './StreakPill';
 export { XPBar } from './XPBar';
 export type { XPBarProps } from './XPBar';
+export { CredPlate } from './cred-plate';
+export { CredsBalance } from './creds-balance';

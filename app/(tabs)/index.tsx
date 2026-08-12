@@ -150,7 +150,10 @@ export default function TodayScreen() {
           />
         }
       >
-        <View className="mt-4 flex-row items-center justify-between gap-3">
+        <View
+          className="mt-4 flex-row items-center justify-between gap-3"
+          style={{ paddingTop: spacing.lg }}
+        >
           <View className="flex-1 gap-2">
             <View className="flex-row items-center gap-2">
               <Text style={[type.labelSm, { color: t.body }]}>

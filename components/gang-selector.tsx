@@ -9,7 +9,8 @@ import {
   View,
 } from 'react-native';
 
-import { GangBanner } from '@/components/ui/gang-banner';
+import { GangBannerWithDivisionBorder } from '@/components/gang-banner-with-division-border';
+import { GangDivisionBadge } from '@/components/gang-division-badge';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import {
   formatGangMemberCapacity,
@@ -55,12 +56,12 @@ export function GangSelector({
       : t.body;
   const showMembersRow = !!onPressMembers || !!actions;
 
-  const hasBanner = !!selected.banner_url;
   const title = (
-    <View className="flex-row items-center gap-1" style={{ flexShrink: 1, minWidth: 0 }}>
+    <View className="flex-row items-center gap-2" style={{ flexShrink: 1, minWidth: 0 }}>
       <Text style={titleStyle} numberOfLines={1}>
         {selected.name}
       </Text>
+      <GangDivisionBadge division={selected.war_division} />
       {hasMultipleGangs ? (
         <Ionicons name="chevron-down" size={22} color={t.heading} style={{ flexShrink: 0 }} />
       ) : null}
@@ -85,9 +86,12 @@ export function GangSelector({
     <>
       <View style={{ gap: 10, width: '100%' }}>
         <View className="flex-row items-center gap-3" style={{ width: '100%' }}>
-          {hasBanner ? (
-            <GangBanner uri={selected.banner_url} variant="thumb" size={44} />
-          ) : null}
+          <GangBannerWithDivisionBorder
+            uri={selected.banner_url}
+            name={selected.name}
+            division={selected.war_division}
+            size={52}
+          />
           <View style={{ flex: 1, minWidth: 0 }}>{titleBlock}</View>
         </View>
 
@@ -154,8 +158,13 @@ export function GangSelector({
                           borderColor: isSelected ? t.accent : t.buttonBorder,
                         }}
                       >
-                        <GangBanner uri={gang.banner_url} variant="thumb" />
-                        <View className="flex-1">
+                        <GangBannerWithDivisionBorder
+                          uri={gang.banner_url}
+                          name={gang.name}
+                          division={gang.war_division}
+                          size={40}
+                        />
+                        <View className="flex-1" style={{ gap: 4 }}>
                           <Text
                             style={{
                               fontFamily: fontFamily.bodySemi,
@@ -165,23 +174,28 @@ export function GangSelector({
                           >
                             {gang.name}
                           </Text>
-                          <Text
-                            style={{
-                              color: isSelected
-                                ? t.accentOnPrimary
-                                : isGangAtCapacity(gang.member_count, gang.max_members)
-                                  ? '#ef4444'
-                                  : isGangNearCapacity(gang.member_count, gang.max_members)
-                                    ? '#f59e0b'
-                                    : t.body,
-                              opacity: isSelected ? 0.8 : 1,
-                              fontSize: 12,
-                            }}
-                          >
-                            {formatGangMemberCapacity(gang.member_count, gang.max_members, {
-                              showFullSuffix: true,
-                            })}
-                          </Text>
+                          <View className="flex-row items-center gap-2">
+                            <GangDivisionBadge division={gang.war_division} size="sm" />
+                            <Text
+                              style={{
+                                color: isSelected
+                                  ? t.accentOnPrimary
+                                  : isGangAtCapacity(gang.member_count, gang.max_members)
+                                    ? '#ef4444'
+                                    : isGangNearCapacity(gang.member_count, gang.max_members)
+                                      ? '#f59e0b'
+                                      : t.body,
+                                opacity: isSelected ? 0.8 : 1,
+                                fontSize: 12,
+                                flexShrink: 1,
+                              }}
+                              numberOfLines={1}
+                            >
+                              {formatGangMemberCapacity(gang.member_count, gang.max_members, {
+                                showFullSuffix: true,
+                              })}
+                            </Text>
+                          </View>
                         </View>
                         {isSelected ? (
                           <Ionicons name="checkmark-circle" size={22} color={t.accentOnPrimary} />

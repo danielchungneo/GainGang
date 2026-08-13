@@ -1,8 +1,10 @@
 import { router, usePathname, useSegments } from 'expo-router';
-import { Pressable } from 'react-native';
+import { useState } from 'react';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CredsBalance } from '@/components/creds-balance';
+import { ShopCredsPacksSheet } from '@/components/shop-sheets';
 import { useAuth } from '@/context/auth-context';
 import { useProfile } from '@/hooks/use-profile';
 import { shouldHideAppHud } from '@/lib/app-hud';
@@ -15,6 +17,7 @@ export function CredsHud() {
   const insets = useSafeAreaInsets();
   const segments = useSegments();
   const pathname = usePathname();
+  const [packsVisible, setPacksVisible] = useState(false);
 
   if (!session || shouldHideAppHud(segments)) return null;
 
@@ -26,11 +29,7 @@ export function CredsHud() {
   }
 
   return (
-    <Pressable
-      onPress={handlePress}
-      accessibilityRole="button"
-      accessibilityLabel={`${amount.toLocaleString()} Creds. Open inventory.`}
-      hitSlop={6}
+    <View
       style={{
         position: 'absolute',
         top: insets.top + spacing.xs,
@@ -38,7 +37,13 @@ export function CredsHud() {
         zIndex: 50,
       }}
     >
-      <CredsBalance amount={amount} size="sm" />
-    </Pressable>
+      <CredsBalance
+        amount={amount}
+        size="sm"
+        onPress={handlePress}
+        onAddPress={() => setPacksVisible(true)}
+      />
+      <ShopCredsPacksSheet visible={packsVisible} onClose={() => setPacksVisible(false)} />
+    </View>
   );
 }

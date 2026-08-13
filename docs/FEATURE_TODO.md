@@ -46,7 +46,7 @@ Living checklist of planned product features. Mark items done as they ship; add 
 - [ ] Creds economy — crate opens always grant Creds by crate rarity; shop still to build
   - [x] Name: Creds (`profiles.currency`)
   - [x] Guaranteed Creds in crate loot + reveal
-  - [ ] Cosmetic shop that spends Creds
+  - [x] Cosmetic shop that spends Creds (Armory tab — staging migrated)
 
 ---
 

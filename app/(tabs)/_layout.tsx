@@ -25,6 +25,14 @@ const TAB_BAR_CONTENT_HEIGHT = 58;
 const TAB_BAR_TOP_PAD = 8;
 const TAB_BAR_BOTTOM_PAD = 4;
 
+/** Per-tab active accents — Shop gold + War dark red are intentional brand picks. */
+const TAB_ACTIVE = {
+  feed: "#4D8CFF",
+  gangs: "#8B6CFF",
+  war: "#A31828",
+  shop: "#F5A524",
+} as const;
+
 export default function TabLayout() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -115,9 +123,13 @@ export default function TabLayout() {
         name="feed"
         options={{
           title: "Feed",
-
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="newspaper-outline" size={size} color={color} />
+          tabBarActiveTintColor: TAB_ACTIVE.feed,
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "newspaper" : "newspaper-outline"}
+              size={size}
+              color={focused ? TAB_ACTIVE.feed : color}
+            />
           ),
         }}
       />
@@ -126,9 +138,13 @@ export default function TabLayout() {
         name="groups"
         options={{
           title: "Gangs",
-
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={size} color={color} />
+          tabBarActiveTintColor: TAB_ACTIVE.gangs,
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "people" : "people-outline"}
+              size={size}
+              color={focused ? TAB_ACTIVE.gangs : color}
+            />
           ),
         }}
       />
@@ -147,13 +163,15 @@ export default function TabLayout() {
         name="war"
         options={{
           title: "War",
-
+          tabBarActiveTintColor: TAB_ACTIVE.war,
           tabBarBadge: needsWarAttempts ? "" : undefined,
-
           tabBarBadgeStyle: badgeStyle,
-
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="sword-cross" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <MaterialCommunityIcons
+              name="sword-cross"
+              size={size}
+              color={focused ? TAB_ACTIVE.war : color}
+            />
           ),
         }}
       />
@@ -162,9 +180,13 @@ export default function TabLayout() {
         name="shop"
         options={{
           title: "Shop",
-
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="storefront-outline" size={size} color={color} />
+          tabBarActiveTintColor: TAB_ACTIVE.shop,
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "storefront" : "storefront-outline"}
+              size={size}
+              color={focused ? TAB_ACTIVE.shop : color}
+            />
           ),
         }}
       />

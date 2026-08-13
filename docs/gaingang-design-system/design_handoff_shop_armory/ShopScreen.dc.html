@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { -webkit-font-smoothing: antialiased; background: #16181d; }
+a { color: #4d8cff; text-decoration: none; }
+a:hover { color: #9d4edd; }
+</style>
+</helmet>
+
+<section style="width:max-content; min-width:100%; padding:56px 52px 96px; font-family:'Hanken Grotesk',sans-serif;">
+
+  <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:8px;">
+    <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.24em; color:#f5a524;">1A</span>
+    <h1 style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:34px; color:#e8edf7;">The Armory</h1>
+  </div>
+  <p style="font-family:'Hanken Grotesk',sans-serif; font-size:14.5px; color:#8b96b0; line-height:1.6; max-width:640px; margin-bottom:40px; text-wrap:pretty;">Rotating stock, a featured drop at the top, one row per category. Tap any item for a live preview on your leaderboard row, then confirm to buy — the purchase hands off to the existing reward reveal.</p>
+
+  <div style="display:flex; gap:36px; align-items:flex-start;">
+
+    <!-- ══ FRAME 1 · STOREFRONT ══ -->
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.2em; color:#7d8aa8;">01 — STOREFRONT</div>
+      <div style="width:440px; height:954px; background:#05070f; color:#e8edf7; position:relative; overflow:hidden; display:flex; flex-direction:column; border-radius:38px;">
+        <div style="position:absolute; top:-140px; right:-110px; width:380px; height:380px; border-radius:50%; background:radial-gradient(circle,rgba(245,165,36,.13),transparent 70%); pointer-events:none;"></div>
+        <div style="position:absolute; top:620px; left:-150px; width:420px; height:420px; border-radius:50%; background:radial-gradient(circle,rgba(157,78,221,.11),transparent 70%); pointer-events:none;"></div>
+        <div style="position:absolute; top:13px; left:50%; transform:translateX(-50%); width:104px; height:29px; background:#000; border-radius:999px; z-index:9;"></div>
+        <div style="height:52px; flex-shrink:0;"></div>
+
+        <!-- header -->
+        <div style="padding:6px 24px 14px; display:flex; align-items:flex-end; justify-content:space-between; gap:12px; position:relative; z-index:3;">
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.22em; color:#7d8aa8;">SPEND YOUR CREDS</span>
+            <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:32px; line-height:1;">Armory</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:7px; border-radius:999px; padding:6px 7px 6px 9px; background:rgba(44,29,11,.88); border:1px solid rgba(245,165,36,.67);">
+            <svg width="18" height="18" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+            <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14px; color:#e8edf7;">2,480</span>
+            <div style="width:24px; height:24px; border-radius:50%; background:rgba(245,165,36,.18); border:1px solid rgba(245,165,36,.5); display:flex; align-items:center; justify-content:center; margin-left:2px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f5a524" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- scroll body -->
+        <div style="flex:1; overflow:hidden; display:flex; flex-direction:column; gap:8px; padding:2px 0 0; position:relative; z-index:2;">
+
+          <!-- featured drop -->
+          <div style="padding:0 24px; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.22em; color:#f5a524;">◆ FEATURED DROP</span>
+              <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; color:#7d8aa8;">04:12:38 LEFT</span>
+            </div>
+            <div style="border-radius:18px; overflow:hidden; border:1.5px solid rgba(245,165,36,.6); background:#0e1524; box-shadow:0 14px 40px -14px rgba(245,165,36,.55);">
+              <div style="height:92px; position:relative; background:linear-gradient(135deg,#3a2a10,#1a1526 62%,#0e1524); display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                <div style="position:absolute; inset:0; background:repeating-linear-gradient(115deg,rgba(245,165,36,.09) 0 10px,transparent 10px 26px);"></div>
+                <div style="position:absolute; width:190px; height:190px; border-radius:50%; background:radial-gradient(circle,rgba(245,165,36,.35),transparent 68%);"></div>
+                <div style="position:relative; display:flex; flex-direction:column; align-items:center; gap:10px;">
+                  <div style="padding:9px 20px; border-radius:999px; background:linear-gradient(120deg,#f5a524,#c97a0c); box-shadow:0 0 26px -4px rgba(245,165,36,.9);">
+                    <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:19px; letter-spacing:.06em; color:#2c1d0b;">THE UNBROKEN</span>
+                  </div>
+                  <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.2em; color:rgba(255,215,135,.85);">TITLE · A-RANK</span>
+                </div>
+              </div>
+              <div style="padding:12px 16px 14px; display:flex; flex-direction:column; gap:10px; background:linear-gradient(180deg,rgba(245,165,36,.07),transparent);">
+                <p style="font-size:13.5px; line-height:1.5; color:#aeb8d0; text-wrap:pretty;">Worn by lifters who never missed a day. Sits beside your name on every leaderboard.</p>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:11px 0; border-radius:13px; background:linear-gradient(120deg,#f5a524,#c97a0c); box-shadow:0 6px 18px -6px rgba(245,165,36,.8);">
+                    <svg width="16" height="16" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#2C1D0B"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#F5A524"></path></svg>
+                    <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:15px; letter-spacing:.1em; color:#2c1d0b;">1,800 CREDS</span>
+                  </div>
+                  <div style="width:48px; height:48px; border-radius:13px; border:1px solid rgba(125,165,255,.28); display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.03);">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#aeb8d0" stroke-width="1.8"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- crates row -->
+          <div style="display:flex; flex-direction:column; gap:11px;">
+            <div style="padding:0 24px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+              <span style="font-family:'Chakra Petch',sans-serif; font-weight:600; font-size:19px; flex:1;">Crates</span>
+              <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.16em; color:#7d8aa8;">RESTOCK 2D 04H</span>
+            </div>
+            <div style="display:flex; gap:12px; padding:0 24px;">
+              <div style="width:150px; flex-shrink:0; border-radius:15px; border:1px solid rgba(157,78,221,.5); background:#0e1524; overflow:hidden;">
+                <div style="height:70px; background:linear-gradient(150deg,rgba(157,78,221,.3),rgba(14,21,36,.2)); display:flex; align-items:center; justify-content:center;">
+                  <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#c58fff" stroke-width="1.5"><path d="M21 8v8l-9 5-9-5V8l9-5 9 5Z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg>
+                </div>
+                <div style="padding:9px 12px 10px; display:flex; flex-direction:column; gap:7px;">
+                  <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px;">Vault Crate</div>
+                  <div style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.14em; color:#c58fff;">B–S RANK ODDS</div>
+                  <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+                    <svg width="14" height="14" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+                    <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px;">950</span>
+                  </div>
+                </div>
+              </div>
+              <div style="width:150px; flex-shrink:0; border-radius:15px; border:1px solid rgba(77,140,255,.4); background:#0e1524; overflow:hidden;">
+                <div style="height:70px; background:linear-gradient(150deg,rgba(77,140,255,.26),rgba(14,21,36,.2)); display:flex; align-items:center; justify-content:center;">
+                  <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#8fb4ff" stroke-width="1.5"><path d="M21 8v8l-9 5-9-5V8l9-5 9 5Z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg>
+                </div>
+                <div style="padding:9px 12px 10px; display:flex; flex-direction:column; gap:7px;">
+                  <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px;">Locker Crate</div>
+                  <div style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.14em; color:#8fb4ff;">D–B RANK ODDS</div>
+                  <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+                    <svg width="14" height="14" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+                    <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px;">350</span>
+                  </div>
+                </div>
+              </div>
+              <div style="width:56px; flex-shrink:0; border-radius:15px; border:1px dashed rgba(125,165,255,.2);"></div>
+            </div>
+          </div>
+
+          <!-- titles row -->
+          <div style="display:flex; flex-direction:column; gap:11px;">
+            <div style="padding:0 24px; display:flex; align-items:center; gap:10px;">
+              <span style="font-family:'Chakra Petch',sans-serif; font-weight:600; font-size:19px; flex:1;">Titles</span>
+              <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.16em; color:#7d8aa8;">4 IN STOCK</span>
+            </div>
+            <div style="display:flex; gap:12px; padding:0 24px;">
+              <div style="width:168px; flex-shrink:0; border-radius:15px; border:1px solid rgba(45,212,191,.42); background:#0e1524; padding:13px; display:flex; flex-direction:column; gap:10px;">
+                <div style="height:44px; border-radius:10px; background:rgba(45,212,191,.1); border:1px solid rgba(45,212,191,.3); display:flex; align-items:center; justify-content:center;">
+                  <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:15px; color:#2dd4bf; letter-spacing:.04em;">Dawn Runner</span>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                  <span style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.14em; color:#2dd4bf;">D · TITLE</span>
+                  <div style="display:flex; align-items:center; gap:5px;">
+                    <svg width="13" height="13" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+                    <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:12.5px;">240</span>
+                  </div>
+                </div>
+              </div>
+              <div style="width:168px; flex-shrink:0; border-radius:15px; border:1px solid rgba(255,92,137,.45); background:#0e1524; padding:13px; display:flex; flex-direction:column; gap:10px; position:relative;">
+                <div style="position:absolute; top:-8px; right:10px; padding:3px 8px; border-radius:999px; background:#ff5c89; font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:.14em; color:#20060f; font-weight:700;">1 LEFT</div>
+                <div style="height:44px; border-radius:10px; background:rgba(255,92,137,.1); border:1px solid rgba(255,92,137,.32); display:flex; align-items:center; justify-content:center;">
+                  <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:15px; color:#ff5c89; letter-spacing:.04em;">Iron Monarch</span>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                  <span style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.14em; color:#ff5c89;">S · TITLE</span>
+                  <div style="display:flex; align-items:center; gap:5px;">
+                    <svg width="13" height="13" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+                    <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:12.5px;">3,200</span>
+                  </div>
+                </div>
+              </div>
+              <div style="width:38px; flex-shrink:0;"></div>
+            </div>
+          </div>
+
+          <!-- borders row -->
+          <div style="display:flex; flex-direction:column; gap:11px;">
+            <div style="padding:0 24px; display:flex; align-items:center; gap:10px;">
+              <span style="font-family:'Chakra Petch',sans-serif; font-weight:600; font-size:19px; flex:1;">Borders</span>
+              <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.16em; color:#7d8aa8;">3 IN STOCK</span>
+            </div>
+            <div style="display:flex; gap:12px; padding:0 24px;">
+              <div style="width:118px; flex-shrink:0; border-radius:15px; border:1px solid rgba(125,165,255,.16); background:#0e1524; padding:13px; display:flex; flex-direction:column; align-items:center; gap:9px;">
+                <div style="width:46px; height:46px; border-radius:50%; padding:3px; background:linear-gradient(135deg,#4d8cff,#9d4edd); box-shadow:0 0 16px -3px rgba(77,140,255,.7);">
+                  <div style="width:100%; height:100%; border-radius:50%; background:#1d2840;"></div>
+                </div>
+                <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:12.5px;">Aura Ring</div>
+                <div style="display:flex; align-items:center; gap:5px;">
+                  <svg width="12" height="12" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+                  <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:12px;">600</span>
+                </div>
+              </div>
+              <div style="width:118px; flex-shrink:0; border-radius:15px; border:1px solid rgba(125,165,255,.16); background:#0e1524; padding:13px; display:flex; flex-direction:column; align-items:center; gap:9px;">
+                <div style="width:46px; height:46px; border-radius:50%; padding:3px; background:linear-gradient(135deg,#8b8f9c,#4b5162);">
+                  <div style="width:100%; height:100%; border-radius:50%; background:#1d2840;"></div>
+                </div>
+                <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:12.5px;">Cold Steel</div>
+                <div style="display:flex; align-items:center; gap:5px;">
+                  <svg width="12" height="12" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+                  <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:12px;">180</span>
+                </div>
+              </div>
+              <div style="width:118px; flex-shrink:0; border-radius:15px; border:1px solid rgba(125,165,255,.16); background:#0e1524; padding:13px; display:flex; flex-direction:column; align-items:center; gap:9px; opacity:.5;">
+                <div style="width:46px; height:46px; border-radius:50%; padding:3px; background:linear-gradient(135deg,#f5a524,#c97a0c);">
+                  <div style="width:100%; height:100%; border-radius:50%; background:#1d2840;"></div>
+                </div>
+                <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:12.5px;">Monarch</div>
+                <div style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; color:#7d8aa8;">OWNED</div>
+              </div>
+            </div>
+          </div>
+
+        <!-- tab bar -->
+        <div style="flex-shrink:0; display:flex; align-items:flex-start; padding:9px 4px 26px; border-top:1px solid rgba(125,165,255,.14); background:rgba(13,19,33,.96); position:relative; z-index:5;">
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#7d8aa8" stroke-width="1.8"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"></path></svg>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#7d8aa8;">Today</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#7d8aa8" stroke-width="1.8"><circle cx="9" cy="8" r="3"></circle><circle cx="17" cy="9" r="2.4"></circle><path d="M4 19c0-3 2.5-5 5-5s5 2 5 5"></path></svg>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#7d8aa8;">Gang</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#f5a524" stroke-width="1.9"><path d="M3 9l1.5-4h15L21 9"></path><path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"></path><path d="M8 13h8"></path></svg>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#f5a524; font-weight:700;">Shop</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#7d8aa8" stroke-width="1.8"><path d="M14.5 3l-2 5h4l-7 13 2-8H8Z"></path></svg>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#7d8aa8;">War</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#7d8aa8" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6"></path></svg>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#7d8aa8;">You</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FRAME 2 · DETAIL SHEET ══ -->
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.2em; color:#7d8aa8;">02 — ITEM DETAIL &amp; LIVE PREVIEW</div>
+      <div style="width:440px; height:954px; background:#05070f; color:#e8edf7; position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; border-radius:38px;">
+        <div style="position:absolute; inset:0; background:linear-gradient(180deg,rgba(5,7,15,.6),rgba(5,7,15,.94));"></div>
+        <div style="position:absolute; top:120px; left:24px; right:24px; opacity:.22; display:flex; flex-direction:column; gap:16px;">
+          <div style="height:150px; border-radius:18px; background:#1a1526;"></div>
+          <div style="display:flex; gap:12px;"><div style="flex:1; height:150px; border-radius:15px; background:#0e1524;"></div><div style="flex:1; height:150px; border-radius:15px; background:#0e1524;"></div></div>
+        </div>
+        <div style="position:absolute; top:13px; left:50%; transform:translateX(-50%); width:104px; height:29px; background:#000; border-radius:999px; z-index:9;"></div>
+
+        <!-- sheet -->
+        <div style="position:relative; z-index:4; border-radius:26px 26px 0 0; background:#0e1524; border-top:1.5px solid rgba(255,92,137,.55); box-shadow:0 -18px 50px -12px rgba(255,92,137,.35); padding:12px 24px 34px; display:flex; flex-direction:column; gap:20px;">
+          <div style="width:44px; height:4px; border-radius:999px; background:rgba(125,165,255,.28); align-self:center;"></div>
+
+          <!-- hero -->
+          <div style="display:flex; flex-direction:column; gap:10px; align-items:center; padding-top:6px;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.22em; color:#ff5c89;">S RANK · TITLE · 1 LEFT</span>
+            <div style="padding:12px 26px; border-radius:14px; background:rgba(255,92,137,.11); border:1px solid rgba(255,92,137,.45); box-shadow:0 0 34px -8px rgba(255,92,137,.7);">
+              <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:27px; color:#ff5c89; letter-spacing:.03em; white-space:nowrap;">Iron Monarch</span>
+            </div>
+            <p style="font-size:13.5px; line-height:1.55; color:#aeb8d0; text-align:center; max-width:300px; text-wrap:pretty;">Reserved for the top of the ladder. One goes out per rotation, and it never comes back at this price.</p>
+          </div>
+
+          <!-- live preview -->
+          <div style="display:flex; flex-direction:column; gap:9px;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.2em; color:#7d8aa8;">LIVE PREVIEW — YOUR LEADERBOARD ROW</span>
+            <div style="border-radius:14px; background:#131c30; border:1px solid rgba(125,165,255,.16); padding:13px 14px; display:flex; align-items:center; gap:12px;">
+              <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:17px; color:#7d8aa8; width:24px;">4</span>
+              <div style="width:44px; height:44px; border-radius:50%; padding:2.5px; background:linear-gradient(135deg,#f5a524,#c97a0c);">
+                <div style="width:100%; height:100%; border-radius:50%; background:#1d2840;"></div>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:3px;">
+                <span style="font-family:'Hanken Grotesk',sans-serif; font-weight:700; font-size:15px;">danielm</span>
+                <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:12.5px; color:#ff5c89; letter-spacing:.04em;">Iron Monarch</span>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+                <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px;">1,204</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.14em; color:#7d8aa8;">REPS</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- price + buy -->
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 15px; border-radius:13px; background:rgba(44,29,11,.6); border:1px solid rgba(245,165,36,.3);">
+              <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.18em; color:#d9a45a;">YOUR BALANCE</span>
+              <div style="display:flex; align-items:center; gap:7px;">
+                <svg width="15" height="15" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+                <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14px;">2,480</span>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:10px; padding:16px 0; border-radius:14px; background:linear-gradient(120deg,#4d8cff,#9d4edd); box-shadow:0 8px 26px -8px rgba(77,140,255,.85);">
+              <svg width="17" height="17" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#fff"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#4d8cff"></path></svg>
+              <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:16px; letter-spacing:.12em; color:#fff;">BUY · 3,200</span>
+            </div>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.12em; color:#ff5c89; text-align:center;">720 CREDS SHORT — TAP TO TOP UP</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FRAME 3 · CONFIRM ══ -->
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.2em; color:#7d8aa8;">03 — CONFIRM → REVEAL</div>
+      <div style="width:440px; height:954px; background:#05070f; color:#e8edf7; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; border-radius:38px;">
+        <div style="position:absolute; width:420px; height:420px; border-radius:50%; background:radial-gradient(circle,rgba(245,165,36,.16),transparent 68%);"></div>
+        <div style="position:absolute; top:13px; left:50%; transform:translateX(-50%); width:104px; height:29px; background:#000; border-radius:999px; z-index:9;"></div>
+
+        <div style="position:relative; z-index:3; width:330px; border-radius:20px; background:#0e1524; border:1px solid rgba(245,165,36,.7); overflow:hidden; box-shadow:0 16px 50px -12px rgba(245,165,36,.5);">
+          <div style="padding:13px 18px; background:rgba(245,165,36,.1); border-bottom:1px solid rgba(245,165,36,.2); display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.2em; color:#f5a524;">◆ CONFIRM PURCHASE</span>
+          </div>
+          <div style="padding:24px 22px 22px; display:flex; flex-direction:column; gap:18px;">
+            <div style="display:flex; flex-direction:column; gap:6px; align-items:center;">
+              <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:22px; color:#c58fff;">Vault Crate</span>
+              <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.18em; color:#7d8aa8;">B–S RANK ODDS · ONE ROLL</span>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:9px; padding:14px 15px; border-radius:13px; background:#131c30;">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.1em; color:#7d8aa8;">BALANCE</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:13px;">2,480</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.1em; color:#7d8aa8;">COST</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:13px; color:#ff5c89;">− 950</span>
+              </div>
+              <div style="height:1px; background:rgba(125,165,255,.14);"></div>
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.1em; color:#d9a45a;">REMAINING</span>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <svg width="14" height="14" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+                  <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14px; color:#f5a524;">1,530</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <div style="display:flex; align-items:center; justify-content:center; gap:9px; padding:15px 0; border-radius:13px; background:linear-gradient(120deg,#f5a524,#c97a0c); box-shadow:0 8px 22px -8px rgba(245,165,36,.85);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2c1d0b" stroke-width="2.4" stroke-linecap="round"><path d="M7 11V7a5 5 0 0 1 9.9-1"></path><rect x="4" y="11" width="16" height="10" rx="2"></rect></svg>
+                <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:15px; letter-spacing:.14em; color:#2c1d0b;">SPEND 950 CREDS</span>
+              </div>
+              <div style="text-align:center; padding:11px 0;">
+                <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.16em; color:#7d8aa8;">CANCEL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:absolute; bottom:74px; left:0; right:0; text-align:center; padding:0 40px;">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; color:#5d6786; line-height:1.7;">ON CONFIRM → EXISTING REWARD REVEAL PLAYS</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FRAME 4 · CREDS PACKS ══ -->
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.2em; color:#7d8aa8;">04 — CREDS PACKS (IAP)</div>
+      <div style="width:440px; height:954px; background:#05070f; color:#e8edf7; position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; border-radius:38px;">
+        <div style="position:absolute; inset:0; background:linear-gradient(180deg,rgba(5,7,15,.7),rgba(5,7,15,.95));"></div>
+        <div style="position:absolute; top:13px; left:50%; transform:translateX(-50%); width:104px; height:29px; background:#000; border-radius:999px; z-index:9;"></div>
+        <div style="position:absolute; top:150px; left:0; right:0; display:flex; flex-direction:column; align-items:center; gap:14px; z-index:3;">
+          <svg width="70" height="70" viewBox="0 0 64 64" style="filter:drop-shadow(0 0 22px rgba(245,165,36,.6));"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><polygon points="32,7.8 53,20 53,44 32,56.2 11,44 11,20" fill="none" stroke="rgba(255,255,255,.34)" stroke-width="1.4"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.22em; color:#7d8aa8;">CREDS ARE EARNED DAILY —</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.22em; color:#7d8aa8; margin-top:-8px;">TOP UP IF YOU'RE IN A HURRY</span>
+        </div>
+
+        <div style="position:relative; z-index:4; border-radius:26px 26px 0 0; background:#0e1524; border-top:1.5px solid rgba(245,165,36,.5); padding:12px 24px 34px; display:flex; flex-direction:column; gap:16px;">
+          <div style="width:44px; height:4px; border-radius:999px; background:rgba(125,165,255,.28); align-self:center;"></div>
+          <div style="display:flex; flex-direction:column; gap:3px; padding-top:4px;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.22em; color:#f5a524;">TOP UP</span>
+            <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:25px;">Creds Packs</span>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; align-items:center; gap:13px; padding:14px 15px; border-radius:14px; background:#131c30; border:1px solid rgba(125,165,255,.14);">
+              <svg width="30" height="30" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+              <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:16px;">1,000</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#7d8aa8;">POCKET CHANGE</span>
+              </div>
+              <div style="padding:9px 16px; border-radius:999px; border:1px solid rgba(125,165,255,.28);">
+                <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:14px;">$1.99</span>
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:13px; padding:14px 15px; border-radius:14px; background:rgba(245,165,36,.08); border:1.5px solid rgba(245,165,36,.6); position:relative; box-shadow:0 8px 26px -12px rgba(245,165,36,.8);">
+              <div style="position:absolute; top:-9px; left:15px; padding:3px 9px; border-radius:999px; background:#f5a524; font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:.16em; font-weight:700; color:#2c1d0b;">BEST VALUE</div>
+              <svg width="34" height="34" viewBox="0 0 64 64" style="filter:drop-shadow(0 0 10px rgba(245,165,36,.6));"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+              <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:17px; color:#f5a524;">6,500</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#d9a45a;">+30% BONUS · GYM BAG</span>
+              </div>
+              <div style="padding:9px 16px; border-radius:999px; background:#f5a524;">
+                <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:14px; color:#2c1d0b;">$9.99</span>
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:13px; padding:14px 15px; border-radius:14px; background:#131c30; border:1px solid rgba(125,165,255,.14);">
+              <svg width="30" height="30" viewBox="0 0 64 64"><polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#F5A524"></polygon><path d="M 16,45 L 32,18 L 48,45 L 40,45 L 32,30 L 24,45 Z" fill="#2C1D0B"></path></svg>
+              <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:16px;">15,000</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#7d8aa8;">+50% BONUS · FOOTLOCKER</span>
+              </div>
+              <div style="padding:9px 16px; border-radius:999px; border:1px solid rgba(125,165,255,.28);">
+                <span style="font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:14px;">$19.99</span>
+              </div>
+            </div>
+          </div>
+
+          <p style="font-size:12px; line-height:1.55; color:#5d6786; text-align:center; text-wrap:pretty;">Packs buy Creds only. Every cosmetic in the Armory is reachable by showing up.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</x-dc>
+</body>
+</html>

@@ -14,6 +14,10 @@ interface CosmeticsLeaderboardPreviewProps {
   profile: Profile;
   /** Dev god-mode overrides layered on top of equipped slots. */
   overrides?: Partial<EquippedCosmeticSlots> | null;
+  /** Override the mono kicker above the row. */
+  label?: string;
+  /** Hide the kicker entirely. */
+  hideLabel?: boolean;
 }
 
 /** Sample volume so the preview row reads like a real leaderboard entry. */
@@ -22,6 +26,8 @@ const PREVIEW_TOTAL = 240;
 export function CosmeticsLeaderboardPreview({
   profile,
   overrides,
+  label,
+  hideLabel = false,
 }: CosmeticsLeaderboardPreviewProps) {
   const t = useThemeTokens();
   const { theme } = useTheme();
@@ -39,12 +45,15 @@ export function CosmeticsLeaderboardPreview({
   const banner =
     overrides?.banner !== undefined ? overrides.banner : equipped.banner;
 
+  const kicker =
+    label ??
+    (overrides ? 'Leaderboard preview · god mode' : 'Leaderboard preview');
+
   return (
     <View style={{ gap: 8 }}>
-      <Text style={[type.label, { color: t.placeholder }]}>
-        Leaderboard preview
-        {overrides ? ' · god mode' : ''}
-      </Text>
+      {!hideLabel ? (
+        <Text style={[type.label, { color: t.placeholder }]}>{kicker}</Text>
+      ) : null}
 
       <View
         style={{

@@ -70,7 +70,11 @@ export type WarDivision =
   | 'crystal'
   | 'onyx';
 export type CosmeticKind = 'title' | 'avatar_border' | 'level_border' | 'banner';
-export type CosmeticSource = 'crate' | 'grant';
+export type CosmeticSource = 'crate' | 'grant' | 'shop';
+export type ShopProductKind = 'cosmetic' | 'crate';
+export type ShopCategory = 'crates' | 'titles' | 'borders' | 'banners';
+export type ShopCrateKey = 'locker' | 'vault';
+export type CurrencySpendKind = 'shop_purchase';
 export type CurrencyAwardKind = 'crate_reward';
 
 export type Database = {
@@ -918,6 +922,98 @@ export type Database = {
         >;
         Relationships: [];
       };
+      shop_listings: {
+        Row: {
+          id: string;
+          slug: string;
+          product_kind: ShopProductKind;
+          category: ShopCategory;
+          cosmetic_id: string | null;
+          crate_key: ShopCrateKey | null;
+          crate_min_rarity: Rank | null;
+          name: string;
+          description: string | null;
+          rarity: Rank;
+          odds_label: string | null;
+          price_creds: number;
+          max_stock_per_rotation: number | null;
+          is_featured: boolean;
+          sort_order: number;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          product_kind: ShopProductKind;
+          category: ShopCategory;
+          cosmetic_id?: string | null;
+          crate_key?: ShopCrateKey | null;
+          crate_min_rarity?: Rank | null;
+          name: string;
+          description?: string | null;
+          rarity: Rank;
+          odds_label?: string | null;
+          price_creds: number;
+          max_stock_per_rotation?: number | null;
+          is_featured?: boolean;
+          sort_order?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['shop_listings']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'shop_listings_cosmetic_id_fkey';
+            columns: ['cosmetic_id'];
+            isOneToOne: false;
+            referencedRelation: 'cosmetic_items';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      shop_rotation_sales: {
+        Row: {
+          listing_id: string;
+          rotation_key: string;
+          sold_count: number;
+        };
+        Insert: {
+          listing_id: string;
+          rotation_key: string;
+          sold_count?: number;
+        };
+        Update: Partial<Database['public']['Tables']['shop_rotation_sales']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'shop_rotation_sales_listing_id_fkey';
+            columns: ['listing_id'];
+            isOneToOne: false;
+            referencedRelation: 'shop_listings';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      currency_spends: {
+        Row: {
+          id: string;
+          kind: CurrencySpendKind;
+          user_id: string;
+          shop_listing_id: string | null;
+          amount: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          kind: CurrencySpendKind;
+          user_id: string;
+          shop_listing_id?: string | null;
+          amount: number;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['currency_spends']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: {
       quest_progress: {
@@ -1143,6 +1239,22 @@ export type Database = {
       open_starter_cosmetic_crate: {
         Args: { p_category: string };
         Returns: Json;
+      };
+      get_shop_stock: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      purchase_shop_listing: {
+        Args: { p_listing_id: string };
+        Returns: Json;
+      };
+      shop_current_rotation_key: {
+        Args: { p_at?: string };
+        Returns: string;
+      };
+      shop_rotation_ends_at: {
+        Args: { p_at?: string };
+        Returns: string;
       };
       send_gang_poke: {
         Args: {

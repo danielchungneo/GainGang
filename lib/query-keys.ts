@@ -75,4 +75,5 @@ export const queryKeys = {
   ownedCosmetics: (userId?: string) => ['cosmetics', 'owned', userId] as const,
   starterCosmeticCrates: (userId?: string) =>
     ['cosmetics', 'starter-crates', userId] as const,
+  shopStock: (userId?: string) => ['shop', 'stock', userId] as const,
 } as const;

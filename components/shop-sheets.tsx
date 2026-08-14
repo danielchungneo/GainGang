@@ -27,14 +27,15 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CosmeticsLeaderboardPreview } from '@/components/cosmetics-leaderboard-preview';
+import { CredsPackReveal } from '@/components/creds-pack-reveal';
 import { CredPlate } from '@/components/ui/cred-plate';
 import {
   useCredsPackPrices,
   useIapConfigured,
   usePresentCustomerCenter,
   usePurchaseCredsPack,
-  useRestorePurchases,
 } from '@/hooks/use-iap';
+import { useProfile } from '@/hooks/use-profile';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { isPurchaseCancelledError } from '@/lib/iap';
 import { auraGradient, fontFamily, ranks, spacing } from '@/lib/gaingang-theme';
@@ -1318,18 +1319,33 @@ interface ShopCredsPacksSheetProps {
   onClose: () => void;
 }
 
+interface CredsTopUpReveal {
+  amount: number;
+  packLabel: string;
+  priceLabel?: string;
+  bestValue?: boolean;
+  balanceBefore?: number;
+  kicker?: string;
+}
+
 export function ShopCredsPacksSheet({ visible, onClose }: ShopCredsPacksSheetProps) {
   const t = useThemeTokens();
   const insets = useSafeAreaInsets();
   const gold = t.isLight ? CREDS_GOLD.light : CREDS_GOLD.dark;
   const iapReady = useIapConfigured();
   const { data: livePrices } = useCredsPackPrices();
+  const { data: profile } = useProfile();
   const purchasePack = usePurchaseCredsPack();
-  const restore = useRestorePurchases();
   const customerCenter = usePresentCustomerCenter();
   const [buyingPackId, setBuyingPackId] = useState<CredsPackId | null>(null);
-  const isBusy =
-    purchasePack.isPending || restore.isPending || customerCenter.isPending;
+  const [topUpReveal, setTopUpReveal] = useState<CredsTopUpReveal | null>(null);
+  const isBusy = purchasePack.isPending || customerCenter.isPending;
+
+  function showTopUpReveal(reveal: CredsTopUpReveal) {
+    onClose();
+    // Let the packs sheet dismiss before the celebrate overlay mounts.
+    setTimeout(() => setTopUpReveal(reveal), 220);
+  }
 
   async function handlePack(packId: CredsPackId, label: string) {
     if (!iapReady) {
@@ -1342,17 +1358,20 @@ export function ShopCredsPacksSheet({ visible, onClose }: ShopCredsPacksSheetPro
 
     if (isBusy) return;
 
+    const pack = CREDS_PACKS.find((entry) => entry.id === packId);
+    const balanceBefore = profile?.currency ?? 0;
     setBuyingPackId(packId);
     try {
       const result = await purchasePack.mutateAsync(packId);
-      const granted = result.amountGranted;
-      Alert.alert(
-        'Creds added',
-        granted > 0
-          ? `+${granted.toLocaleString()} Creds are in your balance.`
-          : 'Your Creds balance is up to date.',
-      );
-      onClose();
+      const granted =
+        result.amountGranted > 0 ? result.amountGranted : (pack?.amount ?? 0);
+      showTopUpReveal({
+        amount: granted,
+        packLabel: pack?.label ?? label,
+        priceLabel: livePrices?.[packId] ?? pack?.priceLabel,
+        bestValue: pack?.bestValue ?? false,
+        balanceBefore,
+      });
     } catch (error) {
       if (isPurchaseCancelledError(error)) return;
       const message =
@@ -1360,24 +1379,6 @@ export function ShopCredsPacksSheet({ visible, onClose }: ShopCredsPacksSheetPro
       Alert.alert('Purchase failed', message);
     } finally {
       setBuyingPackId(null);
-    }
-  }
-
-  async function handleRestore() {
-    if (!iapReady || isBusy) return;
-    try {
-      const result = await restore.mutateAsync();
-      const granted = result.fulfill.amountGranted;
-      Alert.alert(
-        'Restored',
-        granted > 0
-          ? `+${granted.toLocaleString()} Creds restored to your balance.`
-          : 'No new Cred purchases to restore.',
-      );
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Restore failed.';
-      Alert.alert('Restore failed', message);
     }
   }
 
@@ -1393,6 +1394,7 @@ export function ShopCredsPacksSheet({ visible, onClose }: ShopCredsPacksSheetPro
   }
 
   return (
+    <>
     <Modal
       transparent
       visible={visible}
@@ -1606,48 +1608,43 @@ export function ShopCredsPacksSheet({ visible, onClose }: ShopCredsPacksSheetPro
           </Text>
 
           {iapReady ? (
-            <View style={{ gap: 8, alignItems: 'center', paddingTop: 2 }}>
-              <View style={{ flexDirection: 'row', gap: 18 }}>
-                <Pressable
-                  onPress={() => void handleRestore()}
-                  disabled={isBusy}
-                  accessibilityRole="button"
-                  accessibilityLabel="Restore purchases"
+            <View style={{ alignItems: 'center', paddingTop: 2 }}>
+              <Pressable
+                onPress={() => void handleCustomerCenter()}
+                disabled={isBusy}
+                accessibilityRole="button"
+                accessibilityLabel="Purchase help"
+              >
+                <Text
+                  style={{
+                    fontFamily: fontFamily.mono,
+                    fontSize: 10,
+                    letterSpacing: 1.1,
+                    color: t.placeholder,
+                  }}
                 >
-                  <Text
-                    style={{
-                      fontFamily: fontFamily.mono,
-                      fontSize: 10,
-                      letterSpacing: 1.1,
-                      color: t.placeholder,
-                    }}
-                  >
-                    {restore.isPending ? 'RESTORING…' : 'RESTORE'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => void handleCustomerCenter()}
-                  disabled={isBusy}
-                  accessibilityRole="button"
-                  accessibilityLabel="Purchase help"
-                >
-                  <Text
-                    style={{
-                      fontFamily: fontFamily.mono,
-                      fontSize: 10,
-                      letterSpacing: 1.1,
-                      color: t.placeholder,
-                    }}
-                  >
-                    HELP
-                  </Text>
-                </Pressable>
-              </View>
+                  {customerCenter.isPending ? 'OPENING…' : 'HELP'}
+                </Text>
+              </Pressable>
             </View>
           ) : null}
         </View>
       </View>
     </Modal>
+
+    {topUpReveal ? (
+      <CredsPackReveal
+        visible
+        packLabel={topUpReveal.packLabel}
+        amount={topUpReveal.amount}
+        priceLabel={topUpReveal.priceLabel}
+        bestValue={topUpReveal.bestValue}
+        balanceBefore={topUpReveal.balanceBefore}
+        kicker={topUpReveal.kicker}
+        onContinue={() => setTopUpReveal(null)}
+      />
+    ) : null}
+    </>
   );
 }
 

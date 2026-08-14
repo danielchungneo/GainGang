@@ -50,8 +50,14 @@ export async function syncPurchasesIdentity(userId: string | null): Promise<void
   if (!isIapConfigured() || !isConfigured) return;
 
   try {
-    if (userId) await Purchases.logIn(userId);
-    else await Purchases.logOut();
+    if (userId) {
+      await Purchases.logIn(userId);
+      return;
+    }
+
+    // logOut throws if already anonymous — skip in that case.
+    const isAnonymous = await Purchases.isAnonymous();
+    if (!isAnonymous) await Purchases.logOut();
   } catch (error) {
     console.warn('[iap] identity sync failed', error);
   }

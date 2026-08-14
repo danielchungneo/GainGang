@@ -62,7 +62,8 @@ Staging webhook URL:
 6. Copy the **public** SDK keys:
    - iOS → `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` (`appl_…` or Test Store `test_…`)
    - Android → `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` (`goog_…` or `test_…`)
-7. Copy the **secret** API key (`sk_…`) → Supabase secret `REVENUECAT_SECRET_API_KEY` (staging only for now).
+7. Copy the **secret** API key (`sk_…`, **V2**) → Supabase secret `REVENUECAT_SECRET_API_KEY` (staging only for now).
+   Also set `REVENUECAT_PROJECT_ID` to the `proj…` id from your RevenueCat dashboard URL.
 8. Integrations → Webhooks (Staging first):
    - Staging URL: `https://otgwritdvqzutsvqrpdl.supabase.co/functions/v1/revenuecat-webhook`
    - Authorization header: pick a long random string (e.g. `Bearer gg_rc_wh_…`) and set the **same** value as Supabase secret `REVENUECAT_WEBHOOK_AUTH`.
@@ -75,8 +76,14 @@ In **both** Staging and Production projects → Edge Functions → Secrets:
 
 | Secret | Purpose |
 |---|---|
-| `REVENUECAT_SECRET_API_KEY` | `fulfill-iap` verifies purchases via RC REST API |
+| `REVENUECAT_SECRET_API_KEY` | `fulfill-iap` verifies purchases via RC REST API (V2 `sk_…` key) |
+| `REVENUECAT_PROJECT_ID` | Project id from dashboard URL (`proj…`) — required for V2 secret keys |
 | `REVENUECAT_WEBHOOK_AUTH` | Exact `Authorization` header RC sends to `revenuecat-webhook` |
+
+V2 secret key permissions (read-only):
+- `customer_information:customers:read`
+- `customer_information:purchases:read`
+- `project_configuration:products:read`
 
 `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are already provided to functions.
 

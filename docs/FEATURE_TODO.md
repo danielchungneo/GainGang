@@ -18,17 +18,21 @@ Living checklist of planned product features. Mark items done as they ship; add 
 ### Economy
 
 - [x] Rename Cred top-ups → Hustle / Beast / Apex Bundles
-- [ ] In-game purchases (IAP) — staging first, then production
+- [x] In-game purchases (IAP) — staging first, then production
   - [x] App + Staging Supabase grant path (`react-native-purchases`, `fulfill-iap`, `revenuecat-webhook`)
-  - [ ] Create consumable products in App Store Connect + Play Console
-  - [ ] Configure RevenueCat offerings + webhook + secrets against **Staging** (see `docs/IAP_SETUP.md`)
-  - [ ] Add `EXPO_PUBLIC_REVENUECAT_*` keys to env and rebuild dev client
-  - [ ] Sandbox purchase test end-to-end on Staging
-  - [ ] Deploy edge functions + secrets to Production (only after Staging works)
+  - [x] Create consumable products in App Store Connect + Play Console
+  - [x] Configure RevenueCat offerings + webhook + secrets against **Staging** (see `docs/IAP_SETUP.md`)
+  - [x] Add `EXPO_PUBLIC_REVENUECAT_*` keys to env and rebuild dev client
+  - [x] Sandbox purchase test end-to-end on Staging
+  - [x] Deploy edge functions + secrets to Production (only after Staging works)
+
+
 
 ### Store / listing
 
-- [ ] Update App Store pictures
+- [x] Update App Store pictures
+
+
 
 ### Companions
 
@@ -36,6 +40,8 @@ Living checklist of planned product features. Mark items done as they ship; add 
 - [ ] Figure out 3D model rendering
 
 ---
+
+
 
 ## Backlog
 

@@ -60,12 +60,23 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/gaingang/splash.png",
-          "imageWidth": 220,
-          "resizeMode": "contain",
           "backgroundColor": "#05070F",
           "dark": {
             "backgroundColor": "#05070F"
+          },
+          "ios": {
+            "image": "./assets/gaingang/splash-screen.png",
+            "resizeMode": "cover",
+            "enableFullScreenImage_legacy": true,
+            "dark": {
+              "image": "./assets/gaingang/splash-screen.png",
+              "backgroundColor": "#05070F"
+            }
+          },
+          "android": {
+            "image": "./assets/gaingang/adaptive-icon.png",
+            "imageWidth": 200,
+            "resizeMode": "contain"
           }
         }
       ],

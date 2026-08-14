@@ -92,7 +92,7 @@ function RootNavigator() {
 
         <Stack.Screen
           name="gang/new-goal"
-          options={{ presentation: "modal", headerShown: false }}
+          options={{ presentation: "fullScreenModal", headerShown: false }}
         />
 
         <Stack.Screen

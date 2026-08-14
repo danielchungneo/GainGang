@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { AmountInput } from '@/components/ui/amount-input';
+import { ExerciseIcon } from '@/components/ui/exercise-icon';
 import { parseActivityAmount, validateAmountInput } from '@/lib/activity-amount';
 import { formatAmount } from '@/lib/format';
 import {
@@ -362,6 +363,11 @@ export function DailyGoalCard({
             <View key={ex.key} style={styles.exerciseBlock}>
               <View style={styles.exerciseHeader}>
                 <View style={styles.exerciseNameRow}>
+                  <ExerciseIcon
+                    exerciseName={ex.name}
+                    size={28}
+                    style={styles.exerciseIcon}
+                  />
                   {lacksEquipment ? (
                     <Ionicons
                       name="ban"
@@ -864,6 +870,7 @@ function WorkoutCyclePickerModal({
                 >
                   {selectedBreakdown.map((exercise) => (
                     <View key={exercise.key} style={styles.workoutPreviewRow}>
+                      <ExerciseIcon exerciseName={exercise.name} size={22} />
                       <Text
                         style={[styles.workoutPreviewName, { color: c.text }]}
                         numberOfLines={1}
@@ -1138,6 +1145,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     minWidth: 0,
+  },
+  exerciseIcon: {
+    marginRight: 8,
   },
   exerciseCheck: {
     marginRight: 6,

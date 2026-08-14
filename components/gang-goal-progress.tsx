@@ -15,6 +15,7 @@ import {
 
 import { Avatar } from '@/components/ui/avatar';
 import { CircularProgress } from '@/components/ui/circular-progress';
+import { ExerciseIcon } from '@/components/ui/exercise-icon';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import {
   type ExerciseContributor,
@@ -86,9 +87,12 @@ export function GangGoalProgress({ goal, gangId }: GangGoalProgressProps) {
                     label={complete ? '✓' : pctLabel}
                     complete={complete}
                   />
-                  <Text style={[styles.exerciseName, { color: c.text }]} numberOfLines={2}>
-                    {exercise.exercise_name}
-                  </Text>
+                  <View style={styles.exerciseNameRow}>
+                    <ExerciseIcon exerciseName={exercise.exercise_name} size={22} />
+                    <Text style={[styles.exerciseName, { color: c.text }]} numberOfLines={2}>
+                      {exercise.exercise_name}
+                    </Text>
+                  </View>
                   <View style={[styles.footer, { borderTopColor: c.border }]}>
                     <View style={styles.tapHintRow}>
                       <Ionicons name="people-outline" size={14} color={c.primaryGlow} />
@@ -180,9 +184,14 @@ function ExerciseContributorsModal({
           <View style={styles.modalHeader}>
             <View style={styles.modalTitleBlock}>
               <Text style={[styles.modalEyebrow, { color: c.primaryGlow }]}>GANG STATUS</Text>
-              <Text style={[styles.modalTitle, { color: c.text }]} numberOfLines={1}>
-                {exercise?.exercise_name ?? 'Exercise'}
-              </Text>
+              <View style={styles.modalTitleRow}>
+                {exercise ? (
+                  <ExerciseIcon exerciseName={exercise.exercise_name} size={32} />
+                ) : null}
+                <Text style={[styles.modalTitle, { color: c.text, flex: 1 }]} numberOfLines={1}>
+                  {exercise?.exercise_name ?? 'Exercise'}
+                </Text>
+              </View>
               {exercise ? (
                 <Text style={[styles.modalSubtitle, { color: c.textDim }]}>
                   Personal target {formatAmount(exercise.individual_target, exercise.unit)}
@@ -362,12 +371,18 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     gap: 6,
   },
+  exerciseNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'stretch',
+  },
   exerciseName: {
+    flex: 1,
     fontFamily: fontFamily.bodySemi,
     fontSize: 13,
     lineHeight: 17,
-    textAlign: 'center',
-    alignSelf: 'stretch',
+    textAlign: 'left',
   },
   footer: {
     alignSelf: 'stretch',
@@ -419,6 +434,11 @@ const styles = StyleSheet.create({
   modalTitleBlock: {
     flex: 1,
     gap: 2,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   modalEyebrow: {
     fontFamily: fontFamily.mono,

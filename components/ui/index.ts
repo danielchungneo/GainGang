@@ -27,3 +27,5 @@ export { BannerSurface } from './banner-surface';
 export { ImageViewerModal } from './image-viewer-modal';
 export { IconBadge } from './icon-badge';
 export type { IconBadgeProps } from './icon-badge';
+export { ExerciseIcon } from './exercise-icon';
+export type { ExerciseIconProps } from './exercise-icon';

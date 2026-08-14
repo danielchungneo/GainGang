@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import { GlassSurface } from '@/components/ui/glass-surface';
+import { ExerciseIcon } from '@/components/ui/exercise-icon';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { activityDateLabel, formatAmount } from '@/lib/format';
 import { fontFamily, type, useTheme } from '@/lib/gaingang-theme';
@@ -154,11 +155,12 @@ function ActivityLogCard({ activity }: { activity: ActivityWithExercises }) {
                 key={exercise.id}
                 style={{
                   flexDirection: 'row',
-                  alignItems: 'baseline',
+                  alignItems: 'center',
                   gap: 8,
                   paddingLeft: 12,
                 }}
               >
+                <ExerciseIcon exerciseName={exercise.exercise_name} size={22} />
                 <Text
                   style={{
                     fontFamily: fontFamily.monoBold,

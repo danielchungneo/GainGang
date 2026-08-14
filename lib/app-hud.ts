@@ -3,6 +3,7 @@
 export function shouldHideAppHud(segments: string[]): boolean {
   if (segments.includes('(tabs)')) return false;
   if (segments.includes('rep-counter')) return true;
+  if (segments.includes('new-goal')) return true;
 
   const root = segments[0] ?? '';
   if (root === '(auth)' || root === 'onboarding' || root === 'auth') return true;

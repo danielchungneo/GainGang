@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 
-import { Button, GlassSurface, LeaderboardRow } from '@/components/ui';
+import { Button, ExerciseIcon, GlassSurface, LeaderboardRow } from '@/components/ui';
 import { GradientTabSelect } from '@/components/ui/gradient-tab-select';
 import { useAuth } from '@/context/auth-context';
 import {
@@ -108,17 +108,23 @@ export function WeeklyChallengesPanel() {
         <View style={{ gap: spacing.md }}>
           <GlassSurface style={{ padding: spacing.md, gap: spacing.sm }}>
             <View className="flex-row items-center justify-between gap-3">
-              <Text
-                style={{
-                  flex: 1,
-                  fontFamily: fontFamily.display,
-                  fontSize: 18,
-                  color: t.heading,
-                }}
-                numberOfLines={1}
-              >
-                {challenge.challenge_type.name}
-              </Text>
+              <View className="flex-1 flex-row items-center gap-2.5" style={{ minWidth: 0 }}>
+                <ExerciseIcon
+                  exerciseName={challenge.challenge_type.exercise.name}
+                  size={36}
+                />
+                <Text
+                  style={{
+                    flex: 1,
+                    fontFamily: fontFamily.display,
+                    fontSize: 18,
+                    color: t.heading,
+                  }}
+                  numberOfLines={1}
+                >
+                  {challenge.challenge_type.name}
+                </Text>
+              </View>
               <View
                 style={{
                   backgroundColor: theme.colors.primary,

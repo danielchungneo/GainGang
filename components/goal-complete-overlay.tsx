@@ -28,6 +28,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient as SvgGradient, Rect, Stop } from 'react-native-svg';
 
+import { ExerciseIcon } from '@/components/ui/exercise-icon';
 import { formatAmount } from '@/lib/format';
 import { fontFamily } from '@/lib/gaingang-theme';
 import { useCelebrationGate } from '@/hooks/use-celebration-gate';
@@ -260,9 +261,12 @@ function AnimatedExerciseBar({ exercise, delay, duration, onFinished }: Animated
   return (
     <View style={s.exerciseBlock}>
       <View style={s.barMeta}>
-        <Text style={s.exerciseName} numberOfLines={1}>
-          {exercise.name}
-        </Text>
+        <View style={s.exerciseNameRow}>
+          <ExerciseIcon exerciseName={exercise.name} size={20} color="#FFFFFF" />
+          <Text style={s.exerciseName} numberOfLines={1}>
+            {exercise.name}
+          </Text>
+        </View>
         <Text style={[s.barVal, { color: complete ? '#C77DFF' : '#8FB4FF' }]}>{targetLabel}</Text>
       </View>
       <View
@@ -683,6 +687,13 @@ const s = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 7,
     gap: 8,
+  },
+  exerciseNameRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
   },
   exerciseName: {
     flex: 1,

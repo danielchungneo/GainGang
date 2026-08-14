@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import { ProfileStreakCalendar } from '@/components/profile-streak-calendar';
-import { GlassSurface } from '@/components/ui';
+import { ExerciseIcon, GlassSurface } from '@/components/ui';
 import { useAuth } from '@/context/auth-context';
 import { useUserActivities } from '@/hooks/use-activities';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
@@ -536,18 +536,22 @@ function ExerciseBreakdown({
                     justifyContent: 'space-between',
                   }}
                 >
-                  <Text
-                    style={{
-                      fontFamily: fontFamily.bodySemi,
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      color: t.placeholder,
-                      textTransform: 'uppercase',
-                    }}
-                    numberOfLines={2}
-                  >
-                    {exercise.name}
-                  </Text>
+                  <View className="flex-row items-start gap-2">
+                    <ExerciseIcon exerciseName={exercise.name} size={24} />
+                    <Text
+                      style={{
+                        flex: 1,
+                        fontFamily: fontFamily.bodySemi,
+                        fontSize: 12,
+                        letterSpacing: 0.2,
+                        color: t.placeholder,
+                        textTransform: 'uppercase',
+                      }}
+                      numberOfLines={2}
+                    >
+                      {exercise.name}
+                    </Text>
+                  </View>
                   <View className="flex-row items-baseline" style={{ gap: 5, flexWrap: 'wrap' }}>
                     <Text
                       style={{

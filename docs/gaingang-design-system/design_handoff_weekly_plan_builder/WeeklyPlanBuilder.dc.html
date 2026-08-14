@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>*::-webkit-scrollbar{width:0;height:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#04060c}a{color:#8fb4ff}a:hover{color:#c77dff}</style>
+</helmet>
+
+<section style="padding:56px 56px 80px;font-family:'Hanken Grotesk',sans-serif;color:#e8edf7;">
+  <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#7d8aa8;">Turn 1 · Weekly plan builder</span>
+  </div>
+  <div style="font-family:'Chakra Petch',sans-serif;font-weight:600;font-size:34px;margin-bottom:8px;">Week Board — gang/new-goal</div>
+  <div style="font-size:15px;color:#aeb8d0;max-width:760px;text-wrap:pretty;margin-bottom:40px;">Same data model: a set of per-member targets per weekday, gang target = target × members, adaptive toggle, publish. The long scroll is gone: the whole week stays on screen and targets move by stepper instead of the keyboard. Day switching, adding exercises and target changes are live.</div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start;">
+
+    <div id="1a" style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.14em;color:#04060c;background:linear-gradient(120deg,#4d8cff,#9d4edd);padding:5px 10px;border-radius:8px;">1A</span>
+        <span style="font-family:'Chakra Petch',sans-serif;font-weight:600;font-size:22px;">Week Board</span>
+      </div>
+      <div style="font-size:14px;color:#aeb8d0;max-width:440px;text-wrap:pretty;">A persistent 7-day board pinned under the header. Every day shows its exercise count and volume pips, so the week reads as one object. Editing happens in a fixed panel below — no page-level scrolling between days. Targets move by stepper; <span style="color:#e8edf7;">Copy day →</span> fills the rest of the week in one tap.</div>
+
+      <div style="width:440px;height:954px;background:#05070f;border-radius:36px;position:relative;overflow:hidden;display:flex;flex-direction:column;">
+        <div style="position:absolute;top:-130px;left:-90px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(77,140,255,.18),transparent 70%);pointer-events:none;"></div>
+        <div style="position:absolute;top:600px;right:-150px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(157,78,221,.12),transparent 70%);pointer-events:none;"></div>
+        <div style="height:44px;flex-shrink:0;"></div>
+        <div style="position:absolute;top:13px;left:50%;transform:translateX(-50%);width:104px;height:29px;background:#000;border-radius:999px;z-index:3;"></div>
+
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0;position:relative;z-index:2;">
+
+          <div style="padding:8px 20px 14px;display:flex;align-items:flex-start;gap:14px;">
+            <div style="width:36px;height:36px;border-radius:12px;border:1px solid rgba(125,165,255,.14);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#aeb8d0" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#7d8aa8;margin-bottom:4px;">Iron Wolves · 6 members</div>
+              <div style="font-family:'Chakra Petch',sans-serif;font-weight:600;font-size:26px;line-height:1;">Week of Jun 23</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:#7d8aa8;">DAYS SET</div>
+              <div style="font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:20px;color:#8fb4ff;">{{ daysSet }}<span style="color:#5b678c;font-size:14px;">/7</span></div>
+            </div>
+          </div>
+
+          <div style="padding:0 20px 14px;">
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">
+              <sc-for list="{{ board }}" as="d" hint-placeholder-count="7">
+                <div style="{{ d.cellStyle }}" onClick="{{ d.select }}">
+                  <span style="{{ d.dayStyle }}">{{ d.short }}</span>
+                  <div style="display:flex;flex-direction:column;gap:2px;align-items:center;height:26px;justify-content:flex-end;">
+                    <sc-for list="{{ d.pips }}" as="p" hint-placeholder-count="2">
+                      <span style="{{ p.style }}"></span>
+                    </sc-for>
+                  </div>
+                  <span style="{{ d.countStyle }}">{{ d.countLabel }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="margin:0 20px;height:1px;background:rgba(125,165,255,.12);"></div>
+
+          <div style="flex:1;min-height:0;overflow:auto;padding:16px 20px 0;display:flex;flex-direction:column;gap:14px;">
+
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+              <div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#7d8aa8;margin-bottom:3px;">{{ selectedDate }}</div>
+                <div style="font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:24px;line-height:1;">{{ selectedDayName }}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;border:1px solid rgba(125,165,255,.14);" onClick="{{ copyDay }}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8fb4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h8"/></svg>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8fb4ff;text-transform:uppercase;">{{ copyLabel }}</span>
+              </div>
+            </div>
+
+            <sc-for list="{{ dayExercises }}" as="ex" hint-placeholder-count="3">
+              <div style="background:#0e1524;border:1px solid rgba(125,165,255,.14);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-family:'Hanken Grotesk',sans-serif;font-weight:600;font-size:16px;flex:1;min-width:0;">{{ ex.name }}</span>
+                  <div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;" onClick="{{ ex.remove }}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5b678c" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="display:flex;align-items:center;background:#131c30;border:1px solid rgba(125,165,255,.14);border-radius:12px;overflow:hidden;">
+                    <div style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;" onClick="{{ ex.dec }}">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#aeb8d0" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg>
+                    </div>
+                    <div style="min-width:78px;text-align:center;">
+                      <div style="font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:22px;line-height:1;color:#e8edf7;">{{ ex.target }}</div>
+                      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#7d8aa8;margin-top:2px;">{{ ex.unit }} / member</div>
+                    </div>
+                    <div style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;" onClick="{{ ex.inc }}">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8fb4ff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    </div>
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#7d8aa8;">Gang target</div>
+                    <div style="font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:19px;color:#8fb4ff;">{{ ex.gangTarget }}</div>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+
+            <sc-if value="{{ isRest }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px dashed rgba(125,165,255,.18);border-radius:14px;padding:18px;text-align:center;">
+                <div style="font-family:'Chakra Petch',sans-serif;font-weight:600;font-size:17px;margin-bottom:4px;">Rest day</div>
+                <div style="font-size:13px;color:#7d8aa8;">Add an exercise below to make it a training day.</div>
+              </div>
+            </sc-if>
+
+            <div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#7d8aa8;margin-bottom:8px;">Add to {{ selectedDayName }}</div>
+              <div style="display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;margin-bottom:10px;">
+                <sc-for list="{{ filters }}" as="fl" hint-placeholder-count="7">
+                  <div style="{{ fl.style }}" onClick="{{ fl.select }}">{{ fl.label }}</div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;padding-bottom:16px;">
+                <sc-for list="{{ available }}" as="a" hint-placeholder-count="6">
+                  <div style="display:flex;align-items:center;gap:6px;padding:9px 13px;border-radius:11px;background:rgba(77,140,255,.07);border:1px solid rgba(77,140,255,.22);" onClick="{{ a.add }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8fb4ff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    <span style="font-size:14px;font-weight:600;white-space:nowrap;color:#cfdcff;">{{ a.name }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="flex-shrink:0;padding:12px 20px 26px;background:linear-gradient(to top,#05070f 55%,rgba(5,7,15,0));display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-radius:12px;background:#0e1524;border:1px solid rgba(125,165,255,.14);">
+              <div style="min-width:0;">
+                <div style="font-family:'Hanken Grotesk',sans-serif;font-weight:600;font-size:14px;">Adaptive plan</div>
+                <div style="font-size:12px;color:#7d8aa8;">Targets rise next week on a clean sweep</div>
+              </div>
+              <div style="{{ adaptiveTrack }}" onClick="{{ toggleAdaptive }}"><div style="{{ adaptiveThumb }}"></div></div>
+            </div>
+            <div style="height:52px;border-radius:14px;background:linear-gradient(120deg,#4d8cff,#9d4edd);box-shadow:0 8px 24px -6px rgba(77,140,255,.6);display:flex;align-items:center;justify-content:center;gap:8px;">
+              <span style="font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:15px;letter-spacing:.04em;color:#fff;">PUBLISH WEEKLY PLAN</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1120,&quot;height&quot;:1260}}">
+const MEMBERS = 6;
+const DAYS = [
+  { dow: 1, short: 'MON', name: 'Monday', date: 'Mon, Jun 23' },
+  { dow: 2, short: 'TUE', name: 'Tuesday', date: 'Tue, Jun 24' },
+  { dow: 3, short: 'WED', name: 'Wednesday', date: 'Wed, Jun 25' },
+  { dow: 4, short: 'THU', name: 'Thursday', date: 'Thu, Jun 26' },
+  { dow: 5, short: 'FRI', name: 'Friday', date: 'Fri, Jun 27' },
+  { dow: 6, short: 'SAT', name: 'Saturday', date: 'Sat, Jun 28' },
+  { dow: 7, short: 'SUN', name: 'Sunday', date: 'Sun, Jun 29' },
+];
+const CATEGORIES = ['Chest', 'Back', 'Legs', 'Core', 'Cardio', 'Full body'];
+const LIB = {
+  Chest: [
+    { id: 'pushup', name: 'Push-ups', unit: 'reps' },
+    { id: 'dips', name: 'Dips', unit: 'reps' },
+    { id: 'incline', name: 'Incline Push-ups', unit: 'reps' },
+    { id: 'wide', name: 'Wide Push-ups', unit: 'reps' },
+  ],
+  Back: [
+    { id: 'pullup', name: 'Pull-ups', unit: 'reps' },
+    { id: 'rows', name: 'Inverted Rows', unit: 'reps' },
+    { id: 'superman', name: 'Superman Hold', unit: 'seconds' },
+  ],
+  Legs: [
+    { id: 'squat', name: 'Squats', unit: 'reps' },
+    { id: 'lunge', name: 'Lunges', unit: 'reps' },
+    { id: 'wallsit', name: 'Wall Sit', unit: 'seconds' },
+  ],
+  Core: [
+    { id: 'situp', name: 'Sit-ups', unit: 'reps' },
+    { id: 'plank', name: 'Plank', unit: 'seconds' },
+    { id: 'legraise', name: 'Leg Raises', unit: 'reps' },
+  ],
+  Cardio: [
+    { id: 'run', name: 'Run', unit: 'miles' },
+    { id: 'rope', name: 'Jump Rope', unit: 'seconds' },
+    { id: 'burpee', name: 'Burpees', unit: 'reps' },
+  ],
+  'Full body': [
+    { id: 'burpee2', name: 'Burpees', unit: 'reps' },
+    { id: 'climber', name: 'Mountain Climbers', unit: 'reps' },
+    { id: 'bear', name: 'Bear Crawl', unit: 'seconds' },
+  ],
+};
+const ALL_EX = [
+  { id: 'pushup', name: 'Push-ups', unit: 'reps', category: 'Chest' },
+  { id: 'dips', name: 'Dips', unit: 'reps', category: 'Chest' },
+  { id: 'incline', name: 'Incline Push-ups', unit: 'reps', category: 'Chest' },
+  { id: 'wide', name: 'Wide Push-ups', unit: 'reps', category: 'Chest' },
+  { id: 'pullup', name: 'Pull-ups', unit: 'reps', category: 'Back' },
+  { id: 'rows', name: 'Inverted Rows', unit: 'reps', category: 'Back' },
+  { id: 'superman', name: 'Superman Hold', unit: 'seconds', category: 'Back' },
+  { id: 'squat', name: 'Squats', unit: 'reps', category: 'Legs' },
+  { id: 'lunge', name: 'Lunges', unit: 'reps', category: 'Legs' },
+  { id: 'wallsit', name: 'Wall Sit', unit: 'seconds', category: 'Legs' },
+  { id: 'situp', name: 'Sit-ups', unit: 'reps', category: 'Core' },
+  { id: 'plank', name: 'Plank', unit: 'seconds', category: 'Core' },
+  { id: 'legraise', name: 'Leg Raises', unit: 'reps', category: 'Core' },
+  { id: 'burpee', name: 'Burpees', unit: 'reps', category: 'Full body' },
+  { id: 'climber', name: 'Mountain Climbers', unit: 'reps', category: 'Full body' },
+  { id: 'bear', name: 'Bear Crawl', unit: 'seconds', category: 'Full body' },
+  { id: 'rope', name: 'Jump Rope', unit: 'seconds', category: 'Cardio' },
+  { id: 'run', name: 'Run', unit: 'miles', category: 'Cardio' },
+];
+const STEP = { reps: 5, seconds: 15, miles: 0.5 };
+const DEFAULT = { reps: 20, seconds: 60, miles: 2 };
+const PRESETS = { reps: [10, 20, 30], seconds: [30, 60, 90], miles: [1, 2, 3] };
+
+function fmt(v, unit) {
+  if (unit === 'miles') return (Math.round(v * 10) / 10) + ' mi';
+  if (unit === 'seconds') return v >= 60 && v % 60 === 0 ? (v / 60) + ' min' : v + 's';
+  return String(v);
+}
+
+class Component extends DCLogic {
+  state = {
+    plan: {
+      1: { category: 'Chest', exercises: [{ id: 'pushup', name: 'Push-ups', unit: 'reps', target: 25 }, { id: 'dips', name: 'Dips', unit: 'reps', target: 15 }] },
+      2: { category: 'Back', exercises: [{ id: 'pullup', name: 'Pull-ups', unit: 'reps', target: 10 }] },
+      3: { category: 'Legs', exercises: [{ id: 'squat', name: 'Squats', unit: 'reps', target: 40 }, { id: 'wallsit', name: 'Wall Sit', unit: 'seconds', target: 60 }] },
+      4: { category: 'Core', exercises: [{ id: 'plank', name: 'Plank', unit: 'seconds', target: 90 }] },
+      5: { category: 'Cardio', exercises: [] },
+      6: { category: 'Full body', exercises: [] },
+      7: { category: 'Core', exercises: [] },
+    },
+    dayA: 1,
+    filter: 'All',
+    deck: 0,
+    adaptive: true,
+  };
+
+  day(dow) { return this.state.plan[dow]; }
+
+  setDay(dow, patch) {
+    this.setState((s) => ({ plan: { ...s.plan, [dow]: { ...s.plan[dow], ...patch } } }));
+  }
+
+  addEx(dow, ex) {
+    const d = this.day(dow);
+    if (d.exercises.some((e) => e.id === ex.id)) return;
+    this.setDay(dow, { exercises: [...d.exercises, { ...ex, target: DEFAULT[ex.unit] }] });
+  }
+
+  removeEx(dow, id) {
+    this.setDay(dow, { exercises: this.day(dow).exercises.filter((e) => e.id !== id) });
+  }
+
+  bumpEx(dow, id, dir) {
+    this.setDay(dow, {
+      exercises: this.day(dow).exercises.map((e) => {
+        if (e.id !== id) return e;
+        const step = STEP[e.unit];
+        return { ...e, target: Math.max(step, Math.round((e.target + dir * step) * 10) / 10) };
+      }),
+    });
+  }
+
+  setTarget(dow, id, value) {
+    this.setDay(dow, {
+      exercises: this.day(dow).exercises.map((e) => (e.id === id ? { ...e, target: value } : e)),
+    });
+  }
+
+  setCategory(dow, category) {
+    if (this.day(dow).category === category) return;
+    this.setDay(dow, { category, exercises: [] });
+  }
+
+  activeDow() {
+    return this.state.deck >= 7 ? this.state.dayA : DAYS[this.state.deck].dow;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const onReview = s.deck >= 7;
+    const dowA = s.dayA;
+    const dowDeck = onReview ? dowA : DAYS[s.deck].dow;
+
+    const board = DAYS.map((d) => {
+      const day = this.state.plan[d.dow];
+      const active = d.dow === dowA;
+      const filled = day.exercises.length > 0;
+      return {
+        short: d.short,
+        countLabel: filled ? day.exercises.length + (day.exercises.length === 1 ? ' EX' : ' EX') : 'REST',
+        pips: day.exercises.slice(0, 4).map(() => ({
+          style: 'width:14px;height:3px;border-radius:2px;background:' + (active ? '#cfdcff' : '#4d8cff') + ';opacity:' + (active ? 1 : 0.7),
+        })),
+        cellStyle:
+          'cursor:pointer;border-radius:13px;padding:9px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;' +
+          (active
+            ? 'background:linear-gradient(160deg,rgba(77,140,255,.28),rgba(157,78,221,.2));border:1px solid rgba(77,140,255,.55);box-shadow:0 0 18px -5px rgba(77,140,255,.7);'
+            : filled
+              ? 'background:#0e1524;border:1px solid rgba(125,165,255,.14);'
+              : 'background:transparent;border:1px dashed rgba(125,165,255,.16);'),
+        dayStyle:
+          "font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;font-weight:700;color:" +
+          (active ? '#ffffff' : filled ? '#aeb8d0' : '#5b678c'),
+        countStyle:
+          "font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:" +
+          (active ? '#cfdcff' : filled ? '#7d8aa8' : '#4a5474'),
+        select: () => this.setState({ dayA: d.dow }),
+      };
+    });
+
+    const dowFor = (which) => (which === 'a' ? dowA : dowDeck);
+    // Both columns edit their own selected day; the deck column drives from s.deck.
+    const dayObjA = this.state.plan[dowA];
+    const dayObjD = this.state.plan[dowDeck];
+
+    const categories = CATEGORIES.map((c) => ({
+      label: c,
+      style:
+        "cursor:pointer;flex-shrink:0;white-space:nowrap;padding:8px 13px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;" +
+        (c === dayObjA.category
+          ? 'background:linear-gradient(120deg,#4d8cff,#9d4edd);color:#fff;border:1px solid rgba(255,255,255,.2);'
+          : 'background:#131c30;color:#aeb8d0;border:1px solid rgba(125,165,255,.14);'),
+      select: () => this.setCategory(dowA, c),
+    }));
+
+    const mkEx = (dow) => (ex) => ({
+      name: ex.name,
+      unit: ex.unit,
+      target: ex.unit === 'miles' ? (Math.round(ex.target * 10) / 10).toFixed(1) : String(ex.target),
+      gangTarget: fmt(Math.round(ex.target * MEMBERS * 10) / 10, ex.unit),
+      inc: () => this.bumpEx(dow, ex.id, 1),
+      dec: () => this.bumpEx(dow, ex.id, -1),
+      remove: () => this.removeEx(dow, ex.id),
+      ticks: Array.from({ length: 16 }, (_, i) => {
+        const value = Math.round((i + 1) * STEP[ex.unit] * 10) / 10;
+        const on = value <= ex.target + 0.001;
+        return {
+          style:
+            'cursor:pointer;flex:1;border-radius:2px;height:' + (i % 4 === 3 ? '26px' : '16px') + ';background:' +
+            (on ? (i % 4 === 3 ? '#9d4edd' : '#4d8cff') : '#1d2840') + ';' + (on ? 'box-shadow:0 0 8px -2px rgba(77,140,255,.8);' : ''),
+          set: () => this.setTarget(dow, ex.id, value),
+        };
+      }),
+      presets: PRESETS[ex.unit].map((v) => ({
+        label: fmt(v, ex.unit),
+        style:
+          "cursor:pointer;padding:7px 11px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;" +
+          (Math.abs(v - ex.target) < 0.001
+            ? 'background:rgba(77,140,255,.22);color:#cfdcff;border:1px solid rgba(77,140,255,.5);'
+            : 'background:#131c30;color:#7d8aa8;border:1px solid rgba(125,165,255,.14);'),
+        set: () => this.setTarget(dow, ex.id, v),
+      })),
+    });
+
+    const usedA = new Set(dayObjA.exercises.map((e) => e.id));
+    const usedD = new Set(dayObjD.exercises.map((e) => e.id));
+
+    const rail = DAYS.map((d, i) => {
+      const filled = this.state.plan[d.dow].exercises.length > 0;
+      const active = !onReview && i === s.deck;
+      return {
+        short: d.short.slice(0, 1),
+        style:
+          'cursor:pointer;flex:1;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;' +
+          (active
+            ? 'background:linear-gradient(120deg,#4d8cff,#9d4edd);box-shadow:0 0 14px -4px rgba(77,140,255,.8);'
+            : filled
+              ? 'background:rgba(77,140,255,.16);border:1px solid rgba(77,140,255,.28);'
+              : 'background:transparent;border:1px dashed rgba(125,165,255,.18);'),
+        labelStyle:
+          "font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:" +
+          (active ? '#fff' : filled ? '#8fb4ff' : '#4a5474'),
+        go: () => this.setState({ deck: i }),
+      };
+    });
+    rail.push({
+      short: '✓',
+      style:
+        'cursor:pointer;width:38px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;' +
+        (onReview
+          ? 'background:linear-gradient(120deg,#4d8cff,#9d4edd);box-shadow:0 0 14px -4px rgba(77,140,255,.8);'
+          : 'background:#131c30;border:1px solid rgba(125,165,255,.14);'),
+      labelStyle: "font-family:'JetBrains Mono',monospace;font-size:11px;color:" + (onReview ? '#fff' : '#7d8aa8'),
+      go: () => this.setState({ deck: 7 }),
+    });
+
+    const review = DAYS.map((d, i) => {
+      const day = this.state.plan[d.dow];
+      return {
+        short: d.short,
+        category: day.exercises.length ? day.category : 'Rest day',
+        summary: day.exercises.length
+          ? day.exercises.map((e) => e.name + ' ' + fmt(e.target, e.unit)).join('  ·  ')
+          : 'No exercises',
+        go: () => this.setState({ deck: i }),
+      };
+    });
+
+    const deckDay = onReview ? DAYS[6] : DAYS[s.deck];
+    const nextIdx = Math.min(s.deck + 1, 7);
+
+    return {
+      board,
+      daysSet: DAYS.filter((d) => this.state.plan[d.dow].exercises.length > 0).length,
+      selectedDayName: DAYS.find((d) => d.dow === dowA).name,
+      selectedDate: DAYS.find((d) => d.dow === dowA).date,
+      selectedDayNameB: deckDay.name,
+      selectedDateB: deckDay.date,
+      selectedCategory: dayObjD.category,
+      categories,
+      dayExercises: dayObjA.exercises.map(mkEx(dowA)),
+      filters: ['All'].concat(CATEGORIES).map((c) => ({
+        label: c,
+        style:
+          "cursor:pointer;flex-shrink:0;white-space:nowrap;padding:7px 12px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;" +
+          (c === s.filter
+            ? 'background:rgba(77,140,255,.2);color:#cfdcff;border:1px solid rgba(77,140,255,.5);'
+            : 'background:#131c30;color:#7d8aa8;border:1px solid rgba(125,165,255,.14);'),
+        select: () => this.setState({ filter: c }),
+      })),
+      available: ALL_EX.filter((e) => !usedA.has(e.id) && (s.filter === 'All' || e.category === s.filter)).map((e) => ({
+        name: e.name,
+        add: () => this.addEx(dowA, e),
+      })),
+      isRest: dayObjA.exercises.length === 0,
+      categoriesB: CATEGORIES.map((c) => ({
+        label: c,
+        style:
+          "cursor:pointer;flex-shrink:0;white-space:nowrap;padding:8px 13px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;" +
+          (c === dayObjD.category
+            ? 'background:linear-gradient(120deg,#4d8cff,#9d4edd);color:#fff;border:1px solid rgba(255,255,255,.2);'
+            : 'background:#131c30;color:#aeb8d0;border:1px solid rgba(125,165,255,.14);'),
+        select: () => this.setCategory(dowDeck, c),
+      })),
+      dayExercisesB: dayObjD.exercises.map(mkEx(dowDeck)),
+      availableB: (LIB[dayObjD.category] || []).filter((e) => !usedD.has(e.id)).map((e) => ({
+        name: e.name,
+        add: () => this.addEx(dowDeck, e),
+      })),
+      copyLabel: 'Copy to rest',
+      copyDay: () => {
+        const src = this.state.plan[dowA];
+        this.setState((st) => {
+          const plan = { ...st.plan };
+          for (const d of DAYS) {
+            if (d.dow <= dowA) continue;
+            if (plan[d.dow].exercises.length) continue;
+            plan[d.dow] = { category: src.category, exercises: src.exercises.map((e) => ({ ...e })) };
+          }
+          return { plan };
+        });
+      },
+      adaptiveTrack:
+        'cursor:pointer;width:48px;height:28px;border-radius:999px;padding:3px;display:flex;flex-shrink:0;' +
+        (s.adaptive
+          ? 'background:linear-gradient(120deg,#4d8cff,#9d4edd);justify-content:flex-end;'
+          : 'background:#1d2840;justify-content:flex-start;'),
+      adaptiveThumb: 'width:22px;height:22px;border-radius:50%;background:#fff;',
+      toggleAdaptive: () => this.setState((st) => ({ adaptive: !st.adaptive })),
+      onReview,
+      onDay: !onReview,
+      rail,
+      review,
+      deckStep: onReview ? 'REVIEW' : 'DAY ' + (s.deck + 1) + '/7',
+      nextLabel: s.deck >= 6 ? 'week review' : DAYS[s.deck + 1].name,
+      ctaLabel: onReview ? 'PUBLISH WEEKLY PLAN' : s.deck === 6 ? 'REVIEW WEEK' : 'NEXT DAY',
+      prevDay: () => this.setState((st) => ({ deck: Math.max(0, st.deck - 1) })),
+      nextDay: () => this.setState({ deck: nextIdx }),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

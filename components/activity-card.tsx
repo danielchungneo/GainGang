@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/avatar';
+import { ExerciseIcon } from '@/components/ui/exercise-icon';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { LevelBadge } from '@/components/ui/rank-badge';
 import { StreakPill } from '@/components/ui/streak-pill';
@@ -88,18 +89,21 @@ export function ActivityCard({ activity, gangId }: ActivityCardProps) {
 
       <View style={{ gap: 8 }}>
         {exercises.map((exercise) => (
-          <View key={exercise.id} className="flex-row items-baseline gap-2">
-            <Text style={{ color: t.accent }} className="text-2xl font-extrabold">
-              {formatAmount(exercise.amount, exercise.unit)}
-            </Text>
-            <Text style={{ color: t.heading }} className="text-base font-semibold" numberOfLines={1}>
-              {exercise.exercise_name}
-            </Text>
-            {exercise.sets ? (
-              <Text style={{ color: t.body }} className="text-sm">
-                · {exercise.sets} sets
+          <View key={exercise.id} className="flex-row items-center gap-2.5">
+            <ExerciseIcon exerciseName={exercise.exercise_name} size={28} />
+            <View className="flex-row flex-1 items-baseline gap-2" style={{ minWidth: 0 }}>
+              <Text style={{ color: t.accent }} className="text-2xl font-extrabold">
+                {formatAmount(exercise.amount, exercise.unit)}
               </Text>
-            ) : null}
+              <Text style={{ color: t.heading }} className="text-base font-semibold" numberOfLines={1}>
+                {exercise.exercise_name}
+              </Text>
+              {exercise.sets ? (
+                <Text style={{ color: t.body }} className="text-sm">
+                  · {exercise.sets} sets
+                </Text>
+              ) : null}
+            </View>
           </View>
         ))}
       </View>

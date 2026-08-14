@@ -334,7 +334,6 @@ export function buildDaysPayload(
   days: Record<
     number,
     {
-      category: ExerciseCategory;
       exercises: {
         exerciseId: string;
         unit: DailyGoalExerciseWithProgress['unit'];

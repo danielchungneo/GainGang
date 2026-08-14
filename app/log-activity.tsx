@@ -12,6 +12,7 @@ import {
 
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { AmountInput } from '@/components/ui/amount-input';
+import { ExerciseIcon } from '@/components/ui/exercise-icon';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
 import { LevelUpWithRewardClaim } from '@/components/level-up-with-reward-claim';
@@ -441,9 +442,12 @@ export default function LogActivityScreen() {
           <View>
             <Label>Exercise</Label>
             {lockedToQuest ? (
-              <Text style={{ color: t.heading }} className="text-lg font-semibold">
-                {selectedExercise?.name ?? '—'}
-              </Text>
+              <View className="flex-row items-center gap-3">
+                <ExerciseIcon exerciseName={selectedExercise?.name ?? ''} size={36} />
+                <Text style={{ color: t.heading }} className="text-lg font-semibold">
+                  {selectedExercise?.name ?? '—'}
+                </Text>
+              </View>
             ) : (
               <View className="flex-row flex-wrap gap-2">
                 {(exercises ?? []).map((ex) => (
@@ -452,6 +456,7 @@ export default function LogActivityScreen() {
                     label={ex.name}
                     active={selectedExercise?.id === ex.id}
                     onPress={() => setExerciseId(ex.id)}
+                    exerciseName={ex.name}
                   />
                 ))}
               </View>
@@ -593,17 +598,34 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function Chip({
+  label,
+  active,
+  onPress,
+  exerciseName,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  exerciseName?: string;
+}) {
   const t = useThemeTokens();
   return (
     <TouchableOpacity
       onPress={onPress}
-      className="rounded-lg px-3 py-2"
+      className="flex-row items-center gap-2 rounded-lg px-3 py-2"
       style={{
         backgroundColor: active ? t.accent : t.buttonBg,
         borderWidth: 1,
         borderColor: active ? t.accent : t.buttonBorder,
       }}>
+      {exerciseName ? (
+        <ExerciseIcon
+          exerciseName={exerciseName}
+          size={22}
+          color={active ? t.accentOnPrimary : undefined}
+        />
+      ) : null}
       <Text style={{ color: active ? t.accentOnPrimary : t.body }} className="text-sm font-semibold">
         {label}
       </Text>

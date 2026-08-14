@@ -7,6 +7,7 @@ import { OnboardingShell } from '@/components/onboarding/onboarding-shell';
 import { CameraPrivacyNotice } from '@/components/rep-counter/camera-privacy-notice';
 import { RewardReveal } from '@/components/reward-reveal';
 import { Button } from '@/components/ui/button';
+import { ExerciseIcon } from '@/components/ui/exercise-icon';
 import { GlassSurface } from '@/components/ui/glass-surface';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
@@ -181,11 +182,7 @@ export default function OnboardingDemoScreen() {
                   ]}
                 >
                   <View style={[styles.iconWrap, { backgroundColor: `${t.accent}22` }]}>
-                    <Ionicons
-                      name={option.id === 'pushup' ? 'barbell-outline' : 'body-outline'}
-                      size={22}
-                      color={t.accent}
-                    />
+                    <ExerciseIcon exerciseName={option.exerciseName} size={28} />
                   </View>
                   <View style={styles.optionCopy}>
                     <Text

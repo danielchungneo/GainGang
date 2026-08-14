@@ -17,7 +17,7 @@ import { GangWarContributionsSheet } from '@/components/gang-war-contributions-s
 import { GangWarDayBreakdownSheet } from '@/components/gang-war-day-breakdown-sheet';
 import { GangWarMatchupOverlay } from '@/components/gang-war-matchup-overlay';
 import { GangWarResultOverlay } from '@/components/gang-war-result-overlay';
-import { Button, GlassSurface, ScreenBackground } from '@/components/ui';
+import { Button, ExerciseIcon, GlassSurface, ScreenBackground } from '@/components/ui';
 import {
   useGangWarHistory,
   useGangWarState,
@@ -334,6 +334,7 @@ export default function WarScreen() {
                           TODAY'S CHALLENGE
                         </Text>
                         <View className="flex-row items-center gap-2">
+                          <ExerciseIcon exerciseName={todayDay.exercise_name} size={32} />
                           <Text
                             style={{
                               flexShrink: 1,
@@ -705,9 +706,16 @@ export default function WarScreen() {
                                   </View>
                                 ) : null}
                               </View>
-                              <Text style={{ color: t.placeholder, fontSize: 12 }}>
-                                {day.exercise_name}
-                              </Text>
+                              <View className="flex-row items-center gap-1.5">
+                                <ExerciseIcon
+                                  exerciseName={day.exercise_name}
+                                  size={16}
+                                  fallback={false}
+                                />
+                                <Text style={{ color: t.placeholder, fontSize: 12, flexShrink: 1 }}>
+                                  {day.exercise_name}
+                                </Text>
+                              </View>
                             </View>
                             {day.is_future ? (
                               <Text style={{ color: t.placeholder, fontSize: 14 }}>—</Text>

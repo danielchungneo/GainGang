@@ -17,7 +17,10 @@ import {
   useWindowDimensions,
   type ViewProps,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  type Edges,
+} from "react-native-safe-area-context";
 import Svg, {
   Defs,
   Line,
@@ -192,7 +195,12 @@ function BackgroundDecor({
   );
 }
 
-export function ScreenBackground({ children, style, ...props }: ViewProps) {
+export function ScreenBackground({
+  children,
+  style,
+  edges = ["top", "left", "right"],
+  ...props
+}: ViewProps & { edges?: Edges }) {
   const { theme } = useTheme();
   const c = theme.colors;
   const isLight = theme.mode === "light";
@@ -217,7 +225,7 @@ export function ScreenBackground({ children, style, ...props }: ViewProps) {
         patternId={patternId}
       />
 
-      <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
+      <SafeAreaView style={{ flex: 1 }} edges={edges}>
         {children}
       </SafeAreaView>
       <ProfileHud />

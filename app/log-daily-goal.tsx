@@ -12,6 +12,7 @@ import {
 
 import { GlassSurface, KeyboardAwareScrollView, ScreenBackground } from '@/components/ui';
 import { AmountInput } from '@/components/ui/amount-input';
+import { ExerciseIcon } from '@/components/ui/exercise-icon';
 import { DayCompleteWithRewardClaim } from '@/components/day-complete-with-reward-claim';
 import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
 import { LevelUpWithRewardClaim } from '@/components/level-up-with-reward-claim';
@@ -378,9 +379,16 @@ export default function LogDailyGoalScreen() {
                 ]}
               >
                 <View className="mb-2 flex-row items-center justify-between">
-                  <Text style={{ color: t.heading }} className="text-lg font-semibold">
-                    {ex.exercise_name}
-                  </Text>
+                  <View className="flex-row flex-1 items-center gap-2.5" style={{ minWidth: 0 }}>
+                    <ExerciseIcon exerciseName={ex.exercise_name} size={32} />
+                    <Text
+                      style={{ color: t.heading, flexShrink: 1 }}
+                      className="text-lg font-semibold"
+                      numberOfLines={1}
+                    >
+                      {ex.exercise_name}
+                    </Text>
+                  </View>
                   {hasLogged ? (
                     <Text style={{ color: t.accent }} className="text-xs font-semibold">
                       Logged

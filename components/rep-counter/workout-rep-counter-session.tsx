@@ -26,6 +26,7 @@ import { GoalCompleteOverlay } from '@/components/goal-complete-overlay';
 import { LevelUpWithRewardClaim } from '@/components/level-up-with-reward-claim';
 import { ExerciseSetupGuide } from '@/components/rep-counter/exercise-setup-guide';
 import { StreakContinueOverlay } from '@/components/streak-continue-overlay';
+import { ExerciseIcon } from '@/components/ui/exercise-icon';
 import { useAuth } from '@/context/auth-context';
 import { useLogActivity } from '@/hooks/use-activities';
 import { useAwardAchievements } from '@/hooks/use-award-achievements';
@@ -617,11 +618,7 @@ export function WorkoutRepCounterSession({
               ? `CYCLE ${segment.cycleIndex} OF ${segment.cycleCount}`
               : 'UP NEXT'}
           </Text>
-          <Ionicons
-            name={isHold ? 'timer-outline' : 'fitness-outline'}
-            size={52}
-            color="#22d3ee"
-          />
+          <ExerciseIcon exerciseName={segment.exerciseName} size={96} />
           <Text style={styles.transitionTitle}>{segment.exerciseName}</Text>
           <Text style={styles.transitionTarget}>
             {isHold

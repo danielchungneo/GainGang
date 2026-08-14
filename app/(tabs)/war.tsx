@@ -322,64 +322,61 @@ export default function WarScreen() {
                 {todayDay ? (
                   <GlassSurface style={{ padding: spacing.md, gap: spacing.sm }}>
                     <View className="flex-row items-start justify-between gap-3">
-                      <View style={{ flex: 1, gap: 4 }}>
+                      <Text
+                        style={{
+                          color: t.accent,
+                          fontSize: 11,
+                          letterSpacing: 1.2,
+                          fontFamily: fontFamily.bodySemi,
+                        }}
+                      >
+                        TODAY'S CHALLENGE
+                      </Text>
+                      <Text
+                        style={{
+                          color: '#F97316',
+                          fontSize: 12,
+                          fontFamily: fontFamily.bodySemi,
+                          textAlign: 'right',
+                        }}
+                      >
+                        Improve Your Scores
+                      </Text>
+                    </View>
+
+                    <View className="flex-row items-center gap-2">
+                      <ExerciseIcon exerciseName={todayDay.exercise_name} size={32} />
+                      <Text
+                        style={{
+                          flex: 1,
+                          fontFamily: fontFamily.display,
+                          color: t.heading,
+                          fontSize: 22,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {todayDay.exercise_name}
+                      </Text>
+                      <View
+                        style={{
+                          backgroundColor: theme.colors.primary,
+                          paddingHorizontal: 9,
+                          paddingVertical: 5,
+                          borderRadius: 8,
+                          minWidth: 40,
+                          alignItems: 'center',
+                        }}
+                      >
                         <Text
                           style={{
-                            color: t.accent,
-                            fontSize: 11,
-                            letterSpacing: 1.2,
                             fontFamily: fontFamily.bodySemi,
-                          }}
-                        >
-                          TODAY'S CHALLENGE
-                        </Text>
-                        <View className="flex-row items-center gap-2">
-                          <ExerciseIcon exerciseName={todayDay.exercise_name} size={32} />
-                          <Text
-                            style={{
-                              flexShrink: 1,
-                              fontFamily: fontFamily.display,
-                              color: t.heading,
-                              fontSize: 22,
-                            }}
-                            numberOfLines={1}
-                          >
-                            {todayDay.exercise_name}
-                          </Text>
-                          <View
-                            style={{
-                              backgroundColor: theme.colors.primary,
-                              paddingHorizontal: 9,
-                              paddingVertical: 5,
-                              borderRadius: 8,
-                              minWidth: 40,
-                              alignItems: 'center',
-                            }}
-                          >
-                            <Text
-                              style={{
-                                fontFamily: fontFamily.bodySemi,
-                                fontSize: 12,
-                                fontVariant: ['tabular-nums'],
-                                color: '#FFFFFF',
-                                letterSpacing: 0.3,
-                              }}
-                            >
-                              60s
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      <View className="flex-row items-center gap-1.5 pt-0.5">
-                        <Text
-                          style={{
-                            color: '#F97316',
                             fontSize: 12,
-                            fontFamily: fontFamily.bodySemi,
-                            textAlign: 'right',
+                            fontVariant: ['tabular-nums'],
+                            color: '#FFFFFF',
+                            letterSpacing: 0.3,
                           }}
                         >
-                          Improve Your Scores
+                          60s
                         </Text>
                       </View>
                     </View>

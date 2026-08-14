@@ -8,6 +8,7 @@ import { GangWarMatchupOverlay } from '@/components/gang-war-matchup-overlay';
 import { GangWarResultOverlay } from '@/components/gang-war-result-overlay';
 import { LevelUpOverlay } from '@/components/level-up-overlay';
 import { AchievementUnlockOverlay } from '@/components/achievement-unlock-overlay';
+import { CredsPackReveal } from '@/components/creds-pack-reveal';
 import { ShopConfirmModal } from '@/components/shop-sheets';
 import { RewardReveal } from '@/components/reward-reveal';
 import { ScreenTimeUnlockOverlay } from '@/components/screen-time-unlock-overlay';
@@ -17,7 +18,7 @@ import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { enqueueAchievementUnlocks } from '@/lib/achievements';
 import { fontFamily, spacing, type } from '@/lib/gaingang-theme';
 import { rarityDef, type RewardRarity } from '@/lib/rewards';
-import type { ShopListingItem } from '@/lib/shop';
+import { CREDS_PACKS, type ShopListingItem } from '@/lib/shop';
 import type { Achievement, AchievementTier } from '@/types';
 
 type AnimationId =
@@ -31,6 +32,9 @@ type AnimationId =
   | 'achievement-unlock'
   | 'achievement-unlock-queue'
   | 'purchase-reveal'
+  | 'creds-pack-hustle'
+  | 'creds-pack-beast'
+  | 'creds-pack-apex'
   | 'reward-reveal-e'
   | 'reward-reveal-d'
   | 'reward-reveal-c'
@@ -108,6 +112,24 @@ const ANIMATIONS: AnimationDef[] = [
     title: 'Purchase Reveal',
     description: 'Confirm → SPEND morphs into PAID receipt',
     icon: 'storefront',
+  },
+  {
+    id: 'creds-pack-hustle',
+    title: 'Creds Pack · Hustle',
+    description: 'IAP top-up celebrate · 500 Creds · $0.99',
+    icon: 'cash',
+  },
+  {
+    id: 'creds-pack-beast',
+    title: 'Creds Pack · Beast',
+    description: 'IAP top-up celebrate · BEST VALUE · 6,500 Creds',
+    icon: 'cash',
+  },
+  {
+    id: 'creds-pack-apex',
+    title: 'Creds Pack · Apex',
+    description: 'IAP top-up celebrate · 15,000 Creds · $19.99',
+    icon: 'cash',
   },
   {
     id: 'reward-reveal-e',
@@ -188,6 +210,21 @@ const REVEAL_TIERS: Record<
 function isRevealId(id: AnimationId): id is keyof typeof REVEAL_TIERS {
   return id.startsWith('reward-reveal-');
 }
+
+const CREDS_PACK_PREVIEW: Record<
+  Extract<AnimationId, 'creds-pack-hustle' | 'creds-pack-beast' | 'creds-pack-apex'>,
+  (typeof CREDS_PACKS)[number]
+> = {
+  'creds-pack-hustle': CREDS_PACKS[0],
+  'creds-pack-beast': CREDS_PACKS[1],
+  'creds-pack-apex': CREDS_PACKS[2],
+};
+
+function isCredsPackId(id: AnimationId): id is keyof typeof CREDS_PACK_PREVIEW {
+  return id.startsWith('creds-pack-');
+}
+
+const DEV_BALANCE_BEFORE = 2480;
 
 const DEV_PURCHASE_ITEM: ShopListingItem = {
   id: 'dev-purchase',
@@ -301,6 +338,8 @@ export default function DevAnimationsScreen() {
 
   const revealTier = active && isRevealId(active) ? REVEAL_TIERS[active] : null;
   const revealDef = revealTier ? rarityDef(revealTier) : null;
+  const credsPack =
+    active && isCredsPackId(active) ? CREDS_PACK_PREVIEW[active] : null;
 
   return (
     <ScreenBackground>
@@ -508,6 +547,19 @@ export default function DevAnimationsScreen() {
         }}
         onSuccessDismiss={dismiss}
       />
+
+      {credsPack ? (
+        <CredsPackReveal
+          key={`creds-pack-${credsPack.id}-${playKey}`}
+          visible
+          packLabel={credsPack.label}
+          amount={credsPack.amount}
+          priceLabel={credsPack.priceLabel}
+          bestValue={credsPack.bestValue}
+          balanceBefore={DEV_BALANCE_BEFORE}
+          onContinue={dismiss}
+        />
+      ) : null}
 
       {active === 'gang-war-vs' ? (
         <GangWarMatchupOverlay

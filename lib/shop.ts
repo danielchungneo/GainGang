@@ -205,26 +205,39 @@ export function formatRestockLabel(endsAtMs: number, nowMs = Date.now()): string
   return `RESETS ${formatCountdown(endsAtMs, nowMs)}`;
 }
 
+/** Store product IDs — must match App Store Connect, Play Console, and RevenueCat. */
+export const CREDS_PACK_PRODUCT_PREFIX = 'com.danielchungneo.gaingang.creds';
+
 export const CREDS_PACKS = [
   {
-    id: 'pocket',
-    amount: 1000,
-    label: 'POCKET CHANGE',
-    priceLabel: '$1.99',
+    id: 'hustle',
+    amount: 500,
+    label: 'HUSTLE BUNDLE',
+    priceLabel: '$0.99',
     bestValue: false,
+    productId: `${CREDS_PACK_PRODUCT_PREFIX}.hustle`,
   },
   {
-    id: 'gym-bag',
+    id: 'beast',
     amount: 6500,
-    label: '+30% BONUS · GYM BAG',
+    label: 'BEAST BUNDLE',
     priceLabel: '$9.99',
     bestValue: true,
+    productId: `${CREDS_PACK_PRODUCT_PREFIX}.beast`,
   },
   {
-    id: 'footlocker',
+    id: 'apex',
     amount: 15000,
-    label: '+50% BONUS · FOOTLOCKER',
+    label: 'APEX BUNDLE',
     priceLabel: '$19.99',
     bestValue: false,
+    productId: `${CREDS_PACK_PRODUCT_PREFIX}.apex`,
   },
 ] as const;
+
+export type CredsPackId = (typeof CREDS_PACKS)[number]['id'];
+
+export function credsAmountForProductId(productId: string): number | null {
+  const pack = CREDS_PACKS.find((p) => p.productId === productId);
+  return pack?.amount ?? null;
+}

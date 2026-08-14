@@ -99,14 +99,15 @@ Purpose: preview before buying.
 ### 4. Creds packs sheet (IAP)
 - Same sheet chrome as #2, top border gold. Above the sheet: 70px Creds hex mark with gold drop shadow
   and two mono lines: `CREDS ARE EARNED DAILY —` / `TOP UP IF YOU'RE IN A HURRY`.
-- Header: `TOP UP` kicker + `Creds Packs` (Chakra Petch 700 25).
+- Header: `TOP UP` kicker + `Cred Bundles` (Chakra Petch 700 25).
 - Three rows (radius 14, `t.surface2`, 1px `t.buttonBorder`), each: Creds mark, amount (mono 700 16–17),
   descriptor (mono 9.5, 0.14em), price pill on the right.
-  - 1,000 — `POCKET CHANGE` — $1.99
-  - 6,500 — `+30% BONUS · GYM BAG` — $9.99 — **highlighted**: gold 1.5px border, `rgba(245,165,36,0.08)` bg,
+  - 500 — `HUSTLE BUNDLE` — $0.99
+  - 6,500 — `BEAST BUNDLE` — $9.99 — **highlighted**: gold 1.5px border, `rgba(245,165,36,0.08)` bg,
     gold glow, `BEST VALUE` badge on the top edge, filled gold price pill.
-  - 15,000 — `+50% BONUS · FOOTLOCKER` — $19.99
-- Footer copy: "Packs buy Creds only. Every cosmetic in the Armory is reachable by showing up."
+  - 15,000 — `APEX BUNDLE` — $19.99
+- Footer copy: "Bundles buy Creds only. Every cosmetic in the Shop is reachable by showing up."
+- Product IDs / IAP setup: `docs/IAP_SETUP.md`.
 
 ## Interactions & Behavior
 - Tap any catalog card → detail sheet (`Modal` + slide-up, matching existing sheets e.g. `gang-members-sheet`).

@@ -17,6 +17,8 @@ import { OtaUpdateModal } from "@/components/ota-update-modal";
 
 import { ScreenTimeLockSync } from "@/components/screen-time-lock-sync";
 
+import { PurchasesBootstrap } from "@/components/purchases-bootstrap";
+
 import { AuthProvider } from "@/context/auth-context";
 
 import { QueryProvider } from "@/context/query-client";
@@ -158,6 +160,7 @@ export default function RootLayout() {
   return (
     <QueryProvider>
       <AuthProvider>
+        <PurchasesBootstrap />
         <GainGangProvider>
           <RootNavigator />
         </GainGangProvider>

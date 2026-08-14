@@ -119,6 +119,11 @@ function RootNavigator() {
 
         <Stack.Screen name="activity/[id]" options={{ headerShown: false }} />
 
+        <Stack.Screen
+          name="activity/share"
+          options={{ presentation: "modal", headerShown: false }}
+        />
+
         <Stack.Screen name="profile/[userId]" options={{ headerShown: false }} />
 
         <Stack.Screen name="follows/[userId]" options={{ headerShown: false }} />
@@ -127,6 +132,11 @@ function RootNavigator() {
 
         <Stack.Screen
           name="settings-screen-time"
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="earn-screen-time"
           options={{ headerShown: false }}
         />
 

@@ -21,7 +21,7 @@ interface BannerSurfaceProps extends ViewProps {
 export function BannerSurface({
   bannerStyle,
   style,
-  scrimOpacity = 0.38,
+  scrimOpacity,
   children,
   ...props
 }: BannerSurfaceProps) {
@@ -29,6 +29,7 @@ export function BannerSurface({
   const c = theme.colors;
   const isDark = theme.mode === 'dark';
   const banner = parseBannerStyle(bannerStyle ?? null);
+  const resolvedScrim = scrimOpacity ?? (isDark ? 0.38 : 0.52);
 
   if (!banner) {
     return (
@@ -66,7 +67,7 @@ export function BannerSurface({
         pointerEvents="none"
         style={[
           StyleSheet.absoluteFill,
-          { backgroundColor: `rgba(5,7,15,${scrimOpacity})` },
+          { backgroundColor: `rgba(5,7,15,${resolvedScrim})` },
         ]}
       />
       {children}

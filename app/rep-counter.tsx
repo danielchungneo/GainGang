@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ExerciseSetupGuide } from '@/components/rep-counter/exercise-setup-guide';
 import { ChallengeRepCounterSession } from '@/components/rep-counter/challenge-rep-counter-session';
+import { EarnRepCounterSession } from '@/components/rep-counter/earn-rep-counter-session';
 import { GangWarRepCounterSession } from '@/components/rep-counter/gang-war-rep-counter-session';
 import { WorkoutRepCounterSession } from '@/components/rep-counter/workout-rep-counter-session';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
@@ -28,6 +29,8 @@ import {
   setCameraSetupSkipped,
 } from '@/lib/rep-counting/setup-preference';
 import type { CameraExerciseType, CameraTrackingMode } from '@/lib/rep-counting/types';
+import { MIN_TEMPORARY_UNLOCK_MINUTES } from '@/lib/screen-time-lock';
+import type { ExerciseCategory, ExerciseUnit } from '@/types';
 
 const RepCounterCamera = lazy(() =>
   import('@/components/rep-counter/rep-counter-camera').then((mod) => ({
@@ -68,7 +71,11 @@ export default function RepCounterScreen() {
     challengeMode?: string;
     timeLimitSeconds?: string;
     gangWarMatchId?: string;
+    unlockMinutes?: string;
+    dailyGoalExerciseId?: string;
     gangId?: string;
+    category?: string;
+    targetAmount?: string;
   }>();
   const t = useThemeTokens();
   const nativeSupported = isRepCounterNativeSupported();
@@ -77,6 +84,7 @@ export default function RepCounterScreen() {
   const isWorkout = modeParam === 'workout';
   const isChallenge = modeParam === 'challenge';
   const isGangWar = modeParam === 'gang_war';
+  const isEarn = modeParam === 'earn';
   const workoutDailyGoalId = Array.isArray(params.dailyGoalId)
     ? params.dailyGoalId[0]
     : params.dailyGoalId;
@@ -278,6 +286,65 @@ export default function RepCounterScreen() {
             ? Math.round(timeLimitSeconds)
             : null
         }
+      />
+    );
+  }
+
+  if (isEarn) {
+    const unitParam = Array.isArray(params.unit) ? params.unit[0] : params.unit;
+    const unit: Extract<ExerciseUnit, 'reps' | 'seconds'> =
+      unitParam === 'seconds' ? 'seconds' : 'reps';
+    const unlockRaw = Array.isArray(params.unlockMinutes)
+      ? params.unlockMinutes[0]
+      : params.unlockMinutes;
+    const parsedUnlock = Math.round(Number(unlockRaw));
+    const unlockFloor = MIN_TEMPORARY_UNLOCK_MINUTES;
+    const unlockMinutes =
+      Number.isFinite(parsedUnlock) && parsedUnlock > 0
+        ? Math.max(unlockFloor, parsedUnlock)
+        : unlockFloor;
+    const targetRaw = Array.isArray(params.targetAmount)
+      ? params.targetAmount[0]
+      : params.targetAmount;
+    const targetFromParam = Number(targetRaw);
+    const targetAmount =
+      Number.isFinite(targetFromParam) && targetFromParam > 0
+        ? Math.round(targetFromParam)
+        : unit === 'seconds'
+          ? targetSeconds ?? 30
+          : targetReps ?? 10;
+    const categoryRaw = Array.isArray(params.category) ? params.category[0] : params.category;
+    const category =
+      categoryRaw === 'chest' ||
+      categoryRaw === 'legs' ||
+      categoryRaw === 'cardio' ||
+      categoryRaw === 'back' ||
+      categoryRaw === 'core'
+        ? (categoryRaw as ExerciseCategory)
+        : undefined;
+
+    return (
+      <EarnRepCounterSession
+        exerciseId={
+          (Array.isArray(params.exerciseId) ? params.exerciseId[0] : params.exerciseId) ?? ''
+        }
+        exerciseName={
+          (Array.isArray(params.exerciseName) ? params.exerciseName[0] : params.exerciseName) ??
+          ''
+        }
+        unit={unit}
+        targetAmount={targetAmount}
+        unlockMinutes={unlockMinutes}
+        dailyGoalId={
+          Array.isArray(params.dailyGoalId) ? params.dailyGoalId[0] : params.dailyGoalId
+        }
+        dailyGoalExerciseId={
+          Array.isArray(params.dailyGoalExerciseId)
+            ? params.dailyGoalExerciseId[0]
+            : params.dailyGoalExerciseId
+        }
+        gangId={Array.isArray(params.gangId) ? params.gangId[0] : params.gangId}
+        category={category}
       />
     );
   }

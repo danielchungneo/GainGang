@@ -48,9 +48,17 @@ export function LeaderboardRow({
 }: LeaderboardRowProps) {
   const { theme } = useTheme();
   const c = theme.colors;
+  const isLight = theme.mode === 'light';
   const top = position === 1;
-  const posColor = top ? status.warning : isYou ? c.primaryGlow : c.textDim;
   const banner = parseBannerStyle(bannerStyle ?? null);
+  // Banner rows always paint a dark scrim — use light type so light-mode navy
+  // tokens don't disappear on the gradient.
+  const onBanner = Boolean(banner);
+  const text = onBanner ? '#E8EDF7' : c.text;
+  const textDim = onBanner ? '#AEB8D0' : c.textDim;
+  const accent = onBanner ? '#8FB4FF' : c.primaryGlow;
+  const posColor = top ? status.warning : isYou ? accent : textDim;
+  const scrimOpacity = onBanner && isLight ? 0.52 : 0.38;
 
   const content = (
     <>
@@ -66,7 +74,7 @@ export function LeaderboardRow({
             pointerEvents="none"
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: 'rgba(5,7,15,0.38)' },
+              { backgroundColor: `rgba(5,7,15,${scrimOpacity})` },
             ]}
           />
         </>
@@ -82,18 +90,18 @@ export function LeaderboardRow({
       />
 
       <View style={{ flex: 1 }}>
-        <Text style={[styles.name, { color: isYou ? c.primaryGlow : c.text }]}>
+        <Text style={[styles.name, { color: isYou ? accent : text }]}>
           {name}
         </Text>
         {title ? (
-          <Text style={[styles.title, { color: c.primaryGlow }]} numberOfLines={1}>
+          <Text style={[styles.title, { color: accent }]} numberOfLines={1}>
             {title}
           </Text>
         ) : null}
       </View>
 
       <LevelChip level={level} borderStyle={levelBorderStyle} />
-      <Text style={[styles.amount, { color: c.text }]}>
+      <Text style={[styles.amount, { color: text }]}>
         {formatAmount(amount, unit)}
       </Text>
     </>

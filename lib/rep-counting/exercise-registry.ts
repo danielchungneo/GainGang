@@ -14,6 +14,7 @@ const EXERCISE_NAME_MAP: Record<string, CameraExerciseType> = {
   pullups: 'pullup',
   pullup: 'pullup',
   'bodyweight squats': 'squat',
+  'bodyweight squat': 'squat',
   squat: 'squat',
   squats: 'squat',
   lunges: 'lunge',

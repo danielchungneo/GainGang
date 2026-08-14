@@ -13,6 +13,7 @@ export function ForceStoreUpdateModal() {
   const { theme } = useTheme();
   const { isUpdateRequired, message, openStore } = useForceStoreUpdate();
   const c = theme.colors;
+  const isLight = theme.mode === 'light';
 
   return (
     <Modal
@@ -28,7 +29,7 @@ export function ForceStoreUpdateModal() {
         accessibilityViewIsModal
         accessibilityRole="alert"
       >
-        <GlassSurface style={styles.card}>
+        <GlassSurface opaque={isLight} style={styles.card}>
           <Text
             style={[
               styles.eyebrow,

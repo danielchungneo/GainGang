@@ -1,5 +1,38 @@
+diff --git a/node_modules/expo-app-blocker/ios/ExpoAppBlockerConfig.swift b/node_modules/expo-app-blocker/ios/ExpoAppBlockerConfig.swift
+index a9c2efc..65c1d1c 100644
+--- a/node_modules/expo-app-blocker/ios/ExpoAppBlockerConfig.swift
++++ b/node_modules/expo-app-blocker/ios/ExpoAppBlockerConfig.swift
+@@ -10,10 +10,25 @@ public struct ExpoAppBlockerConfig {
+   // let expoAppBlockerAppGroup = "group.com.yourapp.blocker"
+   public static var appGroupIdentifier: String {
+     // Try to read from UserDefaults (set by config plugin)
+-    if let appGroup = UserDefaults.standard.string(forKey: "expo.appblocker.appGroup") {
++    if let appGroup = UserDefaults.standard.string(forKey: "expo.appblocker.appGroup"),
++       FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) != nil {
+       return appGroup
+     }
+-    // Fallback - should be overridden
+-    return "group.\(Bundle.main.bundleIdentifier ?? "expo.app-blocker")"
++
++    let bundleId = Bundle.main.bundleIdentifier ?? "expo.app-blocker"
++    // Prefer `group.<bundleId>.blocker` (GainGang / expo-app-blocker convention)
++    // over naive `group.<bundleId>`, which is NOT entitled and breaks App Group IO.
++    let candidates = [
++      "group.\(bundleId).blocker",
++      "group.com.danielchungneo.gaingang.dev.blocker",
++      "group.com.danielchungneo.gaingang.blocker",
++      "group.\(bundleId)",
++    ]
++    for id in candidates {
++      if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) != nil {
++        return id
++      }
++    }
++    return "group.\(bundleId).blocker"
+   }
+ }
 diff --git a/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift b/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
-index 6a7f7c4..464576e 100644
+index 6a7f7c4..8a6e41c 100644
 --- a/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
 +++ b/node_modules/expo-app-blocker/ios/ExpoAppBlockerModule.swift
 @@ -28,6 +28,9 @@ public class ExpoAppBlockerModule: Module {
@@ -12,7 +45,13 @@ index 6a7f7c4..464576e 100644
    // Sub-minute usage steps. We register one DeviceActivityEvent per `usageStepSeconds`
    // of the budget (threshold = k×step seconds of measured usage). Each step's
    // eventDidReachThreshold lets the monitor write consumed SECONDS back to the App
-@@ -159,6 +162,14 @@ public class ExpoAppBlockerModule: Module {
+@@ -156,9 +159,20 @@ public class ExpoAppBlockerModule: Module {
+           self.ensureLoadedPersistedConfig()
+           let blockConfig = try self.parseBlockConfig(config)
+           self.currentBlockConfig = blockConfig
++          if let selectionData = config["selectionData"] as? String {
++            self.persistFamilySelectionData(selectionData)
++          }
            try self.applyBlocks(blockConfig)
            self.persistBlockConfiguration(config)
  
@@ -27,15 +66,242 @@ index 6a7f7c4..464576e 100644
            DispatchQueue.main.async {
              promise.resolve(nil)
            }
-@@ -183,6 +194,7 @@ public class ExpoAppBlockerModule: Module {
+@@ -179,16 +193,73 @@ public class ExpoAppBlockerModule: Module {
+       return self.serializeBlockConfig(config)
+     }
+ 
++    /// Dev/debug: whether tokens actually decode and ManagedSettings accepted them.
++    /// `nativeIsActive` alone is not enough — decode can fail while isActive stays true.
++    Function("getShieldDiagnostics") { () -> [String: Any] in
++      self.ensureLoadedPersistedConfig()
++      // Force a main-thread re-apply so the snapshot reflects whether shields can stick.
++      if let config = self.currentBlockConfig {
++        try? self.applyBlocks(config)
++      }
++      let items = self.currentBlockConfig?.items ?? []
++      let decodedApps = items.compactMap { $0.appToken }.count
++      let decodedCats = items.compactMap { $0.categoryToken }.count
++      let decodedWebs = items.compactMap { $0.webDomainToken }.count
++      // Read the store on the main thread — same rule as writes.
++      var storeApps: Set<ApplicationToken>?
++      let readStore = { storeApps = self.store.shield.applications }
++      if Thread.isMainThread {
++        readStore()
++      } else {
++        DispatchQueue.main.sync(execute: readStore)
++      }
++      let auth = self.getAuthStatus()
++      var selectionAppCount = 0
++      var selectionCatCount = 0
++      var selectionWebCount = 0
++      if let selection = self.loadPersistedFamilySelection() {
++        selectionAppCount = selection.applicationTokens.count
++        selectionCatCount = selection.categoryTokens.count
++        selectionWebCount = selection.webDomainTokens.count
++      }
++      let appGroup = self.appGroupIdentifier
++      let appGroupContainerOk =
++        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) != nil
++      return [
++        "decodedAppTokens": decodedApps,
++        "decodedCategoryTokens": decodedCats,
++        "decodedWebDomainTokens": decodedWebs,
++        "itemCount": items.count,
++        "selectionAppTokens": selectionAppCount,
++        "selectionCategoryTokens": selectionCatCount,
++        "selectionWebDomainTokens": selectionWebCount,
++        "storeApplicationCount": storeApps?.count ?? 0,
++        "storeApplicationsIsNil": storeApps == nil,
++        "isActive": self.currentBlockConfig?.isActive ?? false,
++        "appGroup": appGroup,
++        "appGroupContainerOk": appGroupContainerOk,
++        "sharedDefaultsOk": self.sharedDefaults != nil,
++        "authStatus": auth.statusString,
++        "authorized": auth.authorized,
++        "tempUnlockRemaining": self.remainingUnlockSeconds(),
++      ]
++    }
++
+     Function("clearAllBlocks") {
        self.stateQueue.async {
          self.ensureLoadedPersistedConfig()
          self.cancelRelockActivity()
+-        self.store.shield.applications = nil
+-        self.store.shield.applicationCategories = nil
+-        self.store.shield.webDomains = nil
 +        self.cancelFocusLockDailyMonitor()
-         self.store.shield.applications = nil
-         self.store.shield.applicationCategories = nil
-         self.store.shield.webDomains = nil
-@@ -631,6 +643,29 @@ public class ExpoAppBlockerModule: Module {
++        // ManagedSettings writes belong on the main thread (see applyBlocks).
++        DispatchQueue.main.async {
++          self.store.shield.applications = nil
++          self.store.shield.applicationCategories = nil
++          self.store.shield.webDomains = nil
++        }
+         self.currentBlockConfig = nil
+         self.userDefaults.removeObject(forKey: self.blockConfigStorageKey)
+         self.sharedDefaults?.removeObject(forKey: self.blockConfigStorageKey)
++        self.persistFamilySelectionData(nil)
+         self.clearUnlockState()
+       }
+     }
+@@ -478,6 +549,17 @@ public class ExpoAppBlockerModule: Module {
+   }
+ 
+   private func applyBlocks(_ config: BlockConfig) throws {
++    // ManagedSettings writes can silently no-op off the main thread.
++    if Thread.isMainThread {
++      applyBlocksOnMain(config)
++      return
++    }
++    DispatchQueue.main.sync {
++      self.applyBlocksOnMain(config)
++    }
++  }
++
++  private func applyBlocksOnMain(_ config: BlockConfig) {
+     guard config.isActive else {
+       store.shield.applications = nil
+       store.shield.applicationCategories = nil
+@@ -492,11 +574,28 @@ public class ExpoAppBlockerModule: Module {
+       return
+     }
+ 
++    // Prefer the full FamilyActivitySelection blob when present — individual
++    // token strings can fail to decode after JS/AsyncStorage round-trips while
++    // isActive stays true (looks "locked" in JS with no real shields).
++    if let selection = loadPersistedFamilySelection() {
++      let apps = selection.applicationTokens
++      let cats = selection.categoryTokens
++      let webs = selection.webDomainTokens
++      if !apps.isEmpty || !cats.isEmpty || !webs.isEmpty {
++        store.shield.applications = apps.isEmpty ? nil : apps
++        store.shield.applicationCategories = cats.isEmpty ? nil : .specific(cats)
++        store.shield.webDomains = webs.isEmpty ? nil : webs
++        print("[AppBlocker] applyBlocks via selectionData apps=\(apps.count) cats=\(cats.count) webs=\(webs.count) storeApps=\(store.shield.applications?.count ?? -1)")
++        return
++      }
++    }
++
+     let validAppTokens = config.items.compactMap { $0.appToken }
+     let validCategoryTokens = config.items.compactMap { $0.categoryToken }
+     let validWebDomainTokens = config.items.compactMap { $0.webDomainToken }
+ 
+     guard !validAppTokens.isEmpty || !validCategoryTokens.isEmpty || !validWebDomainTokens.isEmpty else {
++      print("[AppBlocker] applyBlocks CLEARING shields — \(config.items.count) items but 0 decoded tokens")
+       store.shield.applications = nil
+       store.shield.applicationCategories = nil
+       store.shield.webDomains = nil
+@@ -520,6 +619,34 @@ public class ExpoAppBlockerModule: Module {
+     } else {
+       store.shield.webDomains = nil
+     }
++    print("[AppBlocker] applyBlocks via items apps=\(validAppTokens.count) cats=\(validCategoryTokens.count) webs=\(validWebDomainTokens.count) storeApps=\(store.shield.applications?.count ?? -1)")
++  }
++
++  private func loadPersistedFamilySelection() -> FamilyActivitySelection? {
++    let defaults = sharedDefaults ?? userDefaults
++    guard let raw = defaults.string(forKey: "appBlocker.selectionData.v1"),
++          !raw.isEmpty,
++          let data = Data(base64Encoded: raw),
++          let selection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data)
++    else {
++      return nil
++    }
++    var normalized = FamilyActivitySelection(includeEntireCategory: true)
++    normalized.applicationTokens = selection.applicationTokens
++    normalized.categoryTokens = selection.categoryTokens
++    normalized.webDomainTokens = selection.webDomainTokens
++    return normalized
++  }
++
++  private func persistFamilySelectionData(_ selectionData: String?) {
++    let defaultsList: [UserDefaults] = [userDefaults, sharedDefaults].compactMap { $0 }
++    for defaults in defaultsList {
++      if let selectionData, !selectionData.isEmpty {
++        defaults.set(selectionData, forKey: "appBlocker.selectionData.v1")
++      } else {
++        defaults.removeObject(forKey: "appBlocker.selectionData.v1")
++      }
++    }
+   }
+ 
+   private func relockApps() {
+@@ -577,39 +704,47 @@ public class ExpoAppBlockerModule: Module {
+       return
+     }
+ 
+-    let budget = max(1, budgetSeconds)
+-    // Step by usageStepSeconds, but coarsen so we never exceed maxUsageSteps events.
+-    let step = max(usageStepSeconds, Int(ceil(Double(budget) / Double(maxUsageSteps))))
+-    var thresholds: [Int] = []
+-    var t = step
+-    while t < budget {
+-      thresholds.append(t)
+-      t += step
+-    }
+-    thresholds.append(budget) // always include the exact budget as the final re-block
+-
+     var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
+-    for seconds in thresholds {
+-      events[DeviceActivityEvent.Name("\(usageStepEventPrefix)\(seconds)")] = DeviceActivityEvent(
+-        applications: appTokens,
+-        categories: categoryTokens,
+-        webDomains: webDomainTokens,
+-        threshold: dateComponents(fromSeconds: seconds)
+-      )
+-    }
+ 
+-    // CRITICAL: the interval must start ~now, not at midnight. DeviceActivityEvent
+-    // thresholds measure usage accumulated *within the interval, from its start*. An
+-    // all-day [00:00, 23:59] interval would count usage since midnight — so any prior
+-    // blocked-app use today would have already crossed the thresholds before monitoring
+-    // began, and the system never fires a (new) crossing → the shield never re-applies.
+-    // Starting the interval at the current time makes thresholds count from the unlock
+-    // moment. repeats:false because we re-register on every unlock.
++    // CRITICAL: interval must cover the grant and be ≥15 minutes (Apple's floor).
++    // For short grants (e.g. 1-minute test unlocks), backdate intervalStart so the
++    // window is 15 minutes long but intervalDidEnd fires at now+budget. Skip usage
++    // events in that case — a backdated interval would otherwise count prior usage
++    // and fire thresholds immediately.
+     let now = Date()
+-    let startComps = Calendar.current.dateComponents([.hour, .minute, .second], from: now)
++    let budget = max(1, budgetSeconds)
++    let minIntervalSeconds = 15 * 60
++    let endDate = now.addingTimeInterval(TimeInterval(budget))
++    let startDate: Date
++    if budget >= minIntervalSeconds {
++      startDate = now
++      // Step by usageStepSeconds, but coarsen so we never exceed maxUsageSteps events.
++      let step = max(usageStepSeconds, Int(ceil(Double(budget) / Double(maxUsageSteps))))
++      var thresholds: [Int] = []
++      var t = step
++      while t < budget {
++        thresholds.append(t)
++        t += step
++      }
++      thresholds.append(budget)
++
++      for seconds in thresholds {
++        events[DeviceActivityEvent.Name("\(usageStepEventPrefix)\(seconds)")] = DeviceActivityEvent(
++          applications: appTokens,
++          categories: categoryTokens,
++          webDomains: webDomainTokens,
++          threshold: dateComponents(fromSeconds: seconds)
++        )
++      }
++    } else {
++      startDate = endDate.addingTimeInterval(TimeInterval(-minIntervalSeconds))
++    }
++
++    let startComps = Calendar.current.dateComponents([.hour, .minute, .second], from: startDate)
++    let endComps = Calendar.current.dateComponents([.hour, .minute, .second], from: endDate)
+     let schedule = DeviceActivitySchedule(
+       intervalStart: startComps,
+-      intervalEnd: DateComponents(hour: 23, minute: 59, second: 59),
++      intervalEnd: endComps,
+       repeats: false
+     )
+ 
+@@ -631,6 +766,36 @@ public class ExpoAppBlockerModule: Module {
      activityCenter.stopMonitoring([activityName])
    }
  
@@ -46,7 +312,14 @@ index 6a7f7c4..464576e 100644
 +    defer { scheduleLock.unlock() }
 +
 +    let activityName = DeviceActivityName(focusLockDailyActivityName)
-+    activityCenter.stopMonitoring([activityName])
++
++    // Already registered — leave it running. The repeating schedule survives
++    // app restarts, and re-registering fires intervalDidStart in the monitor
++    // extension immediately (mid-interval registration), which would race
++    // with an active temporary unlock.
++    if activityCenter.activities.contains(activityName) {
++      return
++    }
 +
 +    let schedule = DeviceActivitySchedule(
 +      intervalStart: DateComponents(hour: 0, minute: 0, second: 0),
@@ -65,7 +338,44 @@ index 6a7f7c4..464576e 100644
    private func isTemporarilyUnlockedInternal() -> Bool {
      return remainingUnlockSeconds() > 0
    }
-@@ -764,8 +799,30 @@ public class ExpoAppBlockerModule: Module {
+@@ -642,22 +807,29 @@ public class ExpoAppBlockerModule: Module {
+     sharedDefaults?.removeObject(forKey: unlockGrantedAtKey)
+   }
+ 
+-  /// Seconds of earned time still available: the granted budget minus the seconds of
+-  /// blocked-app usage the monitor extension has recorded. Returns 0 if there is no
+-  /// active unlock, the budget is fully consumed, or the grant is from a previous day
+-  /// (earned time does not carry across midnight). Clamped at 0.
++  /// Seconds of earned time still available. Uses the lesser of:
++  /// - usage remaining (budget − measured blocked-app usage), and
++  /// - wall-clock remaining (budget − elapsed since grant).
++  /// Wall-clock is a hard ceiling so unlocks always end even when DeviceActivity
++  /// usage thresholds never fire. Returns 0 if there is no active unlock, the
++  /// budget is spent, or the grant is from a previous day.
+   private func remainingUnlockSeconds() -> Int {
+     let budgetSeconds = (sharedDefaults?.object(forKey: temporaryUnlockKey) as? Int) ?? 0
+     if budgetSeconds <= 0 { return 0 }
+ 
+     // Daily reset: a grant made on an earlier calendar day is stale.
+-    if let grantedAt = sharedDefaults?.object(forKey: unlockGrantedAtKey) as? Date,
+-       !Calendar.current.isDate(grantedAt, inSameDayAs: Date()) {
++    guard let grantedAt = sharedDefaults?.object(forKey: unlockGrantedAtKey) as? Date else {
++      return 0
++    }
++    if !Calendar.current.isDate(grantedAt, inSameDayAs: Date()) {
+       return 0
+     }
+ 
+     let consumedSeconds = (sharedDefaults?.object(forKey: usageConsumedKey) as? Int) ?? 0
+-    return max(0, budgetSeconds - consumedSeconds)
++    let usageRemaining = max(0, budgetSeconds - consumedSeconds)
++    let elapsed = Int(Date().timeIntervalSince(grantedAt))
++    let wallRemaining = max(0, budgetSeconds - elapsed)
++    return min(usageRemaining, wallRemaining)
+   }
+ 
+   /// Build a DateComponents threshold from a total number of seconds (normalized
+@@ -764,8 +936,30 @@ public class ExpoAppBlockerModule: Module {
    }
  
    private func persistBlockConfiguration(_ config: [String: Any]) {
@@ -173,11 +483,107 @@ index 9b8ddd3..7b5eb26 100644
          }
        }
      }
+diff --git a/node_modules/expo-app-blocker/src/ExpoAppBlocker.types.ts b/node_modules/expo-app-blocker/src/ExpoAppBlocker.types.ts
+index 48d24e9..274fceb 100644
+--- a/node_modules/expo-app-blocker/src/ExpoAppBlocker.types.ts
++++ b/node_modules/expo-app-blocker/src/ExpoAppBlocker.types.ts
+@@ -47,6 +47,10 @@ export interface IOSBlockedItem {
+ export interface IOSBlockConfiguration {
+   blockedItems: IOSBlockedItem[];
+   isActive: boolean;
++  /** Base64 FamilyActivitySelection — preferred by native apply path when present. */
++  selectionData?: string;
++  focusLockEnabled?: boolean;
++  unlockedDate?: string;
+   schedule?: {
+     intervalStart: number;
+     intervalEnd: number;
+@@ -55,6 +59,24 @@ export interface IOSBlockConfiguration {
+   };
+ }
+ 
++/** iOS ManagedSettings readback for Focus lock debugging. */
++export interface IOSShieldDiagnostics {
++  decodedAppTokens: number;
++  decodedCategoryTokens: number;
++  decodedWebDomainTokens: number;
++  itemCount: number;
++  selectionAppTokens: number;
++  selectionCategoryTokens: number;
++  selectionWebDomainTokens: number;
++  storeApplicationCount: number;
++  storeApplicationsIsNil: boolean;
++  isActive: boolean;
++  appGroup: string;
++  authStatus: string;
++  authorized: boolean;
++  tempUnlockRemaining: number;
++}
++
+ export interface TemporaryUnlockResult {
+   unlocked: boolean;
+   expiresAt: number;
+diff --git a/node_modules/expo-app-blocker/src/index.ts b/node_modules/expo-app-blocker/src/index.ts
+index 62f5c6d..64f7651 100644
+--- a/node_modules/expo-app-blocker/src/index.ts
++++ b/node_modules/expo-app-blocker/src/index.ts
+@@ -14,6 +14,7 @@ import type {
+   AndroidConfig,
+   IOSBlockedItem,
+   IOSBlockConfiguration,
++  IOSShieldDiagnostics,
+   TemporaryUnlockResult,
+   RelockResult,
+   FamilyActivityPickerSelectionEvent,
+@@ -28,6 +29,7 @@ export type {
+   AndroidBlockableApp,
+   IOSBlockedItem,
+   IOSBlockConfiguration,
++  IOSShieldDiagnostics,
+   TemporaryUnlockResult,
+   RelockResult,
+   ShieldConfig,
+@@ -154,6 +156,13 @@ export function getBlockConfiguration(): IOSBlockConfiguration | null {
+   return NativeModule.getBlockConfiguration();
+ }
+ 
++/** iOS only — decoded token counts + ManagedSettings store readback. */
++export function getShieldDiagnostics(): IOSShieldDiagnostics | null {
++  if (Platform.OS !== "ios") return null;
++  if (typeof NativeModule.getShieldDiagnostics !== "function") return null;
++  return NativeModule.getShieldDiagnostics();
++}
++
+ export function clearAllBlocks(): void {
+   if (Platform.OS !== "ios") return;
+   NativeModule.clearAllBlocks();
 diff --git a/node_modules/expo-app-blocker/targets/DeviceActivityMonitor/DeviceActivityMonitor.swift b/node_modules/expo-app-blocker/targets/DeviceActivityMonitor/DeviceActivityMonitor.swift
-index d8060d0..627f790 100644
+index d8060d0..6908508 100644
 --- a/node_modules/expo-app-blocker/targets/DeviceActivityMonitor/DeviceActivityMonitor.swift
 +++ b/node_modules/expo-app-blocker/targets/DeviceActivityMonitor/DeviceActivityMonitor.swift
-@@ -22,6 +22,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
+@@ -9,8 +9,19 @@ import Foundation
+ // that @bacons/apple-targets writes into the extension's Info.plist. If it doesn't
+ // match, iOS cannot instantiate the extension and NONE of the callbacks fire.
+ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
+-  // CONFIGURE: Replace with your App Group identifier
+-  private let appGroupIdentifier = "APP_GROUP_PLACEHOLDER"
++  /// Prefer the App Group this extension is entitled to (dev vs prod).
++  private let appGroupIdentifier: String = {
++    let candidates = [
++      "group.com.danielchungneo.gaingang.dev.blocker",
++      "group.com.danielchungneo.gaingang.blocker",
++    ]
++    for id in candidates {
++      if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) != nil {
++        return id
++      }
++    }
++    return candidates[1]
++  }()
+   // Granted earned-time budget in SECONDS (Int); kept in sync with
+   // ExpoAppBlockerModule.swift. Presence with value > 0 means an unlock is active.
+   private let temporaryUnlockKey = "appBlocker.temporaryUnlock.v1"
+@@ -22,6 +33,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
    // Usage-step event-name prefix; the suffix is the threshold in seconds.
    private let usageStepEventPrefix = "appBlocker.usageStep."
    private let blockConfigStorageKey = "appBlocker.blockConfiguration.v1"
@@ -185,7 +591,7 @@ index d8060d0..627f790 100644
  
    private let store = ManagedSettingsStore()
    private var sharedDefaults: UserDefaults?
-@@ -74,8 +75,9 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
+@@ -74,8 +86,9 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
    }
  
    /// Fires at the schedule's interval end (23:59:59) — the daily reset. Clears any
@@ -197,36 +603,52 @@ index d8060d0..627f790 100644
    ///
    /// Guards against the spurious callback that `stopMonitoring()` fires during a
    /// re-grant: that fire happens whenever the user earns time, not at the day
-@@ -88,11 +90,23 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
+@@ -88,11 +101,38 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
        return
      }
      clearUnlockState()
 -    reapplyBlockConfiguration()
 +
 +    // Temporary-unlock activity: re-apply stored config after budget day ends.
-+    // Focus lock daily: intervalDidStart on the new day applies schedule-aware locks.
++    // Focus lock daily: intervalDidStart on the new day re-locks selected apps.
 +    if activity.rawValue != focusLockDailyActivityName {
 +      reapplyBlockConfiguration()
 +    }
    }
  
-+  /// Fires at 00:00 for the repeating Focus lock daily schedule. Applies shields
-+  /// when today has exercises; clears them on rest days — without opening the app.
++  /// Fires at 00:00 for the repeating Focus lock daily schedule. Re-applies
++  /// shields for a new calendar day (unless already unlocked today) without
++  /// opening the app.
    override func intervalDidStart(for activity: DeviceActivityName) {
      super.intervalDidStart(for: activity)
 +
-+    if activity.rawValue == focusLockDailyActivityName {
-+      clearUnlockState()
-+      applyFocusLockForCurrentDay()
++    guard activity.rawValue == focusLockDailyActivityName else { return }
++
++    // startMonitoring fires this callback immediately when the schedule is
++    // registered mid-interval — i.e. on every config sync, not just at 00:00.
++    // Only honor the real midnight tick; otherwise this wipes an active
++    // earned-time budget seconds after a temporary unlock is granted.
++    let comps = Calendar.current.dateComponents([.hour, .minute], from: Date())
++    guard comps.hour == 0, (comps.minute ?? 0) <= 5 else { return }
++
++    // A budget granted after midnight (today) is legitimate — don't wipe it.
++    if let grantedAt = sharedDefaults?.object(forKey: unlockGrantedAtKey) as? Date,
++       Calendar.current.isDate(grantedAt, inSameDayAs: Date()),
++       (sharedDefaults?.integer(forKey: temporaryUnlockKey) ?? 0) > 0 {
++      return
 +    }
++
++    clearUnlockState()
++    applyFocusLockForCurrentDay()
    }
  
    /// Extract the threshold seconds from an event name like `appBlocker.usageStep.90`;
-@@ -110,13 +124,64 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
+@@ -110,13 +150,64 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
      sharedDefaults?.removeObject(forKey: unlockGrantedAtKey)
    }
  
-+  /// Lock or unlock based on whether today is in `datesWithExercises`.
++  /// Relock selected apps at the start of each day while Focus lock is on.
++  /// Yesterday's unlock stamp is cleared; only `unlockedDate == today` stays open.
 +  private func applyFocusLockForCurrentDay() {
 +    let userDefaults = sharedDefaults ?? UserDefaults.standard
 +    guard var configDict = userDefaults.dictionary(forKey: blockConfigStorageKey) else {
@@ -235,7 +657,6 @@ index d8060d0..627f790 100644
 +    }
 +
 +    let focusLockEnabled = configDict["focusLockEnabled"] as? Bool ?? false
-+    let dates = configDict["datesWithExercises"] as? [String] ?? []
 +    let today = Self.todayISOString()
 +
 +    guard focusLockEnabled else {
@@ -250,7 +671,7 @@ index d8060d0..627f790 100644
 +      return
 +    }
 +
-+    var shouldLock = dates.contains(today)
++    var shouldLock = true
 +    if let unlockedDate = configDict["unlockedDate"] as? String, unlockedDate == today {
 +      // Goals already completed today — don't re-lock until the next calendar day.
 +      shouldLock = false
@@ -290,7 +711,7 @@ index d8060d0..627f790 100644
        return
      }
  
-@@ -172,9 +237,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
+@@ -172,9 +263,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
  
    private func applyBlocks(_ config: MonitorBlockConfig) {
      guard config.isActive else {
@@ -301,7 +722,7 @@ index d8060d0..627f790 100644
        return
      }
  
-@@ -183,9 +246,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
+@@ -183,9 +272,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
      let validWebDomainTokens = config.items.compactMap { $0.webDomainToken }
  
      guard !validAppTokens.isEmpty || !validCategoryTokens.isEmpty || !validWebDomainTokens.isEmpty else {
@@ -312,3 +733,53 @@ index d8060d0..627f790 100644
        return
      }
  
+diff --git a/node_modules/expo-app-blocker/targets/ShieldAction/ShieldActionExtension.swift b/node_modules/expo-app-blocker/targets/ShieldAction/ShieldActionExtension.swift
+index 6010b25..f2fb6d4 100644
+--- a/node_modules/expo-app-blocker/targets/ShieldAction/ShieldActionExtension.swift
++++ b/node_modules/expo-app-blocker/targets/ShieldAction/ShieldActionExtension.swift
+@@ -4,7 +4,19 @@ import UIKit
+ import UserNotifications
+ 
+ class ShieldActionExtension: ShieldActionDelegate {
+-  private let appGroupIdentifier = "APP_GROUP_PLACEHOLDER"
++  /// Prefer the App Group this extension is entitled to (dev vs prod).
++  private let appGroupIdentifier: String = {
++    let candidates = [
++      "group.com.danielchungneo.gaingang.dev.blocker",
++      "group.com.danielchungneo.gaingang.blocker",
++    ]
++    for id in candidates {
++      if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) != nil {
++        return id
++      }
++    }
++    return candidates[1]
++  }()
+   private let pendingUnlockKey = "appBlocker.pendingUnlock.v1"
+   private let pendingInterceptsKey = "appBlocker.pendingIntercepts.v1"
+   private let lastInterceptTsKey = "appBlocker.lastInterceptTs.v1"
+diff --git a/node_modules/expo-app-blocker/targets/ShieldConfiguration/ShieldConfigurationExtension.swift b/node_modules/expo-app-blocker/targets/ShieldConfiguration/ShieldConfigurationExtension.swift
+index 66a1c2f..a6d4730 100644
+--- a/node_modules/expo-app-blocker/targets/ShieldConfiguration/ShieldConfigurationExtension.swift
++++ b/node_modules/expo-app-blocker/targets/ShieldConfiguration/ShieldConfigurationExtension.swift
+@@ -4,7 +4,19 @@ import UIKit
+ 
+ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
+ 
+-  private let appGroupIdentifier = "APP_GROUP_PLACEHOLDER"
++  /// Prefer the App Group this extension is entitled to (dev vs prod).
++  private let appGroupIdentifier: String = {
++    let candidates = [
++      "group.com.danielchungneo.gaingang.dev.blocker",
++      "group.com.danielchungneo.gaingang.blocker",
++    ]
++    for id in candidates {
++      if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) != nil {
++        return id
++      }
++    }
++    return candidates[1]
++  }()
+ 
+   // All values below are replaced by the config plugin at prebuild time
+   private let shieldTitle = "SHIELD_TITLE_PLACEHOLDER"

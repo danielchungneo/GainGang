@@ -20,6 +20,7 @@ export function OtaUpdateModal() {
   const { isUpdateRequired, isUpdating, errorMessage, applyUpdate } =
     useOtaUpdate();
   const c = theme.colors;
+  const isLight = theme.mode === 'light';
 
   return (
     <Modal
@@ -35,7 +36,7 @@ export function OtaUpdateModal() {
         accessibilityViewIsModal
         accessibilityRole="alert"
       >
-        <GlassSurface style={styles.card}>
+        <GlassSurface opaque={isLight} style={styles.card}>
           <Text
             style={[
               styles.eyebrow,

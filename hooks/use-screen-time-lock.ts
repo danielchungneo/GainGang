@@ -10,12 +10,18 @@ import {
   isCelebrationBusy,
   subscribeCelebrationGate,
 } from '@/lib/celebration-gate';
+import { todayISO } from '@/lib/format';
 import {
   deriveScreenTimeLockStatus,
+  getNativeFocusLockDebugInfo,
   getScreenTimePermissionGranted,
+  getTemporaryUnlockState,
+  hydrateTemporaryUnlockGrant,
   isScreenTimeLockSupported,
   loadScreenTimeLockPrefs,
+  relockScreenTimeApps,
   requestScreenTimePermission,
+  saveScreenTimeLockPrefs,
   setScreenTimeLockEnabled,
   syncScreenTimeLockState,
   updateScreenTimeSelection,
@@ -47,9 +53,17 @@ export function useScreenTimeLock() {
   const supported = isScreenTimeLockSupported();
   const { data: goals, isFetched: goalsFetched } = useMyTodaysDailyGoals();
   const { data: upcomingDates, isFetched: datesFetched } = useMyUpcomingExerciseDates();
-  const hasExercisesToday = (goals?.length ?? 0) > 0;
-  const goalsComplete = goals ? areDailyGoalsComplete(goals) : false;
   const datesWithExercises = upcomingDates ?? EMPTY_DATES;
+  // goals === undefined means the fetch hasn't succeeded (loading or error) —
+  // in that state we must not stamp OR revoke a day unlock (goalsKnown gates it).
+  const goalsKnown = goals !== undefined;
+  // Prefer live goals; also treat the upcoming-dates schedule as a workout day so
+  // an empty goals fetch cannot stamp a false rest-day unlock. Unknown goals are
+  // treated as a workout day (fail-safe: shields stay on, stamps untouched).
+  const hasExercisesToday = goalsKnown
+    ? (goals?.length ?? 0) > 0 || datesWithExercises.includes(todayISO())
+    : true;
+  const goalsComplete = goals ? areDailyGoalsComplete(goals) : false;
   const scheduleReady = goalsFetched && datesFetched;
 
   const [prefs, setPrefs] = useState<ScreenTimeLockPrefs>(DEFAULT_PREFS);
@@ -58,7 +72,41 @@ export function useScreenTimeLock() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showUnlockCelebration, setShowUnlockCelebration] = useState(false);
   const [pendingUnlockCelebration, setPendingUnlockCelebration] = useState(false);
+  const [temporaryUnlockActive, setTemporaryUnlockActive] = useState(false);
+  const [temporaryUnlockRemainingSeconds, setTemporaryUnlockRemainingSeconds] =
+    useState(0);
   const wasGoalsComplete = useRef<boolean | null>(null);
+
+  const refreshTemporaryUnlock = useCallback(() => {
+    if (!supported) {
+      setTemporaryUnlockActive(false);
+      setTemporaryUnlockRemainingSeconds(0);
+      return { active: false, remainingSeconds: 0, grantedAt: null, expiresAt: null, budgetSeconds: 0 };
+    }
+    const wasActive = temporaryUnlockActive;
+    const state = getTemporaryUnlockState();
+    setTemporaryUnlockActive(state.active);
+    setTemporaryUnlockRemainingSeconds(state.remainingSeconds);
+    // When a grant just expired, re-sync so shields are definitely active.
+    if (wasActive && !state.active) {
+      void syncScreenTimeLockState({
+        goalsComplete,
+        hasExercisesToday,
+        goalsKnown,
+        datesWithExercises,
+      }).then((result) => {
+        setPrefs(result.prefs);
+      });
+    }
+    return state;
+  }, [
+    datesWithExercises,
+    goalsComplete,
+    goalsKnown,
+    hasExercisesToday,
+    supported,
+    temporaryUnlockActive,
+  ]);
 
   const refreshPermission = useCallback(async () => {
     if (!supported) {
@@ -85,19 +133,104 @@ export function useScreenTimeLock() {
 
   const runSyncFromStorage = useCallback(async () => {
     if (!supported || !scheduleReady) return;
+    refreshTemporaryUnlock();
     const result = await syncScreenTimeLockState({
       goalsComplete,
       hasExercisesToday,
+      goalsKnown,
       datesWithExercises,
     });
     applySyncResult(result);
+    refreshTemporaryUnlock();
   }, [
     applySyncResult,
     datesWithExercises,
     goalsComplete,
+    goalsKnown,
     hasExercisesToday,
+    refreshTemporaryUnlock,
     scheduleReady,
     supported,
+  ]);
+
+  const lockNow = useCallback(async () => {
+    if (!supported) return;
+    await relockScreenTimeApps();
+    refreshTemporaryUnlock();
+    await runSyncFromStorage();
+  }, [refreshTemporaryUnlock, runSyncFromStorage, supported]);
+
+  /** Dev: drop today's unlock stamp, clear temp grant, and force shields on. */
+  const clearDayUnlockAndLock = useCallback(async () => {
+    if (!supported) return;
+    const current = await loadScreenTimeLockPrefs();
+    const next = { ...current, unlockedDate: null };
+    await saveScreenTimeLockPrefs(next);
+    setPrefs(next);
+    await relockScreenTimeApps();
+    refreshTemporaryUnlock();
+    const result = await syncScreenTimeLockState({
+      prefs: next,
+      goalsComplete,
+      hasExercisesToday,
+      goalsKnown,
+      datesWithExercises,
+    });
+    applySyncResult(result);
+    refreshTemporaryUnlock();
+  }, [
+    applySyncResult,
+    datesWithExercises,
+    goalsComplete,
+    goalsKnown,
+    hasExercisesToday,
+    refreshTemporaryUnlock,
+    supported,
+  ]);
+
+  // Declared before getDebugSnapshot so the deps array never hits the TDZ.
+  const status: ScreenTimeLockStatus = deriveScreenTimeLockStatus({
+    prefs,
+    permissionGranted,
+    goalsComplete,
+    hasExercisesToday,
+    temporaryUnlockActive,
+  });
+
+  /** Dev: snapshot of prefs + goal gates for console / Alert. */
+  const getDebugSnapshot = useCallback(() => {
+    const temp = getTemporaryUnlockState();
+    const native = getNativeFocusLockDebugInfo();
+    return {
+      status,
+      enabled: prefs.enabled,
+      permissionGranted,
+      unlockedDate: prefs.unlockedDate,
+      today: todayISO(),
+      hasExercisesToday,
+      goalsComplete,
+      goalsKnown,
+      blockedItemCount: prefs.blockedItems.length,
+      totalApps: prefs.totalApps,
+      totalCategories: prefs.totalCategories,
+      temporaryUnlockActive: temp.active,
+      temporaryUnlockRemainingSeconds: temp.remainingSeconds,
+      temporaryUnlockExpiresAt: temp.expiresAt,
+      // Native ManagedSettings — if JS says locked but nativeIsActive is false,
+      // shields are not applied (often another GainGang build cleared them).
+      ...native,
+    };
+  }, [
+    goalsComplete,
+    goalsKnown,
+    hasExercisesToday,
+    permissionGranted,
+    prefs.blockedItems.length,
+    prefs.enabled,
+    prefs.totalApps,
+    prefs.totalCategories,
+    prefs.unlockedDate,
+    status,
   ]);
 
   useEffect(() => {
@@ -108,6 +241,7 @@ export function useScreenTimeLock() {
 
     let cancelled = false;
     void (async () => {
+      await hydrateTemporaryUnlockGrant();
       const loaded = await loadScreenTimeLockPrefs();
       const granted = await getScreenTimePermissionGranted();
       if (cancelled) return;
@@ -125,13 +259,14 @@ export function useScreenTimeLock() {
         setPrefs(loaded);
         setPermissionGranted(granted);
       }
+      refreshTemporaryUnlock();
       setIsReady(true);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [supported]);
+  }, [refreshTemporaryUnlock, supported]);
 
   useEffect(() => {
     if (!supported || !isReady || !scheduleReady) return;
@@ -201,6 +336,16 @@ export function useScreenTimeLock() {
     };
   }, [pendingUnlockCelebration, showUnlockCelebration]);
 
+  // Live countdown while a temporary unlock is active (1s tick for wall-clock expiry).
+  useEffect(() => {
+    if (!supported || !isReady) return;
+    refreshTemporaryUnlock();
+    const interval = setInterval(() => {
+      refreshTemporaryUnlock();
+    }, temporaryUnlockActive ? 1_000 : 5_000);
+    return () => clearInterval(interval);
+  }, [isReady, refreshTemporaryUnlock, supported, temporaryUnlockActive]);
+
   useEffect(() => {
     if (!supported || !isReady) return;
 
@@ -235,13 +380,6 @@ export function useScreenTimeLock() {
     supported,
   ]);
 
-  const status: ScreenTimeLockStatus = deriveScreenTimeLockStatus({
-    prefs,
-    permissionGranted,
-    goalsComplete,
-    hasExercisesToday,
-  });
-
   const enable = useCallback(async () => {
     if (!supported) return false;
     setIsUpdating(true);
@@ -261,6 +399,7 @@ export function useScreenTimeLock() {
 
       const result = await setScreenTimeLockEnabled(true, goalsComplete, {
         hasExercisesToday,
+        goalsKnown,
         datesWithExercises,
       });
       // Enabling while goals are already done unlocks immediately — don't celebrate
@@ -270,7 +409,7 @@ export function useScreenTimeLock() {
     } finally {
       setIsUpdating(false);
     }
-  }, [datesWithExercises, goalsComplete, hasExercisesToday, supported]);
+  }, [datesWithExercises, goalsComplete, goalsKnown, hasExercisesToday, supported]);
 
   const disable = useCallback(async () => {
     if (!supported) return;
@@ -278,13 +417,14 @@ export function useScreenTimeLock() {
     try {
       const result = await setScreenTimeLockEnabled(false, goalsComplete, {
         hasExercisesToday,
+        goalsKnown,
         datesWithExercises,
       });
       setPrefs(result.prefs);
     } finally {
       setIsUpdating(false);
     }
-  }, [datesWithExercises, goalsComplete, hasExercisesToday, supported]);
+  }, [datesWithExercises, goalsComplete, goalsKnown, hasExercisesToday, supported]);
 
   const saveSelection = useCallback(
     async (input: {
@@ -300,6 +440,7 @@ export function useScreenTimeLock() {
           ...input,
           goalsComplete,
           hasExercisesToday,
+          goalsKnown,
           datesWithExercises,
         });
         setPrefs(result.prefs);
@@ -307,7 +448,7 @@ export function useScreenTimeLock() {
         setIsUpdating(false);
       }
     },
-    [datesWithExercises, goalsComplete, hasExercisesToday, supported],
+    [datesWithExercises, goalsComplete, goalsKnown, hasExercisesToday, supported],
   );
 
   const dismissUnlockCelebration = useCallback(() => {
@@ -323,6 +464,13 @@ export function useScreenTimeLock() {
     permissionGranted,
     status,
     goalsComplete,
+    hasExercisesToday,
+    temporaryUnlockActive,
+    temporaryUnlockRemainingSeconds,
+    refreshTemporaryUnlock,
+    lockNow,
+    clearDayUnlockAndLock,
+    getDebugSnapshot,
     showUnlockCelebration,
     dismissUnlockCelebration,
     enable,

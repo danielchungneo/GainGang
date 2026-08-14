@@ -22,7 +22,8 @@
       "bundleIdentifier": "com.danielchungneo.gaingang",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryUsageDescription": "GainGang needs photo library access so you can set a profile picture.",
+        "NSPhotoLibraryUsageDescription": "GainGang needs photo library access so you can set a profile picture and save workout images.",
+        "NSPhotoLibraryAddUsageDescription": "GainGang needs permission to save workout images to your photo library.",
         "NSCameraUsageDescription": "GainGang uses the camera to count your exercise reps and for profile photos.",
         "NSLocationWhenInUseUsageDescription": "GainGang does not use your location. A third-party library in the app references location APIs, so Apple requires this description."
       }
@@ -92,8 +93,16 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "GainGang needs photo library access so you can set a profile picture.",
+          "photosPermission": "GainGang needs photo library access so you can set a profile picture and save workout images.",
           "cameraPermission": "GainGang needs camera access so you can take a profile picture."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "GainGang needs photo library access so you can save workout images.",
+          "savePhotosPermission": "GainGang needs permission to save workout images to your photo library.",
+          "isAccessMediaLocationEnabled": false
         }
       ],
       [

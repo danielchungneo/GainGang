@@ -20,8 +20,8 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
 
   // All values below are replaced by the config plugin at prebuild time
   private let shieldTitle = "Finish your gains"
-  private let shieldSubtitle = "Complete today's exercises to unlock {appName}."
-  private let shieldPrimaryButtonLabel = "Continue in GainGang"
+  private let shieldSubtitle = "Earn screen time with a quick set, or finish today’s goals to unlock {appName}."
+  private let shieldPrimaryButtonLabel = "Earn screen time"
   private let shieldSecondaryButtonLabel = "none"
   // Temporary-unlock state copy — shown briefly while ManagedSettings clears
   // after a successful unlock. Configurable via plugin options.

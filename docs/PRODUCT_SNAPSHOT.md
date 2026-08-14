@@ -178,7 +178,8 @@ Requires custom native client (not Expo Go). Stack: Vision Camera + MediaPipe Bl
 | Screen Time / Family Controls (iOS) | Focus lock |
 | Biometrics + SecureStore | Frictionless return |
 | Reanimated + haptics | Celebration / “system” feel |
-| **Not present today** | Payments / IAP, HealthKit / Google Fit |
+| Payments / IAP (RevenueCat consumables) | Cred bundles (Hustle / Beast / Apex) — see `docs/IAP_SETUP.md` |
+| **Not present today** | HealthKit / Google Fit |
 
 ---
 

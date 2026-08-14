@@ -75,7 +75,7 @@ export type ShopProductKind = 'cosmetic' | 'crate';
 export type ShopCategory = 'crates' | 'titles' | 'borders' | 'banners';
 export type ShopCrateKey = 'locker' | 'vault';
 export type CurrencySpendKind = 'shop_purchase';
-export type CurrencyAwardKind = 'crate_reward';
+export type CurrencyAwardKind = 'crate_reward' | 'iap_purchase';
 
 export type Database = {
   public: {
@@ -431,6 +431,32 @@ export type Database = {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['currency_awards']['Insert']>;
+        Relationships: [];
+      };
+      iap_purchases: {
+        Row: {
+          id: string;
+          user_id: string;
+          product_id: string;
+          store_transaction_id: string;
+          revenuecat_event_id: string | null;
+          amount: number;
+          store: string | null;
+          environment: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          product_id: string;
+          store_transaction_id: string;
+          revenuecat_event_id?: string | null;
+          amount: number;
+          store?: string | null;
+          environment?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['iap_purchases']['Insert']>;
         Relationships: [];
       };
       challenge_types: {

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -28,7 +28,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CosmeticsLeaderboardPreview } from '@/components/cosmetics-leaderboard-preview';
 import { CredPlate } from '@/components/ui/cred-plate';
+import {
+  useCredsPackPrices,
+  useIapConfigured,
+  usePresentCustomerCenter,
+  usePurchaseCredsPack,
+  useRestorePurchases,
+} from '@/hooks/use-iap';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
+import { isPurchaseCancelledError } from '@/lib/iap';
 import { auraGradient, fontFamily, ranks, spacing } from '@/lib/gaingang-theme';
 import {
   CREDS_DEEP,
@@ -38,6 +46,7 @@ import {
   cosmeticOverrideForItem,
   shopKindLabel,
   shopRarityNameUpper,
+  type CredsPackId,
   type ShopListingItem,
 } from '@/lib/shop';
 import { gradientColors, parseBannerStyle, parseBorderStyle } from '@/lib/cosmetics';
@@ -1313,12 +1322,74 @@ export function ShopCredsPacksSheet({ visible, onClose }: ShopCredsPacksSheetPro
   const t = useThemeTokens();
   const insets = useSafeAreaInsets();
   const gold = t.isLight ? CREDS_GOLD.light : CREDS_GOLD.dark;
+  const iapReady = useIapConfigured();
+  const { data: livePrices } = useCredsPackPrices();
+  const purchasePack = usePurchaseCredsPack();
+  const restore = useRestorePurchases();
+  const customerCenter = usePresentCustomerCenter();
+  const [buyingPackId, setBuyingPackId] = useState<CredsPackId | null>(null);
+  const isBusy =
+    purchasePack.isPending || restore.isPending || customerCenter.isPending;
 
-  function handlePack(label: string) {
-    Alert.alert(
-      'Coming soon',
-      `${label} packs will unlock with real-money top-ups. Keep earning Creds daily for now.`,
-    );
+  async function handlePack(packId: CredsPackId, label: string) {
+    if (!iapReady) {
+      Alert.alert(
+        'Coming soon',
+        `${label} will unlock with real-money top-ups. Keep earning Creds daily for now.`,
+      );
+      return;
+    }
+
+    if (isBusy) return;
+
+    setBuyingPackId(packId);
+    try {
+      const result = await purchasePack.mutateAsync(packId);
+      const granted = result.amountGranted;
+      Alert.alert(
+        'Creds added',
+        granted > 0
+          ? `+${granted.toLocaleString()} Creds are in your balance.`
+          : 'Your Creds balance is up to date.',
+      );
+      onClose();
+    } catch (error) {
+      if (isPurchaseCancelledError(error)) return;
+      const message =
+        error instanceof Error ? error.message : 'Purchase could not be completed.';
+      Alert.alert('Purchase failed', message);
+    } finally {
+      setBuyingPackId(null);
+    }
+  }
+
+  async function handleRestore() {
+    if (!iapReady || isBusy) return;
+    try {
+      const result = await restore.mutateAsync();
+      const granted = result.fulfill.amountGranted;
+      Alert.alert(
+        'Restored',
+        granted > 0
+          ? `+${granted.toLocaleString()} Creds restored to your balance.`
+          : 'No new Cred purchases to restore.',
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Restore failed.';
+      Alert.alert('Restore failed', message);
+    }
+  }
+
+  async function handleCustomerCenter() {
+    if (!iapReady || isBusy) return;
+    try {
+      await customerCenter.mutateAsync();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not open purchase support.';
+      Alert.alert('Unavailable', message);
+    }
   }
 
   return (
@@ -1415,7 +1486,7 @@ export function ShopCredsPacksSheet({ visible, onClose }: ShopCredsPacksSheetPro
                 color: t.heading,
               }}
             >
-              Creds Packs
+              Cred Bundles
             </Text>
           </View>
 
@@ -1423,7 +1494,8 @@ export function ShopCredsPacksSheet({ visible, onClose }: ShopCredsPacksSheetPro
             {CREDS_PACKS.map((pack) => (
               <Pressable
                 key={pack.id}
-                onPress={() => handlePack(pack.label)}
+                onPress={() => void handlePack(pack.id, pack.label)}
+                disabled={isBusy}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -1437,6 +1509,7 @@ export function ShopCredsPacksSheet({ visible, onClose }: ShopCredsPacksSheetPro
                   borderWidth: pack.bestValue ? 1.5 : 1,
                   borderColor: pack.bestValue ? `${gold}99` : t.buttonBorder,
                   position: 'relative',
+                  opacity: isBusy && buyingPackId !== pack.id ? 0.55 : 1,
                 }}
               >
                 {pack.bestValue ? (
@@ -1499,15 +1572,22 @@ export function ShopCredsPacksSheet({ visible, onClose }: ShopCredsPacksSheetPro
                     borderColor: t.buttonBorder,
                   }}
                 >
-                  <Text
-                    style={{
-                      fontFamily: fontFamily.display,
-                      fontSize: 14,
-                      color: pack.bestValue ? CREDS_INK : t.heading,
-                    }}
-                  >
-                    {pack.priceLabel}
-                  </Text>
+                  {buyingPackId === pack.id ? (
+                    <ActivityIndicator
+                      color={pack.bestValue ? CREDS_INK : gold}
+                      size="small"
+                    />
+                  ) : (
+                    <Text
+                      style={{
+                        fontFamily: fontFamily.display,
+                        fontSize: 14,
+                        color: pack.bestValue ? CREDS_INK : t.heading,
+                      }}
+                    >
+                      {livePrices?.[pack.id] ?? pack.priceLabel}
+                    </Text>
+                  )}
                 </View>
               </Pressable>
             ))}
@@ -1522,8 +1602,49 @@ export function ShopCredsPacksSheet({ visible, onClose }: ShopCredsPacksSheetPro
               textAlign: 'center',
             }}
           >
-            Packs buy Creds only. Every cosmetic in the Shop is reachable by showing up.
+            Bundles buy Creds only. Every cosmetic in the Shop is reachable by showing up.
           </Text>
+
+          {iapReady ? (
+            <View style={{ gap: 8, alignItems: 'center', paddingTop: 2 }}>
+              <View style={{ flexDirection: 'row', gap: 18 }}>
+                <Pressable
+                  onPress={() => void handleRestore()}
+                  disabled={isBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Restore purchases"
+                >
+                  <Text
+                    style={{
+                      fontFamily: fontFamily.mono,
+                      fontSize: 10,
+                      letterSpacing: 1.1,
+                      color: t.placeholder,
+                    }}
+                  >
+                    {restore.isPending ? 'RESTORING…' : 'RESTORE'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void handleCustomerCenter()}
+                  disabled={isBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Purchase help"
+                >
+                  <Text
+                    style={{
+                      fontFamily: fontFamily.mono,
+                      fontSize: 10,
+                      letterSpacing: 1.1,
+                      color: t.placeholder,
+                    }}
+                  >
+                    HELP
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
         </View>
       </View>
     </Modal>

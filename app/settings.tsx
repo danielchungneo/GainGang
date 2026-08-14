@@ -21,6 +21,12 @@ import { GlassSurface, ScreenBackground } from "@/components/ui";
 
 import { useAuth } from "@/context/auth-context";
 
+import {
+  useIapConfigured,
+  usePresentCustomerCenter,
+  useRestorePurchases,
+} from "@/hooks/use-iap";
+
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 import { useThemeTokens } from "@/hooks/use-theme-tokens";
@@ -41,6 +47,10 @@ export default function SettingsScreen() {
     isRegistering: isPushRegistering,
     enablePushNotifications,
   } = usePushNotifications();
+
+  const iapReady = useIapConfigured();
+  const restorePurchases = useRestorePurchases();
+  const customerCenter = usePresentCustomerCenter();
 
   const [signingOut, setSigningOut] = useState(false);
 
@@ -68,6 +78,35 @@ export default function SettingsScreen() {
     await supabase.auth.signOut();
 
     router.replace("/(auth)/sign-in");
+  }
+
+  async function handleRestorePurchases() {
+    try {
+      const result = await restorePurchases.mutateAsync();
+      const granted = result.fulfill.amountGranted;
+      Alert.alert(
+        "Purchases restored",
+        granted > 0
+          ? `+${granted.toLocaleString()} Creds restored.`
+          : "No new Cred purchases to restore.",
+      );
+    } catch (error) {
+      Alert.alert(
+        "Restore failed",
+        error instanceof Error ? error.message : "Could not restore purchases.",
+      );
+    }
+  }
+
+  async function handleManagePurchases() {
+    try {
+      await customerCenter.mutateAsync();
+    } catch (error) {
+      Alert.alert(
+        "Unavailable",
+        error instanceof Error ? error.message : "Could not open purchase support.",
+      );
+    }
   }
 
   return (
@@ -209,6 +248,81 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={20} color={t.body} />
           </GlassSurface>
         </TouchableOpacity>
+
+        {iapReady ? (
+          <>
+            <GlassSurface style={{ padding: 20, gap: 4 }}>
+              <Text style={[type.labelSm, { color: t.body }]}>Purchases</Text>
+              <Text style={[type.bodySm, { color: t.heading }]}>
+                Optional Cred top-ups — the app is fully free to play
+              </Text>
+            </GlassSurface>
+
+            <TouchableOpacity
+              onPress={() => {
+                void handleRestorePurchases();
+              }}
+              disabled={restorePurchases.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Restore purchases"
+            >
+              <GlassSurface
+                style={{
+                  padding: 20,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={[type.labelSm, { color: t.body }]}>
+                    Restore purchases
+                  </Text>
+                  <Text style={[type.bodySm, { color: t.heading }]}>
+                    Re-sync store buys to this account
+                  </Text>
+                </View>
+                {restorePurchases.isPending ? (
+                  <ActivityIndicator color={t.accent} />
+                ) : (
+                  <Ionicons name="refresh" size={20} color={t.body} />
+                )}
+              </GlassSurface>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                void handleManagePurchases();
+              }}
+              disabled={customerCenter.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Purchase help"
+            >
+              <GlassSurface
+                style={{
+                  padding: 20,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={[type.labelSm, { color: t.body }]}>
+                    Purchase help
+                  </Text>
+                  <Text style={[type.bodySm, { color: t.heading }]}>
+                    Restore help and purchase support
+                  </Text>
+                </View>
+                {customerCenter.isPending ? (
+                  <ActivityIndicator color={t.accent} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color={t.body} />
+                )}
+              </GlassSurface>
+            </TouchableOpacity>
+          </>
+        ) : null}
 
         <TouchableOpacity
           style={

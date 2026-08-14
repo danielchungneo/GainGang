@@ -41,7 +41,7 @@ export async function configurePurchases(): Promise<void> {
     return;
   }
 
-  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO);
+  Purchases.setLogLevel(LOG_LEVEL.WARN);
   Purchases.configure({ apiKey });
   isConfigured = true;
 }

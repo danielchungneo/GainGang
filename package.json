@@ -13,6 +13,7 @@
     "build:production": "eas build --profile production --platform all",
     "build:production:ios": "eas build --profile production --platform ios",
     "build:production:android": "eas build --profile production --platform android",
+    "submit:ios": "eas submit --platform ios --profile production --latest",
     "update:preview": "eas update --channel preview",
     "update:production": "eas update --channel production",
     "lint": "expo lint",
